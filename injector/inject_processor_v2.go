@@ -1,29 +1,28 @@
-package ioc
+package injector
 
 import (
 	"fmt"
+	"github.com/kid-hash/kid-ioc/defination"
+	"github.com/kid-hash/kid-ioc/meta"
+	"github.com/kid-hash/kid-ioc/registry"
 	"github.com/kid-hash/kid-ioc/util/list"
 	"log"
 	"reflect"
 )
 
 type injectProcessor interface {
-	Filter(d *dependency) bool
-	Inject(r *registry, d *dependency) error
+	Filter(d *meta.Dependency) bool
+	Inject(r *registry.Registry, d *meta.Dependency) error
 }
 
-var injectors []injectProcessor
-
-func init() {
-	injectors = []injectProcessor{
-		new(specifyInjector),
-		new(unSpecifyPtrInjector),
-		new(unSpecifyInterfaceInjector),
-		new(unSpecifyInterfaceSliceInjector),
-	}
+var injectors = []injectProcessor{
+	new(specifyInjector),
+	new(unSpecifyPtrInjector),
+	new(unSpecifyInterfaceInjector),
+	new(unSpecifyInterfaceSliceInjector),
 }
 
-func dependencyInject(r *registry, m *meta) error {
+func DependencyInject(r *registry.Registry, m *meta.Meta) error {
 	for _, dependency := range m.Dependencies {
 		err := injectDependency(r, m.ID(), dependency)
 		if err != nil {
@@ -38,7 +37,7 @@ const diErrOutput = "DI report error by processor: %d\n" +
 	"caused field: %s\n" +
 	"caused by: %v\n"
 
-func injectDependency(r *registry, metaID string, d *dependency) error {
+func injectDependency(r *registry.Registry, metaID string, d *meta.Dependency) error {
 	i, find := list.NewList(injectors).FindBy(func(i int) bool {
 		return injectors[i].Filter(d)
 	})
@@ -66,12 +65,12 @@ func injectDependency(r *registry, metaID string, d *dependency) error {
 */
 type specifyInjector struct{}
 
-func (b *specifyInjector) Filter(d *dependency) bool {
+func (b *specifyInjector) Filter(d *meta.Dependency) bool {
 	return d.SpecifyName != "" && //ruleTagNotEmpty
 		(d.Type.Kind() == reflect.Ptr || d.Type.Kind() == reflect.Interface)
 }
 
-func (b *specifyInjector) Inject(r *registry, d *dependency) error {
+func (b *specifyInjector) Inject(r *registry.Registry, d *meta.Dependency) error {
 	dm := r.GetComponentByName(d.SpecifyName)
 	if dm == nil {
 		return fmt.Errorf("no instance found for specify name: %s", d.SpecifyName)
@@ -89,12 +88,12 @@ func (b *specifyInjector) Inject(r *registry, d *dependency) error {
 */
 type unSpecifyPtrInjector struct{}
 
-func (b *unSpecifyPtrInjector) Filter(d *dependency) bool {
+func (b *unSpecifyPtrInjector) Filter(d *meta.Dependency) bool {
 	return d.SpecifyName == "" && //ruleEmptyTag
 		d.Type.Kind() == reflect.Ptr //rulePointer
 }
 
-func (b *unSpecifyPtrInjector) Inject(r *registry, d *dependency) error {
+func (b *unSpecifyPtrInjector) Inject(r *registry.Registry, d *meta.Dependency) error {
 	dm := r.GetComponentByName(d.Name())
 	if dm == nil {
 		return fmt.Errorf("no instance found for pointer type %s", d.Name())
@@ -113,20 +112,20 @@ func (b *unSpecifyPtrInjector) Inject(r *registry, d *dependency) error {
 */
 type unSpecifyInterfaceInjector struct{}
 
-func (i *unSpecifyInterfaceInjector) Filter(d *dependency) bool {
+func (i *unSpecifyInterfaceInjector) Filter(d *meta.Dependency) bool {
 	return d.SpecifyName == "" && //ruleEmptyTag
 		d.Type.Kind() == reflect.Interface //ruleInterface
 }
 
-func (i *unSpecifyInterfaceInjector) Inject(r *registry, d *dependency) error {
+func (i *unSpecifyInterfaceInjector) Inject(r *registry.Registry, d *meta.Dependency) error {
 	metas := r.GetBeansByInterfaceType(d.Type)
 	if len(metas) == 0 {
 		return fmt.Errorf("no instance found implement interface: %s", d.Type.String())
 	}
-	var dm *meta
+	var dm *meta.Meta
 	//find unnamed instances first
 	for _, m := range metas {
-		if _, ok := m.Raw.(NamingComponent); !ok {
+		if _, ok := m.Raw.(defination.NamingComponent); !ok {
 			dm = m
 			break
 		}
@@ -147,12 +146,12 @@ func (i *unSpecifyInterfaceInjector) Inject(r *registry, d *dependency) error {
 */
 type unSpecifyInterfaceSliceInjector struct{}
 
-func (s *unSpecifyInterfaceSliceInjector) Filter(d *dependency) bool {
+func (s *unSpecifyInterfaceSliceInjector) Filter(d *meta.Dependency) bool {
 	return d.SpecifyName == "" && //ruleEmptyTag
 		d.Type.Kind() == reflect.Slice && d.Type.Elem().Kind() == reflect.Interface //ruleSliceInterface
 }
 
-func (s *unSpecifyInterfaceSliceInjector) Inject(r *registry, d *dependency) error {
+func (s *unSpecifyInterfaceSliceInjector) Inject(r *registry.Registry, d *meta.Dependency) error {
 	metas := r.GetBeansByInterfaceType(d.Type.Elem())
 	if len(metas) == 0 {
 		return nil

@@ -1,6 +1,7 @@
-package ioc
+package kid_ioc
 
 import (
+	"github.com/kid-hash/kid-ioc/defination"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -48,16 +49,16 @@ func TestInjectByName(t *testing.T) {
 		T21 *cImpl `wire:"cImpl"`
 		T22 ITest  `wire:"cImpl"`
 	}{}
-	RunTest(t, "config.yaml", SetComponents(
+	RunTest(t, SetComponents(
 		&aImpl{},
 		&bImpl{},
 		&cImpl{},
 		app,
 	))
 	assert.Equal(t, "bImpl", app.T11.Naming())
-	assert.Equal(t, "bImpl", app.T12.(NamingComponent).Naming())
+	assert.Equal(t, "bImpl", app.T12.(defination.NamingComponent).Naming())
 	assert.Equal(t, "cImpl", app.T21.Naming())
-	assert.Equal(t, "cImpl", app.T22.(NamingComponent).Naming())
+	assert.Equal(t, "cImpl", app.T22.(defination.NamingComponent).Naming())
 }
 
 func TestInjectByPtrType(t *testing.T) {
@@ -66,7 +67,7 @@ func TestInjectByPtrType(t *testing.T) {
 		T2 *bImpl `wire:""`
 		T3 *cImpl `wire:""`
 	}{}
-	RunTest(t, "config.yaml", SetComponents(
+	RunTest(t, SetComponents(
 		&aImpl{},
 		&bImpl{},
 		&cImpl{},
@@ -83,7 +84,7 @@ func TestInjectInterfaceNamingPrefer(t *testing.T) {
 		T2 ITest `wire:"bImpl"`
 		T3 ITest `wire:"cImpl"`
 	}{}
-	RunTest(t, "config.yaml", SetComponents(
+	RunTest(t, SetComponents(
 		&aImpl{},
 		&bImpl{},
 		&cImpl{},
@@ -100,7 +101,7 @@ func TestInjectByInterfaceSlice(t *testing.T) {
 	var app = &struct {
 		T1 []ITest `wire:""`
 	}{}
-	RunTest(t, "config.yaml", SetComponents(
+	RunTest(t, SetComponents(
 		&aImpl{},
 		&bImpl{},
 		&cImpl{},
@@ -140,7 +141,7 @@ func (p *postImpl) PostProcessAfterInitialization(component interface{}) error {
 
 func TestPostProcessor(t *testing.T) {
 	p := &postImpl{}
-	RunTest(t, "config.yaml", SetComponents(
+	RunTest(t, SetComponents(
 		&aImpl{},
 		&bImpl{},
 		&cImpl{},
@@ -157,9 +158,18 @@ func (c *cfgAImpl) GetName() string {
 	return c.Name
 }
 
+const _tConfig = `
+a:
+  b: 123
+  c: [ 1,2,3,4 ]
+  d:
+    d1: "abc"
+    d2: 123
+  name: "cfgAImpl"`
+
 func TestCfg(t *testing.T) {
 	c := &cfgAImpl{}
-	RunTest(t, "config.yaml", SetComponents(c))
+	RunTest(t, SetComponents(c), SetConfigSrc([]byte(_tConfig), "yaml"))
 	assert.Equal(t, "cfgAImpl", c.GetName())
 }
 
@@ -172,7 +182,7 @@ func TestInjectDebug(t *testing.T) {
 	var app = &struct {
 		Arr *arrImpl `wire:""`
 	}{}
-	err := RunDebug("config.yaml", SetComponents(
+	err := RunDebug(SetComponents(
 		&aImpl{},
 		&bImpl{},
 		&cImpl{},
@@ -180,4 +190,28 @@ func TestInjectDebug(t *testing.T) {
 		app,
 	))
 	assert.NoError(t, err)
+}
+
+type configA struct {
+	B int   `yaml:"b"`
+	C []int `yaml:"c"`
+}
+
+type configD struct {
+	D1 string `yaml:"d1"`
+	D2 int    `yaml:"d2"`
+}
+
+func (c *configD) Prefix() string {
+	return "a.d"
+}
+
+func TestConfig(t *testing.T) {
+	var app = &struct {
+		A *configA `prop:"a"`
+		D *configD
+	}{}
+	RunTest(t, SetComponents(app), SetConfigSrc([]byte(_tConfig), "yaml"))
+	assert.Equal(t, 123, app.A.B)
+	assert.Equal(t, "abc", app.D.D1)
 }

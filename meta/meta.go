@@ -1,61 +1,40 @@
-package ioc
+package meta
 
 import (
 	"fmt"
+	"github.com/kid-hash/kid-ioc/defination"
 	"github.com/kid-hash/kid-ioc/util/draw"
 	"github.com/kid-hash/kid-ioc/util/reflectx"
 	"reflect"
 	"strings"
 )
 
-type dependency struct {
-	SpecifyName string
-	Type        reflect.Type
-	Value       reflect.Value
-}
-
-func (d *dependency) Name() string {
-	if d.SpecifyName != "" {
-		return d.SpecifyName
-	}
-	if v := d.Value.Interface(); v != nil {
-		return getComponentName(v)
-	}
-	return getComponentName(reflect.New(d.Type).Interface())
-}
-
-type property struct {
-	Prefix string
-	Type   reflect.Type
-	Value  reflect.Value
-}
-
-type meta struct {
+type Meta struct {
 	Name         string
 	Address      string
 	Raw          interface{}
 	Type         reflect.Type
 	Value        reflect.Value
-	Dependencies []*dependency
+	Dependencies []*Dependency
 	Properties   []*property
-	DependsBy    []*meta
+	DependsBy    []*Meta
 }
 
-func newMeta(c interface{}) *meta {
+func NewMeta(c interface{}) *Meta {
 	if c == nil {
 		panic("passed nil interface to ioc")
 	}
-	var dependencies []*dependency
+	var dependencies []*Dependency
 	var properties []*property
 	_ = reflectx.ForEachField(c, true, func(field reflect.StructField, value reflect.Value) error {
-		if name, ok := isDependency(field); ok {
-			dependencies = append(dependencies, &dependency{
+		if name, ok := defination.IsDependency(field); ok {
+			dependencies = append(dependencies, &Dependency{
 				SpecifyName: name,
 				Type:        field.Type,
 				Value:       value,
 			})
 		}
-		if prefix, ok := isConfigure(field, value); ok {
+		if prefix, ok := defination.IsConfigure(field, value); ok {
 			properties = append(properties, &property{
 				Prefix: prefix,
 				Type:   field.Type,
@@ -64,8 +43,8 @@ func newMeta(c interface{}) *meta {
 		}
 		return nil
 	})
-	return &meta{
-		Name:         getComponentName(c),
+	return &Meta{
+		Name:         defination.GetComponentName(c),
 		Address:      fmt.Sprintf("%p", c),
 		Raw:          c,
 		Type:         reflect.TypeOf(c),
@@ -75,15 +54,15 @@ func newMeta(c interface{}) *meta {
 	}
 }
 
-func (m *meta) ID() string {
+func (m *Meta) ID() string {
 	return fmt.Sprintf("%s(%s#%s)", m.Name, m.Type, m.Address)
 }
 
-func (m *meta) DependBy(parent *meta) {
+func (m *Meta) DependBy(parent *Meta) {
 	m.DependsBy = append(m.DependsBy, parent)
 }
 
-func (m *meta) String() string {
+func (m *Meta) String() string {
 	var items = []string{
 		"ID: " + m.ID(),
 		"Address: " + m.Address,
@@ -91,7 +70,7 @@ func (m *meta) String() string {
 		"Value: " + m.Value.String(),
 		"Dependencies: " + func() string {
 			arr := collect(m.Dependencies, func(o interface{}) string {
-				return o.(*dependency).Name()
+				return o.(*Dependency).Name()
 			})
 			return fmt.Sprintf("[%s]", strings.Join(arr, ", "))
 		}(),
@@ -103,7 +82,7 @@ func (m *meta) String() string {
 		}(),
 		"DependsBy: " + func() string {
 			arr := collect(m.DependsBy, func(o interface{}) string {
-				return o.(*meta).ID()
+				return o.(*Meta).ID()
 			})
 			return fmt.Sprintf("[%s]", strings.Join(arr, ", "))
 		}(),
@@ -111,7 +90,7 @@ func (m *meta) String() string {
 	return draw.Frame(items)
 }
 
-func (m *meta) Describe() {
+func (m *Meta) Describe() {
 	fmt.Println(m.String())
 }
 

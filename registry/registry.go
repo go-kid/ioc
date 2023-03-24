@@ -1,6 +1,7 @@
-package ioc
+package registry
 
 import (
+	"github.com/kid-hash/kid-ioc/meta"
 	"github.com/kid-hash/kid-ioc/util/list"
 	"github.com/kid-hash/kid-ioc/util/reflectx"
 	"github.com/modern-go/concurrent"
@@ -8,34 +9,34 @@ import (
 )
 
 /*
-registry
+Registry
 Dependency Register and Dependency Lookup
 */
-type registry struct {
+type Registry struct {
 	components       *concurrent.Map
 	initedComponents *list.ConcurrentSets
 }
 
-func NewRegistry() *registry {
-	return &registry{
+func NewRegistry() *Registry {
+	return &Registry{
 		components:       concurrent.NewMap(),
 		initedComponents: list.NewConcurrentSets(),
 	}
 }
 
-func (r *registry) Register(cs ...interface{}) {
+func (r *Registry) Register(cs ...interface{}) {
 	for _, c := range cs {
 		r.register(c)
 	}
 }
 
-func (r *registry) register(c interface{}) {
+func (r *Registry) register(c interface{}) {
 	if c == nil {
 		panic("a nil value is passing to register")
 	}
-	m := newMeta(c)
+	m := meta.NewMeta(c)
 	if a, ok := r.components.Load(m.Name); ok {
-		ec := a.(*meta)
+		ec := a.(*meta.Meta)
 		if ec.Address == m.Address {
 			return
 		}
@@ -45,28 +46,28 @@ func (r *registry) register(c interface{}) {
 	//fmt.Println("store:", m.Name)
 }
 
-func (r *registry) GetComponents() []*meta {
-	var metas = make([]*meta, 0)
+func (r *Registry) GetComponents() []*meta.Meta {
+	var metas = make([]*meta.Meta, 0)
 	r.components.Range(func(k, v interface{}) bool {
-		metas = append(metas, v.(*meta))
+		metas = append(metas, v.(*meta.Meta))
 		return true
 	})
 	return metas
 }
 
-func (r *registry) GetComponentByName(name string) *meta {
+func (r *Registry) GetComponentByName(name string) *meta.Meta {
 	if c, ok := r.components.Load(name); ok {
-		return c.(*meta)
+		return c.(*meta.Meta)
 	}
 	return nil
 }
 
-func (r *registry) GetBeansByInterfaceType(typ reflect.Type) []*meta {
+func (r *Registry) GetBeansByInterfaceType(typ reflect.Type) []*meta.Meta {
 	return r.GetBeansByInterface(reflect.New(typ).Interface())
 }
 
-func (r *registry) GetBeansByInterface(a interface{}) []*meta {
-	var beans = make([]*meta, 0)
+func (r *Registry) GetBeansByInterface(a interface{}) []*meta.Meta {
+	var beans = make([]*meta.Meta, 0)
 	for _, m := range r.GetComponents() {
 		if reflectx.IsTypeImplement(m.Type, a) {
 			beans = append(beans, m)
@@ -75,14 +76,14 @@ func (r *registry) GetBeansByInterface(a interface{}) []*meta {
 	return beans
 }
 
-func (r *registry) RemoveComponents(name string) {
+func (r *Registry) RemoveComponents(name string) {
 	r.components.Delete(name)
 }
 
-func (r *registry) IsComponentInited(name string) bool {
+func (r *Registry) IsComponentInited(name string) bool {
 	return r.initedComponents.Exists(name)
 }
 
-func (r *registry) ComponentInited(name string) {
+func (r *Registry) ComponentInited(name string) {
 	r.initedComponents.Put(name)
 }

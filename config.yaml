@@ -1,0 +1,7 @@
+a:
+  b: 123
+  c: [ 1,2,3,4 ]
+  d:
+    d1: "abc"
+    d2: 123
+  name: "cfgAImpl"

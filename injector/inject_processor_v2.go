@@ -2,10 +2,10 @@ package injector
 
 import (
 	"fmt"
-	"github.com/kid-hash/kid-ioc/defination"
-	"github.com/kid-hash/kid-ioc/meta"
-	"github.com/kid-hash/kid-ioc/registry"
-	"github.com/kid-hash/kid-ioc/util/list"
+	"github.com/kidhat/kid-ioc/defination"
+	"github.com/kidhat/kid-ioc/meta"
+	"github.com/kidhat/kid-ioc/registry"
+	"github.com/kidhat/kid-ioc/util/list"
 	"log"
 	"reflect"
 )

@@ -1,7 +1,7 @@
 package meta
 
 import (
-	"github.com/kid-hash/kid-ioc/defination"
+	"github.com/kidhat/kid-ioc/defination"
 	"reflect"
 )
 

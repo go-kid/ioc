@@ -2,7 +2,7 @@ package config_merge
 
 import (
 	"encoding/json"
-	"github.com/kid-hash/kid-ioc/util/properties"
+	"github.com/kidhat/kid-ioc/util/properties"
 	"gopkg.in/yaml.v3"
 )
 

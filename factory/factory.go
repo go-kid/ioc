@@ -2,11 +2,11 @@ package factory
 
 import (
 	"fmt"
-	"github.com/kid-hash/kid-ioc/configure"
-	"github.com/kid-hash/kid-ioc/defination"
-	"github.com/kid-hash/kid-ioc/injector"
-	"github.com/kid-hash/kid-ioc/meta"
-	"github.com/kid-hash/kid-ioc/registry"
+	"github.com/kidhat/kid-ioc/configure"
+	"github.com/kidhat/kid-ioc/defination"
+	"github.com/kidhat/kid-ioc/injector"
+	"github.com/kidhat/kid-ioc/meta"
+	"github.com/kidhat/kid-ioc/registry"
 	"reflect"
 	"sort"
 )

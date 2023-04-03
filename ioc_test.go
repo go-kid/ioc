@@ -1,7 +1,7 @@
 package kid_ioc
 
 import (
-	"github.com/kid-hash/kid-ioc/defination"
+	"github.com/kidhat/kid-ioc/defination"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )

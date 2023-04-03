@@ -2,9 +2,9 @@ package kid_ioc
 
 import (
 	"encoding/json"
-	"github.com/kid-hash/kid-ioc/configure"
-	"github.com/kid-hash/kid-ioc/factory"
-	"github.com/kid-hash/kid-ioc/registry"
+	"github.com/kidhat/kid-ioc/configure"
+	"github.com/kidhat/kid-ioc/factory"
+	"github.com/kidhat/kid-ioc/registry"
 	"os"
 	"path/filepath"
 )

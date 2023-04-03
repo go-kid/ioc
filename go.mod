@@ -1,4 +1,4 @@
-module github.com/kid-hash/kid-ioc
+module github.com/kidhat/kid-ioc
 
 go 1.18
 

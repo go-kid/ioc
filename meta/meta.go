@@ -2,9 +2,9 @@ package meta
 
 import (
 	"fmt"
-	"github.com/kid-hash/kid-ioc/defination"
-	"github.com/kid-hash/kid-ioc/util/draw"
-	"github.com/kid-hash/kid-ioc/util/reflectx"
+	"github.com/kidhat/kid-ioc/defination"
+	"github.com/kidhat/kid-ioc/util/draw"
+	"github.com/kidhat/kid-ioc/util/reflectx"
 	"reflect"
 	"strings"
 )

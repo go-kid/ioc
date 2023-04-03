@@ -3,7 +3,7 @@ package configure
 import (
 	"bytes"
 	"fmt"
-	"github.com/kid-hash/kid-ioc/meta"
+	"github.com/kidhat/kid-ioc/meta"
 	"github.com/spf13/viper"
 	"reflect"
 )

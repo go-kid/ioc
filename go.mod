@@ -1,6 +1,6 @@
 module github.com/go-kid/ioc
 
-go 1.18
+go 1.20
 
 require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd

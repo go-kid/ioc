@@ -1,10 +1,10 @@
-package kid_ioc
+package ioc
 
 import (
 	"encoding/json"
-	"github.com/kidhat/kid-ioc/configure"
-	"github.com/kidhat/kid-ioc/factory"
-	"github.com/kidhat/kid-ioc/registry"
+	"github.com/go-kid/ioc/configure"
+	"github.com/go-kid/ioc/factory"
+	"github.com/go-kid/ioc/registry"
 	"os"
 	"path/filepath"
 )

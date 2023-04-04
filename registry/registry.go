@@ -1,9 +1,9 @@
 package registry
 
 import (
-	"github.com/kidhat/kid-ioc/meta"
-	"github.com/kidhat/kid-ioc/util/list"
-	"github.com/kidhat/kid-ioc/util/reflectx"
+	"github.com/go-kid/ioc/meta"
+	"github.com/go-kid/ioc/util/list"
+	"github.com/go-kid/ioc/util/reflectx"
 	"github.com/modern-go/concurrent"
 	"reflect"
 )

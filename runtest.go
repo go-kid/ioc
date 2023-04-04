@@ -1,7 +1,7 @@
-package kid_ioc
+package ioc
 
 import (
-	"github.com/kidhat/kid-ioc/registry"
+	"github.com/go-kid/ioc/registry"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )

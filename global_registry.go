@@ -1,8 +1,8 @@
-package kid_ioc
+package ioc
 
 import (
-	"github.com/kidhat/kid-ioc/meta"
-	"github.com/kidhat/kid-ioc/registry"
+	"github.com/go-kid/ioc/meta"
+	"github.com/go-kid/ioc/registry"
 	"reflect"
 )
 

@@ -1,4 +1,4 @@
-module github.com/kidhat/kid-ioc
+module github.com/go-kid/ioc
 
 go 1.18
 

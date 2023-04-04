@@ -2,11 +2,11 @@ package factory
 
 import (
 	"fmt"
-	"github.com/kidhat/kid-ioc/configure"
-	"github.com/kidhat/kid-ioc/defination"
-	"github.com/kidhat/kid-ioc/injector"
-	"github.com/kidhat/kid-ioc/meta"
-	"github.com/kidhat/kid-ioc/registry"
+	"github.com/go-kid/ioc/configure"
+	"github.com/go-kid/ioc/defination"
+	"github.com/go-kid/ioc/injector"
+	"github.com/go-kid/ioc/meta"
+	"github.com/go-kid/ioc/registry"
 	"reflect"
 	"sort"
 )

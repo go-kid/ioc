@@ -31,3 +31,7 @@ func GetBeansByInterface(a interface{}) []*meta.Meta {
 func RemoveComponents(name string) {
 	_registry.RemoveComponents(name)
 }
+
+func GlobalRegistry() registry.Registry {
+	return _registry
+}

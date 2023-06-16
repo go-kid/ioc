@@ -16,7 +16,7 @@ type Meta struct {
 	Type         reflect.Type
 	Value        reflect.Value
 	Dependencies []*Dependency
-	Properties   []*property
+	Properties   []*Property
 	DependsBy    []*Meta
 }
 
@@ -25,7 +25,7 @@ func NewMeta(c interface{}) *Meta {
 		panic("passed nil interface to ioc")
 	}
 	var dependencies []*Dependency
-	var properties []*property
+	var properties []*Property
 	_ = reflectx.ForEachField(c, true, func(field reflect.StructField, value reflect.Value) error {
 		if name, ok := defination.IsDependency(field); ok {
 			dependencies = append(dependencies, &Dependency{
@@ -35,7 +35,7 @@ func NewMeta(c interface{}) *Meta {
 			})
 		}
 		if prefix, ok := defination.IsConfigure(field, value); ok {
-			properties = append(properties, &property{
+			properties = append(properties, &Property{
 				Prefix: prefix,
 				Type:   field.Type,
 				Value:  value,
@@ -71,7 +71,7 @@ func (m *Meta) DotNodeAttr() map[string]string {
 	var label = []*kv{
 		{k: "", v: m.Name},
 		{k: "Type", v: m.Type.String()},
-		{k: "Props", v: strings.Join(lo.Map[*property, string](m.Properties, func(p *property, _ int) string {
+		{k: "Props", v: strings.Join(lo.Map[*Property, string](m.Properties, func(p *Property, _ int) string {
 			return p.Prefix
 		}), ", ")},
 	}

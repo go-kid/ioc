@@ -8,7 +8,7 @@ type ConcurrentSets struct {
 	cm sync.Map
 }
 
-func NewConcurrentSets(arr ...string) (s *ConcurrentSets) {
+func NewConcurrentSets(arr ...string) (s Set) {
 	s = &ConcurrentSets{}
 	if arr != nil && len(arr) != 0 {
 		s.PutAll(arr...)

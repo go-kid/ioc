@@ -1,64 +1,55 @@
 package factory
 
 import (
-	"fmt"
-	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/defination"
 	"github.com/go-kid/ioc/injector"
 	"github.com/go-kid/ioc/meta"
 	"github.com/go-kid/ioc/registry"
 	"reflect"
-	"sort"
 )
 
 type Factory interface {
-	Start() error
-	Wire(m *meta.Meta) error
+	SetIfNilPreFunc(fn MetaFunc)
+	SetIfNilPostInitFunc(fn MetaFunc)
+	Initialize(r registry.Registry, m *meta.Meta) error
 }
 
-type factory struct {
-	r              *registry.Registry
-	c              *configure.Configure
-	postProcessors []defination.ComponentPostProcessor
+type MetaFunc func(m *meta.Meta) error
+
+type DefaultFactory struct {
+	preFunc      MetaFunc
+	postInitFunc MetaFunc
 }
 
-func NewFactory(r *registry.Registry, c *configure.Configure) Factory {
-	return &factory{
-		r: r,
-		c: c,
+func (f *DefaultFactory) SetIfNilPreFunc(fn MetaFunc) {
+	if f.preFunc == nil {
+		f.preFunc = fn
 	}
 }
 
-func (f *factory) Start() error {
-	f.initComponentPostProcessors()
-	for _, m := range f.r.GetComponents() {
-		err := f.Wire(m)
-		if err != nil {
-			return fmt.Errorf("initialize failed: %v", err)
-		}
+func (f *DefaultFactory) SetIfNilPostInitFunc(fn MetaFunc) {
+	if f.postInitFunc == nil {
+		f.postInitFunc = fn
 	}
-	err := f.callRunners()
-	if err != nil {
-		return fmt.Errorf("runners failed: %v", err)
-	}
-	return nil
 }
 
-func (f *factory) Wire(m *meta.Meta) error {
-	if f.r.IsComponentInited(m.Name) {
+func (f *DefaultFactory) Initialize(r registry.Registry, m *meta.Meta) error {
+	if r.IsComponentInited(m.Name) {
 		return nil
 	}
 
-	err := f.c.PropInject(m)
-	if err != nil {
-		return err
+	if f.preFunc != nil {
+		err := f.preFunc(m)
+		if err != nil {
+			return err
+		}
 	}
 
-	err = injector.DependencyInject(f.r, m)
+	err := injector.DependencyInject(r, m)
 	if err != nil {
 		return err
 	}
-	f.r.ComponentInited(m.Name)
+	r.ComponentInited(m.Name)
 
 	for _, dependency := range m.Dependencies {
 		switch dependency.Type.Kind() {
@@ -66,82 +57,27 @@ func (f *factory) Wire(m *meta.Meta) error {
 			for i := 0; i < dependency.Value.Len(); i++ {
 				elem := dependency.Value.Index(i)
 				name := defination.GetComponentName(elem.Interface())
-				dm := f.r.GetComponentByName(name)
+				dm := r.GetComponentByName(name)
 				dm.DependBy(m)
-				err := f.Wire(dm)
+				err := f.Initialize(r, dm)
 				if err != nil {
 					return err
 				}
 			}
 		default:
-			dm := f.r.GetComponentByName(dependency.Name())
+			dm := r.GetComponentByName(dependency.Name())
 			dm.DependBy(m)
-			err := f.Wire(dm)
+			err := f.Initialize(r, dm)
 			if err != nil {
 				return err
 			}
 		}
 	}
 
-	err = f.applyPostProcessors(m)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (f *factory) callRunners() error {
-	metas := f.r.GetBeansByInterface(new(defination.ApplicationRunner))
-	var runners []defination.ApplicationRunner
-	for i := range metas {
-		runners = append(runners, metas[i].Raw.(defination.ApplicationRunner))
-	}
-	sort.Slice(runners, func(i, j int) bool {
-		return runners[i].Order() < runners[j].Order()
-	})
-	for i := range runners {
-		err := runners[i].Run()
+	if f.postInitFunc != nil {
+		err = f.postInitFunc(m)
 		if err != nil {
 			return err
-		}
-	}
-	return nil
-}
-
-func (f *factory) initComponentPostProcessors() {
-	metas := f.r.GetBeansByInterface(new(defination.ComponentPostProcessor))
-	for _, m := range metas {
-		err := f.c.PropInject(m)
-		if err != nil {
-			panic(fmt.Errorf("init post processor %s error: %v", m.ID(), err))
-		}
-		f.postProcessors = append(f.postProcessors, m.Raw.(defination.ComponentPostProcessor))
-		f.r.RemoveComponents(m.Name)
-	}
-}
-
-func (f *factory) applyPostProcessors(m *meta.Meta) error {
-	// before process
-	for _, processor := range f.postProcessors {
-		err := processor.PostProcessBeforeInitialization(m.Raw)
-		if err != nil {
-			return fmt.Errorf("post processor: %T process before %s init error: %v", processor, m.ID(), err)
-		}
-	}
-	// init
-	if ic, ok := m.Raw.(defination.InitializeComponent); ok {
-		err := ic.Init()
-		if err != nil {
-			return fmt.Errorf("component: %s inited failed: %s", m.ID(), err)
-		}
-	}
-	//log.Info().Msgf("ioc: %s inited", m.ID())
-
-	// after process
-	for _, processor := range f.postProcessors {
-		err := processor.PostProcessAfterInitialization(m.Raw)
-		if err != nil {
-			return fmt.Errorf("post processor: %T process after %s init error: %v", processor, m.ID(), err)
 		}
 	}
 

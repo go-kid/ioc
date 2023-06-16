@@ -1,28 +1,16 @@
 package ioc
 
 import (
+	. "github.com/go-kid/ioc/app"
 	"github.com/go-kid/ioc/registry"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 func RunTest(t *testing.T, ops ...SettingOption) {
-	var testOps = []SettingOption{
-		optionSetRegistry(registry.NewRegistry()),
-	}
-	testOps = append(testOps, ops...)
-	err := Run(testOps...)
+	s := NewApp(append([]SettingOption{SetRegistry(registry.NewRegistry())}, ops...)...)
+	err := s.Run()
 	if t != nil {
 		assert.NoError(t, err)
-	}
-}
-
-/*
-setRegistry
-used for unit testing
-*/
-func optionSetRegistry(r *registry.Registry) SettingOption {
-	return func(s *setting) {
-		s.registry = r
 	}
 }

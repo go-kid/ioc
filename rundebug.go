@@ -3,20 +3,19 @@ package ioc
 import (
 	"fmt"
 	"github.com/awalterschulze/gographviz"
+	. "github.com/go-kid/ioc/app"
 	"github.com/go-kid/ioc/meta"
 	"github.com/go-kid/ioc/registry"
 	"sort"
 )
 
 func RunDebug(ops ...SettingOption) error {
-	r := registry.NewRegistry()
-	var testOps = []SettingOption{optionSetRegistry(r)}
-	testOps = append(testOps, ops...)
-	err := Run(testOps...)
+	s := NewApp(append([]SettingOption{SetRegistry(registry.NewRegistry())}, ops...)...)
+	err := s.Run()
 	if err != nil {
 		return err
 	}
-	metas := r.GetComponents()
+	metas := s.GetComponents()
 	sort.Slice(metas, func(i, j int) bool {
 		if len(metas[i].DependsBy) != len(metas[j].DependsBy) {
 			return len(metas[i].DependsBy) > len(metas[j].DependsBy)
@@ -41,6 +40,6 @@ func RunDebug(ops ...SettingOption) error {
 			}
 		}
 	}
-	fmt.Println("@startuml\n" + graph.String() + "@enduml")
+	fmt.Println(graph.String())
 	return nil
 }

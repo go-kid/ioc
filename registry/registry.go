@@ -12,25 +12,37 @@ import (
 Registry
 Dependency Register and Dependency Lookup
 */
-type Registry struct {
-	components       *concurrent.Map
-	initedComponents *list.ConcurrentSets
+
+type Registry interface {
+	Register(cs ...interface{})
+	GetComponents() []*meta.Meta
+	GetComponentByName(name string) *meta.Meta
+	GetBeansByInterfaceType(typ reflect.Type) []*meta.Meta
+	GetBeansByInterface(a interface{}) []*meta.Meta
+	RemoveComponents(name string)
+	ComponentInited(name string)
+	IsComponentInited(name string) bool
 }
 
-func NewRegistry() *Registry {
-	return &Registry{
+type registry struct {
+	components       *concurrent.Map
+	initedComponents list.Set
+}
+
+func NewRegistry() Registry {
+	return &registry{
 		components:       concurrent.NewMap(),
 		initedComponents: list.NewConcurrentSets(),
 	}
 }
 
-func (r *Registry) Register(cs ...interface{}) {
+func (r *registry) Register(cs ...interface{}) {
 	for _, c := range cs {
 		r.register(c)
 	}
 }
 
-func (r *Registry) register(c interface{}) {
+func (r *registry) register(c interface{}) {
 	if c == nil {
 		panic("a nil value is passing to register")
 	}
@@ -46,7 +58,7 @@ func (r *Registry) register(c interface{}) {
 	//fmt.Println("store:", m.Name)
 }
 
-func (r *Registry) GetComponents() []*meta.Meta {
+func (r *registry) GetComponents() []*meta.Meta {
 	var metas = make([]*meta.Meta, 0)
 	r.components.Range(func(k, v interface{}) bool {
 		metas = append(metas, v.(*meta.Meta))
@@ -55,18 +67,18 @@ func (r *Registry) GetComponents() []*meta.Meta {
 	return metas
 }
 
-func (r *Registry) GetComponentByName(name string) *meta.Meta {
+func (r *registry) GetComponentByName(name string) *meta.Meta {
 	if c, ok := r.components.Load(name); ok {
 		return c.(*meta.Meta)
 	}
 	return nil
 }
 
-func (r *Registry) GetBeansByInterfaceType(typ reflect.Type) []*meta.Meta {
+func (r *registry) GetBeansByInterfaceType(typ reflect.Type) []*meta.Meta {
 	return r.GetBeansByInterface(reflect.New(typ).Interface())
 }
 
-func (r *Registry) GetBeansByInterface(a interface{}) []*meta.Meta {
+func (r *registry) GetBeansByInterface(a interface{}) []*meta.Meta {
 	var beans = make([]*meta.Meta, 0)
 	for _, m := range r.GetComponents() {
 		if reflectx.IsTypeImplement(m.Type, a) {
@@ -76,14 +88,14 @@ func (r *Registry) GetBeansByInterface(a interface{}) []*meta.Meta {
 	return beans
 }
 
-func (r *Registry) RemoveComponents(name string) {
+func (r *registry) RemoveComponents(name string) {
 	r.components.Delete(name)
 }
 
-func (r *Registry) IsComponentInited(name string) bool {
+func (r *registry) IsComponentInited(name string) bool {
 	return r.initedComponents.Exists(name)
 }
 
-func (r *Registry) ComponentInited(name string) {
+func (r *registry) ComponentInited(name string) {
 	r.initedComponents.Put(name)
 }

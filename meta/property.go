@@ -2,7 +2,7 @@ package meta
 
 import "reflect"
 
-type property struct {
+type Property struct {
 	Prefix string
 	Type   reflect.Type
 	Value  reflect.Value

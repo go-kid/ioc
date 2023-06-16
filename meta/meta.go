@@ -3,8 +3,8 @@ package meta
 import (
 	"fmt"
 	"github.com/go-kid/ioc/defination"
-	"github.com/go-kid/ioc/util/draw"
 	"github.com/go-kid/ioc/util/reflectx"
+	"github.com/samber/lo"
 	"reflect"
 	"strings"
 )
@@ -62,43 +62,32 @@ func (m *Meta) DependBy(parent *Meta) {
 	m.DependsBy = append(m.DependsBy, parent)
 }
 
-func (m *Meta) String() string {
-	var items = []string{
-		"ID: " + m.ID(),
-		"Address: " + m.Address,
-		"Type: " + m.Type.String(),
-		"Value: " + m.Value.String(),
-		"Dependencies: " + func() string {
-			arr := collect(m.Dependencies, func(o interface{}) string {
-				return o.(*Dependency).Name()
-			})
-			return fmt.Sprintf("[%s]", strings.Join(arr, ", "))
-		}(),
-		"Properties: " + func() string {
-			arr := collect(m.Properties, func(o interface{}) string {
-				return o.(*property).Prefix
-			})
-			return fmt.Sprintf("[%s]", strings.Join(arr, ", "))
-		}(),
-		"DependsBy: " + func() string {
-			arr := collect(m.DependsBy, func(o interface{}) string {
-				return o.(*Meta).ID()
-			})
-			return fmt.Sprintf("[%s]", strings.Join(arr, ", "))
-		}(),
-	}
-	return draw.Frame(items)
+type kv struct {
+	k string
+	v string
 }
 
-func (m *Meta) Describe() {
-	fmt.Println(m.String())
+func (m *Meta) DotNodeAttr() map[string]string {
+	var label = []*kv{
+		{k: "", v: m.Name},
+		{k: "Type", v: m.Type.String()},
+		{k: "Props", v: strings.Join(lo.Map[*property, string](m.Properties, func(p *property, _ int) string {
+			return p.Prefix
+		}), ", ")},
+	}
+
+	labels := lo.Map[*kv, string](label, func(item *kv, _ int) string {
+		if item.k == "" {
+			return item.v
+		}
+		return fmt.Sprintf("%s: %s", item.k, item.v)
+	})
+	return map[string]string{
+		"label": StringEscape("{" + strings.Join(labels, "|") + "}"),
+		"shape": "record",
+	}
 }
 
-func collect(arr interface{}, f func(o interface{}) string) []string {
-	var sl []string
-	val := reflect.ValueOf(arr)
-	for i := 0; i < val.Len(); i++ {
-		sl = append(sl, f(val.Index(i).Interface()))
-	}
-	return sl
+func StringEscape(s string) string {
+	return fmt.Sprintf("\"%s\"", s)
 }

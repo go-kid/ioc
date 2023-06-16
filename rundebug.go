@@ -1,6 +1,9 @@
 package ioc
 
 import (
+	"fmt"
+	"github.com/awalterschulze/gographviz"
+	"github.com/go-kid/ioc/meta"
 	"github.com/go-kid/ioc/registry"
 	"sort"
 )
@@ -20,8 +23,24 @@ func RunDebug(ops ...SettingOption) error {
 		}
 		return metas[i].ID() < metas[j].ID()
 	})
-	for _, m := range metas {
-		m.Describe()
+
+	graphAst, _ := gographviz.ParseString("digraph G {}")
+	graph := gographviz.NewGraph()
+	if err := gographviz.Analyse(graphAst, graph); err != nil {
+		return err
 	}
+	for _, m := range metas {
+		err := graph.AddNode("g", meta.StringEscape(m.Name), m.DotNodeAttr())
+		if err != nil {
+			return err
+		}
+		for _, p := range m.DependsBy {
+			err := graph.AddEdge(meta.StringEscape(p.Name), meta.StringEscape(m.Name), true, nil)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	fmt.Println("@startuml\n" + graph.String() + "@enduml")
 	return nil
 }

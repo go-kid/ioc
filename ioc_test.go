@@ -185,15 +185,12 @@ type arrImpl struct {
 }
 
 func TestInjectDebug(t *testing.T) {
-	var app = &struct {
-		Arr *arrImpl `wire:""`
-	}{}
+	a := &arrImpl{}
 	err := RunDebug(SetComponents(
 		&aImpl{},
 		&bImpl{},
 		&cImpl{},
-		&arrImpl{},
-		app,
+		a,
 	))
 	assert.NoError(t, err)
 }

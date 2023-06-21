@@ -119,3 +119,18 @@ func Interfaces2Values(o []interface{}) []reflect.Value {
 	}
 	return values
 }
+
+func New(t reflect.Type) reflect.Value {
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	return reflect.New(t)
+}
+
+func Set(dst, src reflect.Value) {
+	if dst.Type().Kind() == reflect.Ptr {
+		dst.Set(src)
+	} else {
+		dst.Set(src.Elem())
+	}
+}

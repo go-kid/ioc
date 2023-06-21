@@ -3,12 +3,18 @@ package defination
 import "reflect"
 
 const (
-	injectTag = "wire"
-	configTag = "prop"
+	injectTag  = "wire"
+	produceTag = "produce"
+	configTag  = "prop"
 )
 
 func IsDependency(field reflect.StructField) (string, bool) {
 	value, ok := field.Tag.Lookup(injectTag)
+	return value, ok
+}
+
+func IsProduce(field reflect.StructField) (string, bool) {
+	value, ok := field.Tag.Lookup(produceTag)
 	return value, ok
 }
 

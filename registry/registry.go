@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"fmt"
 	"github.com/go-kid/ioc/meta"
 	"github.com/go-kid/ioc/util/list"
 	"github.com/go-kid/ioc/util/reflectx"
@@ -46,16 +47,21 @@ func (r *registry) register(c interface{}) {
 	if c == nil {
 		panic("a nil value is passing to register")
 	}
-	m := meta.NewMeta(c)
+	var m *meta.Meta
+	switch c.(type) {
+	case *meta.Meta:
+		m = c.(*meta.Meta)
+	default:
+		m = meta.NewMeta(c)
+	}
 	if a, ok := r.components.Load(m.Name); ok {
 		ec := a.(*meta.Meta)
 		if ec.Address == m.Address {
 			return
 		}
-		//log.Panic().Msgf("register duplicated component: %s", m.Name)
+		panic(fmt.Sprintf("register duplicated component: %s", m.Name))
 	}
 	r.components.Store(m.Name, m)
-	//fmt.Println("store:", m.Name)
 }
 
 func (r *registry) GetComponents() []*meta.Meta {

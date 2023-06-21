@@ -7,6 +7,7 @@ import (
 	"github.com/go-kid/ioc/factory"
 	"github.com/go-kid/ioc/meta"
 	"github.com/go-kid/ioc/registry"
+	"github.com/samber/lo"
 	"log"
 	"sort"
 )
@@ -68,9 +69,17 @@ func (s *app) Run() error {
 		s.Factory.SetIfNilPostInitFunc(s.defaultPostInitFunc)
 	}
 
+	s.initProduceComponents()
 	s.initComponentPostProcessors()
 
-	for _, m := range s.Registry.GetComponents() {
+	components := s.Registry.GetComponents()
+	sort.Slice(components, func(i, j int) bool {
+		if len(components[i].DependsBy) != len(components[j].DependsBy) {
+			return len(components[i].DependsBy) < len(components[j].DependsBy)
+		}
+		return len(components[i].Dependencies) < len(components[j].Dependencies)
+	})
+	for _, m := range components {
 		err := s.Factory.Initialize(s.Registry, m)
 		if err != nil {
 			return fmt.Errorf("initialize failed: %v", err)
@@ -82,6 +91,16 @@ func (s *app) Run() error {
 		return fmt.Errorf("runners failed: %v", err)
 	}
 	return nil
+}
+
+func (s *app) initProduceComponents() {
+	metas := s.Registry.GetComponents()
+	produces := lo.FlatMap[*meta.Meta, *meta.Meta](metas, func(item *meta.Meta, _ int) []*meta.Meta {
+		return item.Produce
+	})
+	lo.ForEach(produces, func(item *meta.Meta, _ int) {
+		s.Register(item)
+	})
 }
 
 func (s *app) initComponentPostProcessors() {

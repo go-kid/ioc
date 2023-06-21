@@ -17,6 +17,7 @@ type Meta struct {
 	Value        reflect.Value
 	Dependencies []*Dependency
 	Properties   []*Property
+	Produce      []*Meta
 	DependsBy    []*Meta
 }
 
@@ -24,25 +25,20 @@ func NewMeta(c interface{}) *Meta {
 	if c == nil {
 		panic("passed nil interface to ioc")
 	}
-	var dependencies []*Dependency
-	var properties []*Property
-	_ = reflectx.ForEachField(c, true, func(field reflect.StructField, value reflect.Value) error {
-		if name, ok := defination.IsDependency(field); ok {
-			dependencies = append(dependencies, &Dependency{
-				SpecifyName: name,
-				Type:        field.Type,
-				Value:       value,
-			})
+	var (
+		dependencies []*Dependency
+		produce      []*Meta
+		properties   []*Property
+	)
+	switch t := reflect.TypeOf(c); t.Kind() {
+	case reflect.Struct, reflect.Interface:
+		scanComponent(c, &dependencies, &produce, &properties)
+	case reflect.Pointer:
+		if t.Elem().Kind() == reflect.Struct {
+			scanComponent(c, &dependencies, &produce, &properties)
 		}
-		if prefix, ok := defination.IsConfigure(field, value); ok {
-			properties = append(properties, &Property{
-				Prefix: prefix,
-				Type:   field.Type,
-				Value:  value,
-			})
-		}
-		return nil
-	})
+	default:
+	}
 	return &Meta{
 		Name:         defination.GetComponentName(c),
 		Address:      fmt.Sprintf("%p", c),
@@ -51,7 +47,38 @@ func NewMeta(c interface{}) *Meta {
 		Value:        reflect.ValueOf(c),
 		Dependencies: dependencies,
 		Properties:   properties,
+		Produce:      produce,
+		DependsBy:    nil,
 	}
+}
+
+func scanComponent(c interface{}, dependencies *[]*Dependency, produce *[]*Meta, properties *[]*Property) {
+	_ = reflectx.ForEachField(c, true, func(field reflect.StructField, value reflect.Value) error {
+		if name, ok := defination.IsDependency(field); ok {
+			*dependencies = append(*dependencies, &Dependency{
+				SpecifyName: name,
+				Type:        field.Type,
+				Value:       value,
+			})
+		}
+		if name, ok := defination.IsProduce(field); ok {
+			v := reflectx.New(field.Type)
+			reflectx.Set(value, v)
+			p := NewMeta(value.Interface())
+			if name != "" {
+				p.Name = name
+			}
+			*produce = append(*produce, p)
+		}
+		if prefix, ok := defination.IsConfigure(field, value); ok {
+			*properties = append(*properties, &Property{
+				Prefix: prefix,
+				Type:   field.Type,
+				Value:  value,
+			})
+		}
+		return nil
+	})
 }
 
 func (m *Meta) ID() string {

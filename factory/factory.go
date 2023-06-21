@@ -1,6 +1,7 @@
 package factory
 
 import (
+	"fmt"
 	"github.com/go-kid/ioc/defination"
 	"github.com/go-kid/ioc/injector"
 	"github.com/go-kid/ioc/meta"
@@ -66,6 +67,9 @@ func (f *DefaultFactory) Initialize(r registry.Registry, m *meta.Meta) error {
 			}
 		default:
 			dm := r.GetComponentByName(dependency.Name())
+			if dm == nil {
+				return fmt.Errorf("component %s not found", dependency.Name())
+			}
 			dm.DependBy(m)
 			err := f.Initialize(r, dm)
 			if err != nil {

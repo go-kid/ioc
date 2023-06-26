@@ -61,13 +61,10 @@ func scanComponent(c interface{}, dependencies *[]*Dependency, produce *[]*Meta,
 				Value:       value,
 			})
 		}
-		if name, ok := defination.IsProduce(field); ok {
+		if _, ok := defination.IsProduce(field); ok {
 			v := reflectx.New(field.Type)
 			reflectx.Set(value, v)
 			p := NewMeta(value.Interface())
-			if name != "" {
-				p.Name = name
-			}
 			*produce = append(*produce, p)
 		}
 		if prefix, ok := defination.IsConfigure(field, value); ok {

@@ -1,7 +1,6 @@
 package ioc
 
 import (
-	"fmt"
 	. "github.com/go-kid/ioc/app"
 	"github.com/go-kid/ioc/defination"
 	"github.com/stretchr/testify/assert"
@@ -228,22 +227,30 @@ func (c *configD) Prefix() string {
 //	assert.Equal(t, "abc", app.D.D1)
 //}
 
+type port string
+
 type producer struct {
-	T    *aImpl  `produce:"pa"`
-	Port *string `produce:"port"`
+	T    *aImpl `produce:""`
+	T2   *bImpl `produce:""`
+	Port *port  `produce:""`
+}
+
+func (s *producer) Init() error {
+	*s.Port = "8888"
+	return nil
 }
 
 type consumer struct {
-	T    ITest   `wire:"pa"`
-	Port *string `wire:"port"`
+	T    ITest `wire:""`
+	Port *port `wire:""`
 }
 
 func TestProduce(t *testing.T) {
 	p := new(producer)
 	c := new(consumer)
 	RunTest(t, SetComponents(p, c))
-	fmt.Println("c.port =", *c.Port)
-	*p.Port = "8888"
-	fmt.Println("c.port =", *c.Port)
-	fmt.Println(c.T.GetName())
+	assert.Equal(t, port("8888"), *c.Port)
+	*p.Port = "9999"
+	assert.Equal(t, port("9999"), *c.Port)
+	assert.Equal(t, "aImpl", c.T.GetName())
 }

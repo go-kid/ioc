@@ -59,6 +59,9 @@ func (f *DefaultFactory) Initialize(r registry.Registry, m *meta.Meta) error {
 				elem := dependency.Value.Index(i)
 				name := defination.GetComponentName(elem.Interface())
 				dm := r.GetComponentByName(name)
+				if dm == nil {
+					return fmt.Errorf("component %s not found", dependency.Name())
+				}
 				dm.DependBy(m)
 				err := f.Initialize(r, dm)
 				if err != nil {

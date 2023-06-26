@@ -40,6 +40,13 @@ func SetConfigure(loader configure.ConfigLoader, binder configure.ConfigBinder) 
 	}
 }
 
+func SetDefaultConfigure() SettingOption {
+	return func(s *app) {
+		s.ConfigLoader = &configure.DefaultLoader{}
+		s.ConfigBinder = &configure.DefaultBinder{}
+	}
+}
+
 func SetCallRunnersFunc(fn func(runners []defination.ApplicationRunner) error) SettingOption {
 	return func(s *app) {
 		s.callRunnersFunc = fn

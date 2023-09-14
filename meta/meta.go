@@ -27,15 +27,17 @@ func NewMeta(c interface{}) *Meta {
 	}
 	var (
 		dependencies []*Dependency
-		produce      []*Meta
+		produces     []*Meta
 		properties   []*Property
 	)
+	t := reflect.TypeOf(c)
+	v := reflect.ValueOf(c)
 	switch t := reflect.TypeOf(c); t.Kind() {
-	case reflect.Struct, reflect.Interface:
-		scanComponent(c, &dependencies, &produce, &properties)
+	case reflect.Struct:
+		dependencies, produces, properties = analyseComponent(t, v)
 	case reflect.Pointer:
 		if t.Elem().Kind() == reflect.Struct {
-			scanComponent(c, &dependencies, &produce, &properties)
+			dependencies, produces, properties = analyseComponent(t, v)
 		}
 	default:
 	}
@@ -43,39 +45,46 @@ func NewMeta(c interface{}) *Meta {
 		Name:         defination.GetComponentName(c),
 		Address:      fmt.Sprintf("%p", c),
 		Raw:          c,
-		Type:         reflect.TypeOf(c),
-		Value:        reflect.ValueOf(c),
+		Type:         t,
+		Value:        v,
 		Dependencies: dependencies,
 		Properties:   properties,
-		Produce:      produce,
+		Produce:      produces,
 		DependsBy:    nil,
 	}
 }
 
-func scanComponent(c interface{}, dependencies *[]*Dependency, produce *[]*Meta, properties *[]*Property) {
-	_ = reflectx.ForEachField(c, true, func(field reflect.StructField, value reflect.Value) error {
-		if name, ok := defination.IsDependency(field); ok {
-			*dependencies = append(*dependencies, &Dependency{
-				SpecifyName: name,
-				Type:        field.Type,
-				Value:       value,
+func analyseComponent(t reflect.Type, v reflect.Value) (dependencies []*Dependency, produces []*Meta, properties []*Property) {
+	_ = reflectx.ForEachFieldV2(t, v, true, func(field reflect.StructField, value reflect.Value) error {
+		if prefix, ok := defination.IsConfigure(field, value); ok {
+			properties = append(properties, &Property{
+				Prefix: prefix,
+				Type:   field.Type,
+				Value:  value,
 			})
 		}
 		if _, ok := defination.IsProduce(field); ok {
 			v := reflectx.New(field.Type)
 			reflectx.Set(value, v)
 			p := NewMeta(value.Interface())
-			*produce = append(*produce, p)
+			produces = append(produces, p)
 		}
-		if prefix, ok := defination.IsConfigure(field, value); ok {
-			*properties = append(*properties, &Property{
-				Prefix: prefix,
-				Type:   field.Type,
-				Value:  value,
+		if name, ok := defination.IsDependency(field); ok {
+			dependencies = append(dependencies, &Dependency{
+				SpecifyName: name,
+				Type:        field.Type,
+				Value:       value,
 			})
+		} else if field.Anonymous && field.Type.Kind() == reflect.Struct {
+			ds, ps, pps := analyseComponent(field.Type, value)
+			dependencies = append(dependencies, ds...)
+			produces = append(produces, ps...)
+			properties = append(properties, pps...)
+			return nil
 		}
 		return nil
 	})
+	return
 }
 
 func (m *Meta) ID() string {

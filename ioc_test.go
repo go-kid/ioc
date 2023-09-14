@@ -254,3 +254,35 @@ func TestProduce(t *testing.T) {
 	assert.Equal(t, port("9999"), *c.Port)
 	assert.Equal(t, "aImpl", c.T.GetName())
 }
+
+type Base struct {
+	T ITest `wire:""`
+}
+
+type Parent struct {
+	Base
+	T2 ITest `wire:""`
+}
+
+type Child struct {
+	Parent
+	T3 ITest `wire:""`
+}
+
+type Child2 struct {
+	Parent
+	T3 ITest `wire:""`
+}
+
+func TestEmbedComponent(t *testing.T) {
+	c := &Child{}
+	c2 := &Child2{}
+	RunTest(t, SetComponents(c, c2, &aImpl{}))
+	assert.Equal(t, "aImpl", c.T3.GetName())
+	assert.Equal(t, "aImpl", c.T2.GetName())
+	assert.Equal(t, "aImpl", c.T.GetName())
+
+	assert.Equal(t, "aImpl", c2.T3.GetName())
+	assert.Equal(t, "aImpl", c2.T2.GetName())
+	assert.Equal(t, "aImpl", c2.T.GetName())
+}

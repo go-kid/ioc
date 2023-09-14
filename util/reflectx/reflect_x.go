@@ -9,14 +9,14 @@ type FieldAcceptor func(field reflect.StructField, value reflect.Value) error
 func ForEachField(o interface{}, excludePrivateField bool, f FieldAcceptor) error {
 	t := reflect.TypeOf(o)
 	v := reflect.ValueOf(o)
-	if t.Kind() == reflect.Ptr {
-		t = t.Elem()
-		v = v.Elem()
-	}
 	return ForEachFieldV2(t, v, excludePrivateField, f)
 }
 
 func ForEachFieldV2(t reflect.Type, v reflect.Value, excludePrivateField bool, f FieldAcceptor) error {
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+		v = v.Elem()
+	}
 	for i := 0; i < t.NumField(); i++ {
 		if !excludePrivateField {
 			if err := f(t.Field(i), v.Field(i)); err != nil {
@@ -34,14 +34,14 @@ func ForEachFieldV2(t reflect.Type, v reflect.Value, excludePrivateField bool, f
 func WalkField(o interface{}, f FieldAcceptor) error {
 	t := reflect.TypeOf(o)
 	v := reflect.ValueOf(o)
-	if t.Kind() == reflect.Ptr {
-		t = t.Elem()
-		v = v.Elem()
-	}
 	return WalkFieldV2(t, v, f)
 }
 
 func WalkFieldV2(t reflect.Type, v reflect.Value, f FieldAcceptor) error {
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+		v = v.Elem()
+	}
 	return ForEachFieldV2(t, v, false, func(field reflect.StructField, value reflect.Value) error {
 		err := walkField(field, value, f)
 		if err != nil {

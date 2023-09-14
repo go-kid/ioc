@@ -12,15 +12,7 @@ import (
 	"sort"
 )
 
-type App interface {
-	configure.ConfigLoader
-	configure.ConfigBinder
-	registry.Registry
-	factory.Factory
-	Run() error
-}
-
-type app struct {
+type App struct {
 	configure.ConfigLoader
 	configure.ConfigBinder
 	registry.Registry
@@ -30,15 +22,15 @@ type app struct {
 	callRunnersFunc func(runners []defination.ApplicationRunner) error
 }
 
-func NewApp(ops ...SettingOption) App {
-	var s = &app{}
+func NewApp(ops ...SettingOption) *App {
+	var s = &App{}
 	for _, op := range ops {
 		op(s)
 	}
 	return s
 }
 
-func (s *app) Run() error {
+func (s *App) Run() error {
 	//check registry
 	if s.Registry == nil {
 		return fmt.Errorf("no registry")
@@ -93,7 +85,7 @@ func (s *app) Run() error {
 	return nil
 }
 
-func (s *app) initProduceComponents() {
+func (s *App) initProduceComponents() {
 	metas := s.Registry.GetComponents()
 	produces := lo.FlatMap[*meta.Meta, *meta.Meta](metas, func(item *meta.Meta, _ int) []*meta.Meta {
 		return item.Produce
@@ -103,7 +95,7 @@ func (s *app) initProduceComponents() {
 	})
 }
 
-func (s *app) initComponentPostProcessors() {
+func (s *App) initComponentPostProcessors() {
 	metas := s.Registry.GetBeansByInterface(new(defination.ComponentPostProcessor))
 	s.postProcessors = make([]defination.ComponentPostProcessor, 0, len(metas))
 	for _, m := range metas {
@@ -116,7 +108,7 @@ func (s *app) initComponentPostProcessors() {
 	}
 }
 
-func (s *app) defaultPostInitFunc(m *meta.Meta) error {
+func (s *App) defaultPostInitFunc(m *meta.Meta) error {
 	// before process
 	for _, processor := range s.postProcessors {
 		err := processor.PostProcessBeforeInitialization(m.Raw)
@@ -144,7 +136,7 @@ func (s *app) defaultPostInitFunc(m *meta.Meta) error {
 	return nil
 }
 
-func (s *app) callRunners() error {
+func (s *App) callRunners() error {
 	metas := s.Registry.GetBeansByInterface(new(defination.ApplicationRunner))
 	var runners []defination.ApplicationRunner
 	for i := range metas {

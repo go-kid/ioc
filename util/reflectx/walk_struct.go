@@ -38,6 +38,9 @@ func WalkFieldV2(t reflect.Type, v reflect.Value, f FieldWalkAcceptor) error {
 		t = t.Elem()
 		v = v.Elem()
 	}
+	if t.Kind() != reflect.Struct {
+		return nil
+	}
 	return ForEachFieldV2(t, v, false, func(field reflect.StructField, value reflect.Value) error {
 		err := walkField(nil, field, value, f)
 		if err != nil {

@@ -1,6 +1,7 @@
 package reflectx
 
 import (
+	"path"
 	"reflect"
 )
 
@@ -55,4 +56,11 @@ func Set(dst, src reflect.Value) {
 	} else {
 		dst.Set(src.Elem())
 	}
+}
+
+func TypeId(p reflect.Type) string {
+	if p.Kind() == reflect.Pointer {
+		p = p.Elem()
+	}
+	return path.Join(p.PkgPath(), p.Name())
 }

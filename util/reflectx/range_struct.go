@@ -17,6 +17,9 @@ func ForEachFieldV2(t reflect.Type, v reflect.Value, excludePrivateField bool, f
 		t = t.Elem()
 		v = v.Elem()
 	}
+	if t.Kind() != reflect.Struct {
+		return nil
+	}
 	for i := 0; i < t.NumField(); i++ {
 		if !excludePrivateField {
 			if err := f(t.Field(i), v.Field(i)); err != nil {

@@ -32,15 +32,7 @@ func NewMeta(c interface{}) *Meta {
 	)
 	t := reflect.TypeOf(c)
 	v := reflect.ValueOf(c)
-	switch t := reflect.TypeOf(c); t.Kind() {
-	case reflect.Struct:
-		dependencies, produces, properties = analyseComponent(t, v)
-	case reflect.Pointer:
-		if t.Elem().Kind() == reflect.Struct {
-			dependencies, produces, properties = analyseComponent(t, v)
-		}
-	default:
-	}
+	dependencies, produces, properties = analyseComponent(t, v)
 	return &Meta{
 		Name:         defination.GetComponentName(c),
 		Address:      fmt.Sprintf("%p", c),

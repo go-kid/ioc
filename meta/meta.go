@@ -3,6 +3,7 @@ package meta
 import (
 	"fmt"
 	"github.com/go-kid/ioc/defination"
+	"github.com/go-kid/ioc/di"
 	"github.com/go-kid/ioc/util/reflectx"
 	"github.com/samber/lo"
 	"reflect"
@@ -25,56 +26,90 @@ func NewMeta(c interface{}) *Meta {
 	if c == nil {
 		panic("passed nil interface to ioc")
 	}
-	var (
-		dependencies []*Dependency
-		produces     []*Meta
-		properties   []*Property
-	)
 	t := reflect.TypeOf(c)
 	v := reflect.ValueOf(c)
-	dependencies, produces, properties = analyseComponent(t, v)
 	return &Meta{
 		Name:         defination.GetComponentName(c),
 		Address:      fmt.Sprintf("%p", c),
 		Raw:          c,
 		Type:         t,
 		Value:        v,
-		Dependencies: dependencies,
-		Properties:   properties,
-		Produce:      produces,
+		Dependencies: scanDependencies(t, v),
+		Properties:   scanProperties(t, v),
+		Produce:      scanProduces(t, v),
 		DependsBy:    nil,
 	}
 }
 
+func scanDependencies(t reflect.Type, v reflect.Value) []*Dependency {
+	wireInjector := di.New("wire")
+	return lo.Map(wireInjector.ScanNodes(t, v), func(item *di.Node, _ int) *Dependency {
+		return &Dependency{
+			SpecifyName: item.Tag,
+			Type:        item.Type,
+			Value:       item.Value,
+		}
+	})
+}
+
+func scanProduces(t reflect.Type, v reflect.Value) []*Meta {
+	productInjector := di.New("produce")
+	return lo.Map(productInjector.ScanNodes(t, v), func(item *di.Node, _ int) *Meta {
+		v := reflectx.New(item.Type)
+		reflectx.Set(item.Value, v)
+		p := NewMeta(item.Value.Interface())
+		return p
+	})
+}
+
+func scanProperties(t reflect.Type, v reflect.Value) []*Property {
+	propInjector := di.New("prop")
+	propInjector.ExtendTag = func(field reflect.StructField, value reflect.Value) (string, bool) {
+		if configuration, ok := value.Interface().(defination.Configuration); ok {
+			return configuration.Prefix(), true
+		}
+		return "", false
+	}
+	return lo.Map(propInjector.ScanNodes(t, v), func(item *di.Node, _ int) *Property {
+		return &Property{
+			Prefix: item.Tag,
+			Type:   item.Type,
+			Value:  item.Value,
+		}
+	})
+}
+
 func analyseComponent(t reflect.Type, v reflect.Value) (dependencies []*Dependency, produces []*Meta, properties []*Property) {
-	_ = reflectx.ForEachFieldV2(t, v, true, func(field reflect.StructField, value reflect.Value) error {
-		if prefix, ok := defination.IsConfigure(field, value); ok {
-			properties = append(properties, &Property{
-				Prefix: prefix,
-				Type:   field.Type,
-				Value:  value,
-			})
+	wireInjector := di.New("wire")
+	dependencies = lo.Map(wireInjector.ScanNodes(t, v), func(item *di.Node, _ int) *Dependency {
+		return &Dependency{
+			SpecifyName: item.Tag,
+			Type:        item.Type,
+			Value:       item.Value,
 		}
-		if _, ok := defination.IsProduce(field); ok {
-			v := reflectx.New(field.Type)
-			reflectx.Set(value, v)
-			p := NewMeta(value.Interface())
-			produces = append(produces, p)
+	})
+
+	productInjector := di.New("produce")
+	produces = lo.Map(productInjector.ScanNodes(t, v), func(item *di.Node, _ int) *Meta {
+		v := reflectx.New(item.Type)
+		reflectx.Set(item.Value, v)
+		p := NewMeta(item.Value.Interface())
+		return p
+	})
+
+	propInjector := di.New("prop")
+	propInjector.ExtendTag = func(field reflect.StructField, value reflect.Value) (string, bool) {
+		if configuration, ok := value.Interface().(defination.Configuration); ok {
+			return configuration.Prefix(), true
 		}
-		if name, ok := defination.IsDependency(field); ok {
-			dependencies = append(dependencies, &Dependency{
-				SpecifyName: name,
-				Type:        field.Type,
-				Value:       value,
-			})
-		} else if field.Anonymous && field.Type.Kind() == reflect.Struct {
-			ds, ps, pps := analyseComponent(field.Type, value)
-			dependencies = append(dependencies, ds...)
-			produces = append(produces, ps...)
-			properties = append(properties, pps...)
-			return nil
+		return "", false
+	}
+	properties = lo.Map(propInjector.ScanNodes(t, v), func(item *di.Node, _ int) *Property {
+		return &Property{
+			Prefix: item.Tag,
+			Type:   item.Type,
+			Value:  item.Value,
 		}
-		return nil
 	})
 	return
 }

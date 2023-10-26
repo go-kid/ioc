@@ -10,6 +10,12 @@ import (
 	"strings"
 )
 
+const (
+	InjectTag  = "wire"
+	ProduceTag = "produce"
+	PropTag    = "prop"
+)
+
 type Meta struct {
 	Name         string
 	Address      string
@@ -42,7 +48,7 @@ func NewMeta(c interface{}) *Meta {
 }
 
 func scanDependencies(t reflect.Type, v reflect.Value) []*Dependency {
-	wireInjector := di.New("wire")
+	wireInjector := di.New(InjectTag)
 	return lo.Map(wireInjector.ScanNodes(t, v), func(item *di.Node, _ int) *Dependency {
 		return &Dependency{
 			SpecifyName: item.Tag,
@@ -53,7 +59,7 @@ func scanDependencies(t reflect.Type, v reflect.Value) []*Dependency {
 }
 
 func scanProduces(t reflect.Type, v reflect.Value) []*Meta {
-	productInjector := di.New("produce")
+	productInjector := di.New(ProduceTag)
 	return lo.Map(productInjector.ScanNodes(t, v), func(item *di.Node, _ int) *Meta {
 		v := reflectx.New(item.Type)
 		reflectx.Set(item.Value, v)
@@ -63,7 +69,7 @@ func scanProduces(t reflect.Type, v reflect.Value) []*Meta {
 }
 
 func scanProperties(t reflect.Type, v reflect.Value) []*Property {
-	propInjector := di.New("prop")
+	propInjector := di.New(PropTag)
 	propInjector.ExtendTag = func(field reflect.StructField, value reflect.Value) (string, bool) {
 		if configuration, ok := value.Interface().(defination.Configuration); ok {
 			return configuration.Prefix(), true
@@ -77,41 +83,6 @@ func scanProperties(t reflect.Type, v reflect.Value) []*Property {
 			Value:  item.Value,
 		}
 	})
-}
-
-func analyseComponent(t reflect.Type, v reflect.Value) (dependencies []*Dependency, produces []*Meta, properties []*Property) {
-	wireInjector := di.New("wire")
-	dependencies = lo.Map(wireInjector.ScanNodes(t, v), func(item *di.Node, _ int) *Dependency {
-		return &Dependency{
-			SpecifyName: item.Tag,
-			Type:        item.Type,
-			Value:       item.Value,
-		}
-	})
-
-	productInjector := di.New("produce")
-	produces = lo.Map(productInjector.ScanNodes(t, v), func(item *di.Node, _ int) *Meta {
-		v := reflectx.New(item.Type)
-		reflectx.Set(item.Value, v)
-		p := NewMeta(item.Value.Interface())
-		return p
-	})
-
-	propInjector := di.New("prop")
-	propInjector.ExtendTag = func(field reflect.StructField, value reflect.Value) (string, bool) {
-		if configuration, ok := value.Interface().(defination.Configuration); ok {
-			return configuration.Prefix(), true
-		}
-		return "", false
-	}
-	properties = lo.Map(propInjector.ScanNodes(t, v), func(item *di.Node, _ int) *Property {
-		return &Property{
-			Prefix: item.Tag,
-			Type:   item.Type,
-			Value:  item.Value,
-		}
-	})
-	return
 }
 
 func (m *Meta) ID() string {

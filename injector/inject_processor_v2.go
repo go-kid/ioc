@@ -157,10 +157,8 @@ func (s *unSpecifyInterfaceSliceInjector) Inject(r registry.Registry, d *meta.De
 		return nil
 	}
 	var values []reflect.Value
-	var raws []interface{}
 	for _, m := range metas {
 		values = append(values, m.Value)
-		raws = append(raws, m.Raw)
 	}
 	d.Value.Set(reflect.Append(d.Value, values...))
 	return nil

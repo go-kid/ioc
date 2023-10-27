@@ -51,9 +51,6 @@ func NewMeta(c interface{}) *Meta {
 func scanDependencies(t reflect.Type, v reflect.Value) []*defination.Node {
 	wireInjector := scanner.New(InjectTag)
 	nodes := wireInjector.ScanNodes(t, v)
-	for _, node := range nodes {
-		fmt.Println(node.Type, node.Tag, node.Id())
-	}
 	return nodes
 }
 

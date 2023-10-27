@@ -15,7 +15,7 @@ func (n *Node) Id() string {
 	if n.Tag != "" {
 		return n.Tag
 	}
-	//return GetComponentName(n.Type)
+	//return GetComponentNameByType(n.Type)
 	if v := n.Value.Interface(); v != nil {
 		return GetComponentName(v)
 	}
@@ -27,11 +27,7 @@ func GetComponentName(c interface{}) string {
 	if n, ok := c.(NamingComponent); ok {
 		return n.Naming()
 	}
-	t := reflect.TypeOf(c)
-	//if t.Kind() == reflect.Ptr {
-	//	t = t.Elem()
-	//}
-	return reflectx.TypeId(t)
+	return reflectx.Id(c)
 }
 
 func GetComponentNameByType(c reflect.Type) string {

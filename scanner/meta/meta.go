@@ -15,62 +15,18 @@ import (
 //)
 
 type Meta struct {
-	Name         string
-	Address      string
-	Raw          interface{}
-	Type         reflect.Type
-	Value        reflect.Value
-	Dependencies []*Node
-	Properties   []*Node
-	Produce      []*Meta
-	DependsBy    []*Meta
-}
+	Name      string
+	Address   string
+	Raw       interface{}
+	Type      reflect.Type
+	Value     reflect.Value
+	Produce   []*Meta
+	DependsBy []*Meta
 
-//
-//func NewMeta(c interface{}) *Meta {
-//	if c == nil {
-//		panic("passed nil interface to ioc")
-//	}
-//	t := reflect.TypeOf(c)
-//	v := reflect.ValueOf(c)
-//	return &Meta{
-//		Name:         GetComponentName(v),
-//		Address:      fmt.Sprintf("%p", c),
-//		Raw:          c,
-//		Type:         t,
-//		Value:        v,
-//		Dependencies: scanDependencies(t, v),
-//		Properties:   scanProperties(t, v),
-//		Produce:      scanProduces(t, v),
-//		DependsBy:    nil,
-//	}
-//}
-//
-//func scanDependencies(t reflect.Type, v reflect.Value) []*Node {
-//	wireInjector := scanner.New(InjectTag)
-//	return wireInjector.ScanNodes(t, v)
-//}
-//
-//func scanProduces(t reflect.Type, v reflect.Value) []*Meta {
-//	productInjector := scanner.New(ProduceTag)
-//	return lo.Map(productInjector.ScanNodes(t, v), func(item *Node, _ int) *Meta {
-//		v := reflectx.New(item.Type)
-//		reflectx.Set(item.Value, v)
-//		p := NewMeta(item.Value.Interface())
-//		return p
-//	})
-//}
-//
-//func scanProperties(t reflect.Type, v reflect.Value) []*Node {
-//	propInjector := scanner.New(PropTag)
-//	propInjector.ExtendTag = func(field reflect.StructField, value reflect.Value) (string, bool) {
-//		if configuration, ok := value.Interface().(defination.Configuration); ok {
-//			return configuration.Prefix(), true
-//		}
-//		return "", false
-//	}
-//	return propInjector.ScanNodes(t, v)
-//}
+	Dependencies    []*Node
+	Properties      []*Node
+	CustomizedField map[string][]*Node
+}
 
 func (m *Meta) ID() string {
 	return fmt.Sprintf("%s(%s#%s)", m.Name, m.Type, m.Address)

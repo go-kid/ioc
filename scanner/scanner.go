@@ -9,33 +9,35 @@ import (
 	"reflect"
 )
 
-type Scanner struct {
+type scanner struct {
+	tags []string
 }
 
-func New() *Scanner {
-	return &Scanner{}
+func New(tags ...string) Scanner {
+	return &scanner{tags: tags}
 }
 
-func (s *Scanner) ScanComponent(c any) *meta.Meta {
+func (s *scanner) ScanComponent(c any) *meta.Meta {
 	if c == nil {
 		panic("passed nil interface to ioc")
 	}
 	return s.newMeta(c)
 }
 
-func (s *Scanner) newMeta(c any) *meta.Meta {
+func (s *scanner) newMeta(c any) *meta.Meta {
 	t := reflect.TypeOf(c)
 	v := reflect.ValueOf(c)
 	return &meta.Meta{
-		Name:         meta.GetComponentName(v),
-		Address:      fmt.Sprintf("%p", c),
-		Raw:          c,
-		Type:         t,
-		Value:        v,
-		Dependencies: s.scanDependencies(t, v),
-		Properties:   s.scanProperties(t, v),
-		Produce:      s.scanProduces(t, v),
-		DependsBy:    nil,
+		Name:            meta.GetComponentName(v),
+		Address:         fmt.Sprintf("%p", c),
+		Raw:             c,
+		Type:            t,
+		Value:           v,
+		Dependencies:    s.scanDependencies(t, v),
+		Properties:      s.scanProperties(t, v),
+		Produce:         s.scanProduces(t, v),
+		DependsBy:       nil,
+		CustomizedField: s.scanCustomizedField(t, v),
 	}
 }
 
@@ -45,11 +47,11 @@ const (
 	PropTag    = "prop"
 )
 
-func (s *Scanner) scanDependencies(t reflect.Type, v reflect.Value) []*meta.Node {
+func (s *scanner) scanDependencies(t reflect.Type, v reflect.Value) []*meta.Node {
 	return s.ScanNodes(InjectTag, t, v)
 }
 
-func (s *Scanner) scanProduces(t reflect.Type, v reflect.Value) []*meta.Meta {
+func (s *scanner) scanProduces(t reflect.Type, v reflect.Value) []*meta.Meta {
 	return lo.Map(s.ScanNodes(ProduceTag, t, v), func(item *meta.Node, _ int) *meta.Meta {
 		v := reflectx.New(item.Type)
 		reflectx.Set(item.Value, v)
@@ -58,7 +60,7 @@ func (s *Scanner) scanProduces(t reflect.Type, v reflect.Value) []*meta.Meta {
 	})
 }
 
-func (s *Scanner) scanProperties(t reflect.Type, v reflect.Value) []*meta.Node {
+func (s *scanner) scanProperties(t reflect.Type, v reflect.Value) []*meta.Node {
 	configureHandler := func(field reflect.StructField, value reflect.Value) (string, bool) {
 		if configuration, ok := value.Interface().(defination.Configuration); ok {
 			return configuration.Prefix(), true
@@ -68,19 +70,29 @@ func (s *Scanner) scanProperties(t reflect.Type, v reflect.Value) []*meta.Node {
 	return s.ScanNodes(PropTag, t, v, configureHandler)
 }
 
+func (s *scanner) scanCustomizedField(t reflect.Type, v reflect.Value) map[string][]*meta.Node {
+	var m = make(map[string][]*meta.Node)
+	for _, tag := range s.tags {
+		m[tag] = s.ScanNodes(tag, t, v)
+	}
+	return m
+}
+
 type ExtTagHandler func(field reflect.StructField, value reflect.Value) (string, bool)
 
-func (s *Scanner) ScanNodes(tag string, t reflect.Type, v reflect.Value, handlers ...ExtTagHandler) []*meta.Node {
+func (s *scanner) ScanNodes(tag string, t reflect.Type, v reflect.Value, handlers ...ExtTagHandler) []*meta.Node {
 	var nodes []*meta.Node
 	_ = reflectx.ForEachFieldV2(t, v, true, func(field reflect.StructField, value reflect.Value) error {
 		//find tag in struct field tag
-		if tagVal, ok := field.Tag.Lookup(tag); ok {
-			nodes = append(nodes, &meta.Node{
-				Tag:   tagVal,
-				Type:  field.Type,
-				Value: value,
-			})
-			return nil
+		if tag != "" {
+			if tagVal, ok := field.Tag.Lookup(tag); ok {
+				nodes = append(nodes, &meta.Node{
+					Tag:   tagVal,
+					Type:  field.Type,
+					Value: value,
+				})
+				return nil
+			}
 		}
 		//if is embed struct, find inside
 		if field.Anonymous && field.Type.Kind() == reflect.Struct {

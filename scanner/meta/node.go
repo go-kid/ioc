@@ -19,9 +19,15 @@ func (n *Node) Id() string {
 	return GetComponentName(n.Value)
 }
 
-func GetComponentName(t reflect.Value) string {
-	if n, ok := t.Interface().(defination.NamingComponent); ok {
-		return n.Naming()
+func GetComponentName(t any) string {
+	switch t.(type) {
+	case reflect.Value:
+		c := t.(reflect.Value).Interface()
+		if n, ok := c.(defination.NamingComponent); ok {
+			return n.Naming()
+		}
+		return reflectx.Id(c)
+	default:
+		return reflectx.Id(t)
 	}
-	return reflectx.Id(t.Interface())
 }

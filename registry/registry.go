@@ -3,7 +3,8 @@ package registry
 import (
 	"fmt"
 	"github.com/go-kid/ioc/injector"
-	"github.com/go-kid/ioc/meta"
+	"github.com/go-kid/ioc/scanner"
+	"github.com/go-kid/ioc/scanner/meta"
 	"github.com/go-kid/ioc/util/list"
 	"github.com/go-kid/ioc/util/reflectx"
 	"github.com/modern-go/concurrent"
@@ -45,6 +46,8 @@ func (r *registry) Register(cs ...interface{}) {
 	}
 }
 
+var _scanner = scanner.New()
+
 func (r *registry) register(c interface{}) {
 	if c == nil {
 		panic("a nil value is passing to register")
@@ -54,7 +57,7 @@ func (r *registry) register(c interface{}) {
 	case *meta.Meta:
 		m = c.(*meta.Meta)
 	default:
-		m = meta.NewMeta(c)
+		m = _scanner.ScanComponent(c)
 	}
 	if a, ok := r.components.Load(m.Name); ok {
 		ec := a.(*meta.Meta)

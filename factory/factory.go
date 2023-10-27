@@ -3,8 +3,8 @@ package factory
 import (
 	"fmt"
 	"github.com/go-kid/ioc/injector"
-	"github.com/go-kid/ioc/meta"
 	"github.com/go-kid/ioc/registry"
+	"github.com/go-kid/ioc/scanner/meta"
 	"reflect"
 )
 
@@ -41,7 +41,7 @@ func (f *DefaultFactory) Initialize(r registry.Registry, m *meta.Meta) error {
 		case reflect.Slice:
 			for i := 0; i < dependency.Value.Len(); i++ {
 				elem := dependency.Value.Index(i)
-				name := injector.GetComponentName(elem)
+				name := meta.GetComponentName(elem)
 				dm := r.GetComponentByName(name)
 				if dm == nil {
 					return fmt.Errorf("component %s not found", dependency.Id())

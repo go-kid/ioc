@@ -3,7 +3,7 @@ package registry
 import (
 	"github.com/go-kid/ioc/defination"
 	"github.com/go-kid/ioc/injector"
-	"github.com/go-kid/ioc/meta"
+	"github.com/go-kid/ioc/scanner/meta"
 	"github.com/samber/lo"
 	"reflect"
 )

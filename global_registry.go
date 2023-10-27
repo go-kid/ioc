@@ -1,8 +1,8 @@
 package ioc
 
 import (
-	"github.com/go-kid/ioc/meta"
 	"github.com/go-kid/ioc/registry"
+	"github.com/go-kid/ioc/scanner/meta"
 	"reflect"
 )
 

@@ -1,4 +1,4 @@
-package injector
+package meta
 
 import (
 	"github.com/go-kid/ioc/defination"

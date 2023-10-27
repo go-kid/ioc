@@ -1,7 +1,7 @@
 package configure
 
 import (
-	"github.com/go-kid/ioc/injector"
+	"github.com/go-kid/ioc/scanner/meta"
 )
 
 type Loader interface {
@@ -10,5 +10,5 @@ type Loader interface {
 
 type Binder interface {
 	SetConfig(c []byte) error
-	PropInject(properties []*injector.Node) error
+	PropInject(properties []*meta.Node) error
 }

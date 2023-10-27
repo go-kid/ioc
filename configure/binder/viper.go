@@ -2,7 +2,7 @@ package binder
 
 import (
 	"bytes"
-	"github.com/go-kid/ioc/injector"
+	"github.com/go-kid/ioc/scanner/meta"
 	"github.com/spf13/viper"
 	"reflect"
 )
@@ -31,7 +31,7 @@ func (d *ViperBinder) SetConfig(c []byte) error {
 	return nil
 }
 
-func (d *ViperBinder) PropInject(properties []*injector.Node) error {
+func (d *ViperBinder) PropInject(properties []*meta.Node) error {
 	unmarshall := func(key string, a interface{}) error {
 		if key == "" {
 			return d.v.Unmarshal(a)

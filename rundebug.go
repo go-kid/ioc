@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"github.com/awalterschulze/gographviz"
 	. "github.com/go-kid/ioc/app"
-	"github.com/go-kid/ioc/meta"
 	"github.com/go-kid/ioc/registry"
+	"github.com/go-kid/ioc/scanner/meta"
 	"sort"
 )
 

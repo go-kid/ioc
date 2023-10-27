@@ -1,14 +1,14 @@
 package configure
 
 import (
-	"github.com/go-kid/ioc/meta"
+	"github.com/go-kid/ioc/defination"
 )
 
 type ConfigLoader interface {
-	LoadConfig(u string) (any, error)
+	LoadConfig(u string) ([]byte, error)
 }
 
 type ConfigBinder interface {
-	SetConfig(c any) error
-	PropInject(m *meta.Meta) error
+	SetConfig(c []byte) error
+	PropInject(properties []*defination.Node) error
 }

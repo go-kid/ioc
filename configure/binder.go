@@ -1,33 +1,44 @@
 package configure
 
 import (
-	"fmt"
-	"github.com/go-kid/ioc/meta"
+	"bytes"
+	"github.com/go-kid/ioc/defination"
 	"github.com/spf13/viper"
 	"reflect"
 )
 
-type DefaultBinder struct {
-	v *viper.Viper
+type ViperBinder struct {
+	ct string
+	v  *viper.Viper
 }
 
-func (d *DefaultBinder) SetConfig(c any) error {
-	v, ok := c.(*viper.Viper)
-	if !ok {
-		return fmt.Errorf("cfg is not *viper.Viper")
+func NewViperBinder(configType string) *ViperBinder {
+	if configType == "" {
+		configType = "yaml"
 	}
-	d.v = v
+	return &ViperBinder{
+		ct: configType,
+		v:  viper.New(),
+	}
+}
+
+func (d *ViperBinder) SetConfig(c []byte) error {
+	d.v.SetConfigType(d.ct)
+	err := d.v.ReadConfig(bytes.NewBuffer(c))
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
-func (d *DefaultBinder) PropInject(m *meta.Meta) error {
+func (d *ViperBinder) PropInject(properties []*defination.Node) error {
 	unmarshall := func(key string, a interface{}) error {
 		if key == "" {
 			return d.v.Unmarshal(a)
 		}
 		return d.v.UnmarshalKey(key, a)
 	}
-	for _, prop := range m.Properties {
+	for _, prop := range properties {
 		var fieldType = prop.Type
 		var isPtrType = false
 		if fieldType.Kind() == reflect.Ptr {
@@ -35,7 +46,7 @@ func (d *DefaultBinder) PropInject(m *meta.Meta) error {
 			isPtrType = true
 		}
 		var val = reflect.New(fieldType)
-		err := unmarshall(prop.Prefix, val.Interface())
+		err := unmarshall(prop.Tag, val.Interface())
 		if err != nil {
 			return err
 		}
@@ -50,10 +61,10 @@ func (d *DefaultBinder) PropInject(m *meta.Meta) error {
 
 type NopBinder struct{}
 
-func (n *NopBinder) SetConfig(c any) error {
+func (n *NopBinder) SetConfig(c []byte) error {
 	return nil
 }
 
-func (n *NopBinder) PropInject(m *meta.Meta) error {
+func (n *NopBinder) PropInject(properties []*defination.Node) error {
 	return nil
 }

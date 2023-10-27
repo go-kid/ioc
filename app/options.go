@@ -43,7 +43,7 @@ func SetConfigure(loader configure.ConfigLoader, binder configure.ConfigBinder) 
 func SetDefaultConfigure() SettingOption {
 	return func(s *App) {
 		s.ConfigLoader = &configure.DefaultLoader{}
-		s.ConfigBinder = &configure.DefaultBinder{}
+		s.ConfigBinder = configure.NewViperBinder("")
 	}
 }
 

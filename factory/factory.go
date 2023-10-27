@@ -10,7 +10,6 @@ import (
 )
 
 type Factory interface {
-	SetIfNilPreFunc(fn MetaFunc)
 	SetIfNilPostInitFunc(fn MetaFunc)
 	Initialize(r registry.Registry, m *meta.Meta) error
 }
@@ -18,14 +17,7 @@ type Factory interface {
 type MetaFunc func(m *meta.Meta) error
 
 type DefaultFactory struct {
-	preFunc      MetaFunc
 	postInitFunc MetaFunc
-}
-
-func (f *DefaultFactory) SetIfNilPreFunc(fn MetaFunc) {
-	if f.preFunc == nil {
-		f.preFunc = fn
-	}
 }
 
 func (f *DefaultFactory) SetIfNilPostInitFunc(fn MetaFunc) {
@@ -39,14 +31,7 @@ func (f *DefaultFactory) Initialize(r registry.Registry, m *meta.Meta) error {
 		return nil
 	}
 
-	if f.preFunc != nil {
-		err := f.preFunc(m)
-		if err != nil {
-			return err
-		}
-	}
-
-	err := injector.DependencyInject(r, m)
+	err := injector.DependencyInject(&registryInjector{r}, m.ID(), m.Dependencies)
 	if err != nil {
 		return err
 	}
@@ -57,10 +42,11 @@ func (f *DefaultFactory) Initialize(r registry.Registry, m *meta.Meta) error {
 		case reflect.Slice:
 			for i := 0; i < dependency.Value.Len(); i++ {
 				elem := dependency.Value.Index(i)
+				//name := defination.GetComponentName(elem.Type())
 				name := defination.GetComponentName(elem.Interface())
 				dm := r.GetComponentByName(name)
 				if dm == nil {
-					return fmt.Errorf("component %s not found", dependency.Name())
+					return fmt.Errorf("component %s not found", dependency.Id())
 				}
 				dm.DependBy(m)
 				err := f.Initialize(r, dm)
@@ -69,9 +55,9 @@ func (f *DefaultFactory) Initialize(r registry.Registry, m *meta.Meta) error {
 				}
 			}
 		default:
-			dm := r.GetComponentByName(dependency.Name())
+			dm := r.GetComponentByName(dependency.Id())
 			if dm == nil {
-				return fmt.Errorf("component %s not found", dependency.Name())
+				return fmt.Errorf("component %s not found", dependency.Id())
 			}
 			dm.DependBy(m)
 			err := f.Initialize(r, dm)

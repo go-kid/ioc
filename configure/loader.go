@@ -1,29 +1,21 @@
 package configure
 
 import (
-	"bytes"
-	"github.com/spf13/viper"
 	"os"
 )
 
 type DefaultLoader struct{}
 
-func (c *DefaultLoader) LoadConfig(u string) (any, error) {
-	v := viper.New()
-	v.AddConfigPath(u)
-	v.SetConfigType("yaml")
-	data, err := os.ReadFile(u)
-	if err != nil {
-		return nil, err
-	}
-
-	err = v.ReadConfig(bytes.NewBuffer(data))
-	if err != nil {
-		return nil, err
-	}
-	return v, nil
+func (c *DefaultLoader) LoadConfig(u string) ([]byte, error) {
+	return os.ReadFile(u)
 }
 
 type NopLoader struct{}
 
-func (n *NopLoader) LoadConfig(u string) (any, error) { return nil, nil }
+func (n *NopLoader) LoadConfig(u string) ([]byte, error) { return nil, nil }
+
+type RawLoader struct{}
+
+func (r *RawLoader) LoadConfig(u string) ([]byte, error) {
+	return []byte(u), nil
+}

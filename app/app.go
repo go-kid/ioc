@@ -23,7 +23,15 @@ type App struct {
 }
 
 func NewApp(ops ...SettingOption) *App {
-	var s = &App{}
+	var s = &App{
+		ConfigLoader:    &configure.NopLoader{},
+		ConfigBinder:    &configure.NopBinder{},
+		Registry:        nil,
+		Factory:         &factory.DefaultFactory{},
+		configPath:      "",
+		postProcessors:  nil,
+		callRunnersFunc: nil,
+	}
 	for _, op := range ops {
 		op(s)
 	}
@@ -35,58 +43,28 @@ func (s *App) Run() error {
 	if s.Registry == nil {
 		return fmt.Errorf("no registry")
 	}
+	s.initProduceComponents()
 	//init configure
-	if s.ConfigLoader == nil {
-		s.ConfigLoader = &configure.NopLoader{}
-	}
-	if s.ConfigBinder == nil {
-		s.ConfigBinder = &configure.NopBinder{}
-	}
-	if s.configPath != "" {
-		c, err := s.ConfigLoader.LoadConfig(s.configPath)
-		if err != nil {
-			return fmt.Errorf("load config failed: %v", err)
-		}
-		err = s.ConfigBinder.SetConfig(c)
-		if err != nil {
-			return fmt.Errorf("init config failed: %v", err)
-		}
+	if err := s.initConfig(); err != nil {
+		return err
 	}
 	//init factory
-	if s.Factory == nil {
-		s.Factory = &factory.DefaultFactory{}
-	}
-	if s.Factory != nil {
-		s.Factory.SetIfNilPreFunc(s.ConfigBinder.PropInject)
-		s.Factory.SetIfNilPostInitFunc(s.defaultPostInitFunc)
-	}
+	s.SetIfNilPostInitFunc(s.defaultPostInitFunc)
 
-	s.initProduceComponents()
 	s.initComponentPostProcessors()
 
-	components := s.Registry.GetComponents()
-	sort.Slice(components, func(i, j int) bool {
-		if len(components[i].DependsBy) != len(components[j].DependsBy) {
-			return len(components[i].DependsBy) < len(components[j].DependsBy)
-		}
-		return len(components[i].Dependencies) < len(components[j].Dependencies)
-	})
-	for _, m := range components {
-		err := s.Factory.Initialize(s.Registry, m)
-		if err != nil {
-			return fmt.Errorf("initialize failed: %v", err)
-		}
+	if err := s.wire(); err != nil {
+		return err
 	}
 
-	err := s.callRunners()
-	if err != nil {
+	if err := s.callRunners(); err != nil {
 		return fmt.Errorf("runners failed: %v", err)
 	}
 	return nil
 }
 
 func (s *App) initProduceComponents() {
-	metas := s.Registry.GetComponents()
+	metas := s.GetComponents()
 	produces := lo.FlatMap[*meta.Meta, *meta.Meta](metas, func(item *meta.Meta, _ int) []*meta.Meta {
 		return item.Produce
 	})
@@ -95,17 +73,52 @@ func (s *App) initProduceComponents() {
 	})
 }
 
+func (s *App) initConfig() error {
+	if s.configPath == "" {
+		return nil
+	}
+	c, err := s.LoadConfig(s.configPath)
+	if err != nil {
+		return fmt.Errorf("load config failed: %v", err)
+	}
+	err = s.SetConfig(c)
+	if err != nil {
+		return fmt.Errorf("init config failed: %v", err)
+	}
+	metas := s.GetComponents()
+	for _, m := range metas {
+		err = s.PropInject(m.Properties)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *App) initComponentPostProcessors() {
-	metas := s.Registry.GetBeansByInterface(new(defination.ComponentPostProcessor))
+	metas := s.GetBeansByInterface(new(defination.ComponentPostProcessor))
 	s.postProcessors = make([]defination.ComponentPostProcessor, 0, len(metas))
 	for _, m := range metas {
-		err := s.ConfigBinder.PropInject(m)
-		if err != nil {
-			panic(fmt.Errorf("init post processor %s error: %v", m.ID(), err))
-		}
 		s.postProcessors = append(s.postProcessors, m.Raw.(defination.ComponentPostProcessor))
-		s.Registry.RemoveComponents(m.Name)
+		s.RemoveComponents(m.Name)
 	}
+}
+
+func (s *App) wire() error {
+	components := s.GetComponents()
+	sort.Slice(components, func(i, j int) bool {
+		if len(components[i].DependsBy) != len(components[j].DependsBy) {
+			return len(components[i].DependsBy) < len(components[j].DependsBy)
+		}
+		return len(components[i].Dependencies) < len(components[j].Dependencies)
+	})
+	for _, m := range components {
+		err := s.Initialize(s, m)
+		if err != nil {
+			return fmt.Errorf("initialize failed: %v", err)
+		}
+	}
+	return nil
 }
 
 func (s *App) defaultPostInitFunc(m *meta.Meta) error {
@@ -137,11 +150,10 @@ func (s *App) defaultPostInitFunc(m *meta.Meta) error {
 }
 
 func (s *App) callRunners() error {
-	metas := s.Registry.GetBeansByInterface(new(defination.ApplicationRunner))
-	var runners []defination.ApplicationRunner
-	for i := range metas {
-		runners = append(runners, metas[i].Raw.(defination.ApplicationRunner))
-	}
+	metas := s.GetBeansByInterface(new(defination.ApplicationRunner))
+	var runners = lo.Map(metas, func(item *meta.Meta, _ int) defination.ApplicationRunner {
+		return item.Raw.(defination.ApplicationRunner)
+	})
 	sort.Slice(runners, func(i, j int) bool {
 		return runners[i].Order() < runners[j].Order()
 	})

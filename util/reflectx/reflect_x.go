@@ -58,6 +58,10 @@ func Set(dst, src reflect.Value) {
 	}
 }
 
+func Id(c any) string {
+	return TypeId(reflect.TypeOf(c))
+}
+
 func TypeId(p reflect.Type) string {
 	if p.Kind() == reflect.Pointer {
 		p = p.Elem()

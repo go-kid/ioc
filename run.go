@@ -7,7 +7,6 @@ import (
 func Run(ops ...SettingOption) error {
 	s := NewApp(append([]SettingOption{
 		SetRegistry(_registry),
-		SetDefaultConfigure(),
 	}, ops...)...)
 	return s.Run()
 }

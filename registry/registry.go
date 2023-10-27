@@ -2,6 +2,7 @@ package registry
 
 import (
 	"fmt"
+	"github.com/go-kid/ioc/injector"
 	"github.com/go-kid/ioc/meta"
 	"github.com/go-kid/ioc/util/list"
 	"github.com/go-kid/ioc/util/reflectx"
@@ -23,6 +24,7 @@ type Registry interface {
 	RemoveComponents(name string)
 	ComponentInited(name string)
 	IsComponentInited(name string) bool
+	Injector() injector.Injector
 }
 
 type registry struct {
@@ -104,4 +106,8 @@ func (r *registry) IsComponentInited(name string) bool {
 
 func (r *registry) ComponentInited(name string) {
 	r.initedComponents.Put(name)
+}
+
+func (r *registry) Injector() injector.Injector {
+	return newRegistryInjector(r)
 }

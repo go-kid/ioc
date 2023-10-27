@@ -1,8 +1,11 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"github.com/go-kid/ioc/configure"
+	"github.com/go-kid/ioc/configure/binder"
+	"github.com/go-kid/ioc/configure/loader"
 	"github.com/go-kid/ioc/defination"
 	"github.com/go-kid/ioc/factory"
 	"github.com/go-kid/ioc/meta"
@@ -13,24 +16,24 @@ import (
 )
 
 type App struct {
-	configure.ConfigLoader
-	configure.ConfigBinder
+	configure.Loader
+	configure.Binder
 	registry.Registry
 	factory.Factory
-	configPath      string
-	postProcessors  []defination.ComponentPostProcessor
-	callRunnersFunc func(runners []defination.ApplicationRunner) error
+	configPath              string
+	postProcessors          []defination.ComponentPostProcessor
+	enableApplicationRunner bool
 }
 
 func NewApp(ops ...SettingOption) *App {
 	var s = &App{
-		ConfigLoader:    &configure.NopLoader{},
-		ConfigBinder:    &configure.NopBinder{},
-		Registry:        nil,
-		Factory:         &factory.DefaultFactory{},
-		configPath:      "",
-		postProcessors:  nil,
-		callRunnersFunc: nil,
+		Loader:                  &loader.FileLoader{},          //default use file loader
+		Binder:                  binder.NewViperBinder("yaml"), //default use viper binder and 'yaml' config type
+		Registry:                nil,
+		Factory:                 &factory.DefaultFactory{},
+		configPath:              "",
+		postProcessors:          nil,
+		enableApplicationRunner: true,
 	}
 	for _, op := range ops {
 		op(s)
@@ -77,11 +80,17 @@ func (s *App) initConfig() error {
 	if s.configPath == "" {
 		return nil
 	}
-	c, err := s.LoadConfig(s.configPath)
+	if s.Loader == nil {
+		return errors.New("config loader not available")
+	}
+	if s.Binder == nil {
+		return errors.New("config binder not available")
+	}
+	c, err := s.Loader.LoadConfig(s.configPath)
 	if err != nil {
 		return fmt.Errorf("load config failed: %v", err)
 	}
-	err = s.SetConfig(c)
+	err = s.Binder.SetConfig(c)
 	if err != nil {
 		return fmt.Errorf("init config failed: %v", err)
 	}
@@ -150,6 +159,9 @@ func (s *App) defaultPostInitFunc(m *meta.Meta) error {
 }
 
 func (s *App) callRunners() error {
+	if !s.enableApplicationRunner {
+		return nil
+	}
 	metas := s.GetBeansByInterface(new(defination.ApplicationRunner))
 	var runners = lo.Map(metas, func(item *meta.Meta, _ int) defination.ApplicationRunner {
 		return item.Raw.(defination.ApplicationRunner)
@@ -157,16 +169,11 @@ func (s *App) callRunners() error {
 	sort.Slice(runners, func(i, j int) bool {
 		return runners[i].Order() < runners[j].Order()
 	})
-	if s.callRunnersFunc == nil {
-		s.callRunnersFunc = func(runners []defination.ApplicationRunner) error {
-			for i := range runners {
-				err := runners[i].Run()
-				if err != nil {
-					return err
-				}
-			}
-			return nil
+	for i := range runners {
+		err := runners[i].Run()
+		if err != nil {
+			return err
 		}
 	}
-	return s.callRunnersFunc(runners)
+	return nil
 }

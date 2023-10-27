@@ -2,7 +2,8 @@ package ioc
 
 import (
 	. "github.com/go-kid/ioc/app"
-	"github.com/go-kid/ioc/configure"
+	"github.com/go-kid/ioc/configure/binder"
+	"github.com/go-kid/ioc/configure/loader"
 	"github.com/go-kid/ioc/defination"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -206,7 +207,9 @@ a:
  d:
    d1: "abc"
    d2: 123`
-		RunTest(t, SetComponents(app), SetConfig(_tConfig), SetConfigure(&configure.RawLoader{}, configure.NewViperBinder("yaml")))
+		RunTest(t, SetComponents(app),
+			SetConfig(_tConfig),
+			SetConfigLoader(&loader.RawLoader{}))
 		assert.Equal(t, 123, app.A.B)
 		assert.Equal(t, []int{1, 2, 3, 4}, app.A.C)
 		assert.Equal(t, "abc", app.D.D1)
@@ -217,7 +220,10 @@ a:
 	t.Run("TestJson", func(t *testing.T) {
 		var app = &configApp{}
 		var _tConfig = `{"a": {"b": 123, "c": [1,2,3,4], "d": {"d1": "abc", "d2": 123}}}`
-		RunTest(t, SetComponents(app), SetConfig(_tConfig), SetConfigure(&configure.RawLoader{}, configure.NewViperBinder("json")))
+		RunTest(t, SetComponents(app),
+			SetConfig(_tConfig),
+			SetConfigLoader(&loader.RawLoader{}),
+			SetConfigBinder(binder.NewViperBinder("json")))
 		assert.Equal(t, 123, app.A.B)
 		assert.Equal(t, []int{1, 2, 3, 4}, app.A.C)
 		assert.Equal(t, "abc", app.D.D1)

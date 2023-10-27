@@ -2,7 +2,6 @@ package factory
 
 import (
 	"fmt"
-	"github.com/go-kid/ioc/defination"
 	"github.com/go-kid/ioc/injector"
 	"github.com/go-kid/ioc/meta"
 	"github.com/go-kid/ioc/registry"
@@ -31,7 +30,7 @@ func (f *DefaultFactory) Initialize(r registry.Registry, m *meta.Meta) error {
 		return nil
 	}
 
-	err := injector.DependencyInject(&registryInjector{r}, m.ID(), m.Dependencies)
+	err := injector.DependencyInject(r.Injector(), m.ID(), m.Dependencies)
 	if err != nil {
 		return err
 	}
@@ -42,8 +41,7 @@ func (f *DefaultFactory) Initialize(r registry.Registry, m *meta.Meta) error {
 		case reflect.Slice:
 			for i := 0; i < dependency.Value.Len(); i++ {
 				elem := dependency.Value.Index(i)
-				//name := defination.GetComponentName(elem.Type())
-				name := defination.GetComponentName(elem.Interface())
+				name := injector.GetComponentName(elem)
 				dm := r.GetComponentByName(name)
 				if dm == nil {
 					return fmt.Errorf("component %s not found", dependency.Id())

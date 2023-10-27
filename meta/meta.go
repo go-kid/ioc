@@ -3,6 +3,7 @@ package meta
 import (
 	"fmt"
 	"github.com/go-kid/ioc/defination"
+	"github.com/go-kid/ioc/injector"
 	"github.com/go-kid/ioc/scanner"
 	"github.com/go-kid/ioc/util/reflectx"
 	"github.com/samber/lo"
@@ -22,8 +23,8 @@ type Meta struct {
 	Raw          interface{}
 	Type         reflect.Type
 	Value        reflect.Value
-	Dependencies []*defination.Node
-	Properties   []*defination.Node
+	Dependencies []*injector.Node
+	Properties   []*injector.Node
 	Produce      []*Meta
 	DependsBy    []*Meta
 }
@@ -35,8 +36,7 @@ func NewMeta(c interface{}) *Meta {
 	t := reflect.TypeOf(c)
 	v := reflect.ValueOf(c)
 	return &Meta{
-		Name: defination.GetComponentName(c),
-		//Name:         defination.GetComponentName(t),
+		Name:         injector.GetComponentName(v),
 		Address:      fmt.Sprintf("%p", c),
 		Raw:          c,
 		Type:         t,
@@ -48,15 +48,14 @@ func NewMeta(c interface{}) *Meta {
 	}
 }
 
-func scanDependencies(t reflect.Type, v reflect.Value) []*defination.Node {
+func scanDependencies(t reflect.Type, v reflect.Value) []*injector.Node {
 	wireInjector := scanner.New(InjectTag)
-	nodes := wireInjector.ScanNodes(t, v)
-	return nodes
+	return wireInjector.ScanNodes(t, v)
 }
 
 func scanProduces(t reflect.Type, v reflect.Value) []*Meta {
 	productInjector := scanner.New(ProduceTag)
-	return lo.Map(productInjector.ScanNodes(t, v), func(item *defination.Node, _ int) *Meta {
+	return lo.Map(productInjector.ScanNodes(t, v), func(item *injector.Node, _ int) *Meta {
 		v := reflectx.New(item.Type)
 		reflectx.Set(item.Value, v)
 		p := NewMeta(item.Value.Interface())
@@ -64,7 +63,7 @@ func scanProduces(t reflect.Type, v reflect.Value) []*Meta {
 	})
 }
 
-func scanProperties(t reflect.Type, v reflect.Value) []*defination.Node {
+func scanProperties(t reflect.Type, v reflect.Value) []*injector.Node {
 	propInjector := scanner.New(PropTag)
 	propInjector.ExtendTag = func(field reflect.StructField, value reflect.Value) (string, bool) {
 		if configuration, ok := value.Interface().(defination.Configuration); ok {
@@ -92,7 +91,7 @@ func (m *Meta) DotNodeAttr() map[string]string {
 	var label = []*kv{
 		{k: "", v: m.Name},
 		{k: "Type", v: m.Type.String()},
-		{k: "Props", v: strings.Join(lo.Map[*defination.Node, string](m.Properties, func(p *defination.Node, _ int) string {
+		{k: "Props", v: strings.Join(lo.Map[*injector.Node, string](m.Properties, func(p *injector.Node, _ int) string {
 			return p.Tag
 		}), ", ")},
 	}

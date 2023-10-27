@@ -1,8 +1,8 @@
-package configure
+package binder
 
 import (
 	"bytes"
-	"github.com/go-kid/ioc/defination"
+	"github.com/go-kid/ioc/injector"
 	"github.com/spf13/viper"
 	"reflect"
 )
@@ -31,7 +31,7 @@ func (d *ViperBinder) SetConfig(c []byte) error {
 	return nil
 }
 
-func (d *ViperBinder) PropInject(properties []*defination.Node) error {
+func (d *ViperBinder) PropInject(properties []*injector.Node) error {
 	unmarshall := func(key string, a interface{}) error {
 		if key == "" {
 			return d.v.Unmarshal(a)
@@ -56,15 +56,5 @@ func (d *ViperBinder) PropInject(properties []*defination.Node) error {
 			prop.Value.Set(val.Elem())
 		}
 	}
-	return nil
-}
-
-type NopBinder struct{}
-
-func (n *NopBinder) SetConfig(c []byte) error {
-	return nil
-}
-
-func (n *NopBinder) PropInject(properties []*defination.Node) error {
 	return nil
 }

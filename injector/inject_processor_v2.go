@@ -2,21 +2,14 @@ package injector
 
 import (
 	"fmt"
-	"github.com/go-kid/ioc/defination"
 	"github.com/go-kid/ioc/util/list"
 	"log"
 	"reflect"
 )
 
-type Injector interface {
-	GetByName(name string) (reflect.Value, bool)
-	GetOneByInterfaceType(typ reflect.Type) (reflect.Value, bool)
-	GetsByInterfaceType(typ reflect.Type) []reflect.Value
-}
-
 type injectProcessor interface {
-	Filter(d *defination.Node) bool
-	Inject(r Injector, d *defination.Node) error
+	Filter(d *Node) bool
+	Inject(r Injector, d *Node) error
 }
 
 var injectors = []injectProcessor{
@@ -26,7 +19,7 @@ var injectors = []injectProcessor{
 	new(unSpecifyInterfaceSliceInjector),
 }
 
-func DependencyInject(r Injector, id string, dependencies []*defination.Node) error {
+func DependencyInject(r Injector, id string, dependencies []*Node) error {
 	for _, dependency := range dependencies {
 		err := injectDependency(r, id, dependency)
 		if err != nil {
@@ -41,7 +34,7 @@ const diErrOutput = "DI report error by processor: %d\n" +
 	"caused field: %s\n" +
 	"caused by: %v\n"
 
-func injectDependency(r Injector, metaID string, d *defination.Node) error {
+func injectDependency(r Injector, metaID string, d *Node) error {
 	i, find := list.NewList(injectors).FindBy(func(i int) bool {
 		return injectors[i].Filter(d)
 	})
@@ -69,12 +62,12 @@ func injectDependency(r Injector, metaID string, d *defination.Node) error {
 */
 type specifyInjector struct{}
 
-func (b *specifyInjector) Filter(d *defination.Node) bool {
+func (b *specifyInjector) Filter(d *Node) bool {
 	return d.Tag != "" && //ruleTagNotEmpty
 		(d.Type.Kind() == reflect.Ptr || d.Type.Kind() == reflect.Interface)
 }
 
-func (b *specifyInjector) Inject(r Injector, d *defination.Node) error {
+func (b *specifyInjector) Inject(r Injector, d *Node) error {
 	dm, ok := r.GetByName(d.Tag)
 	if !ok {
 		return fmt.Errorf("no instance found for specify name: %s", d.Tag)
@@ -92,12 +85,12 @@ func (b *specifyInjector) Inject(r Injector, d *defination.Node) error {
 */
 type unSpecifyPtrInjector struct{}
 
-func (b *unSpecifyPtrInjector) Filter(d *defination.Node) bool {
+func (b *unSpecifyPtrInjector) Filter(d *Node) bool {
 	return d.Tag == "" && //ruleEmptyTag
 		d.Type.Kind() == reflect.Ptr //rulePointer
 }
 
-func (b *unSpecifyPtrInjector) Inject(r Injector, d *defination.Node) error {
+func (b *unSpecifyPtrInjector) Inject(r Injector, d *Node) error {
 	dm, ok := r.GetByName(d.Id())
 	if !ok {
 		return fmt.Errorf("no instance found for pointer type %s", d.Id())
@@ -116,12 +109,12 @@ func (b *unSpecifyPtrInjector) Inject(r Injector, d *defination.Node) error {
 */
 type unSpecifyInterfaceInjector struct{}
 
-func (i *unSpecifyInterfaceInjector) Filter(d *defination.Node) bool {
+func (i *unSpecifyInterfaceInjector) Filter(d *Node) bool {
 	return d.Tag == "" && //ruleEmptyTag
 		d.Type.Kind() == reflect.Interface //ruleInterface
 }
 
-func (i *unSpecifyInterfaceInjector) Inject(r Injector, d *defination.Node) error {
+func (i *unSpecifyInterfaceInjector) Inject(r Injector, d *Node) error {
 	dm, ok := r.GetOneByInterfaceType(d.Type)
 	if !ok {
 		return fmt.Errorf("no instance found implement interface: %s", d.Type.String())
@@ -139,12 +132,12 @@ func (i *unSpecifyInterfaceInjector) Inject(r Injector, d *defination.Node) erro
 */
 type unSpecifyInterfaceSliceInjector struct{}
 
-func (s *unSpecifyInterfaceSliceInjector) Filter(d *defination.Node) bool {
+func (s *unSpecifyInterfaceSliceInjector) Filter(d *Node) bool {
 	return d.Tag == "" && //ruleEmptyTag
 		d.Type.Kind() == reflect.Slice && d.Type.Elem().Kind() == reflect.Interface //ruleSliceInterface
 }
 
-func (s *unSpecifyInterfaceSliceInjector) Inject(r Injector, d *defination.Node) error {
+func (s *unSpecifyInterfaceSliceInjector) Inject(r Injector, d *Node) error {
 	vals := r.GetsByInterfaceType(d.Type.Elem())
 	if len(vals) == 0 {
 		return nil

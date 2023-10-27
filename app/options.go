@@ -2,7 +2,6 @@ package app
 
 import (
 	"github.com/go-kid/ioc/configure"
-	"github.com/go-kid/ioc/defination"
 	"github.com/go-kid/ioc/factory"
 	"github.com/go-kid/ioc/registry"
 )
@@ -33,22 +32,20 @@ func SetFactory(factory factory.Factory) SettingOption {
 	}
 }
 
-func SetConfigure(loader configure.ConfigLoader, binder configure.ConfigBinder) SettingOption {
+func SetConfigLoader(loader configure.Loader) SettingOption {
 	return func(s *App) {
-		s.ConfigLoader = loader
-		s.ConfigBinder = binder
+		s.Loader = loader
 	}
 }
 
-func SetDefaultConfigure() SettingOption {
+func SetConfigBinder(binder configure.Binder) SettingOption {
 	return func(s *App) {
-		s.ConfigLoader = &configure.DefaultLoader{}
-		s.ConfigBinder = configure.NewViperBinder("")
+		s.Binder = binder
 	}
 }
 
-func SetCallRunnersFunc(fn func(runners []defination.ApplicationRunner) error) SettingOption {
+func DisableApplicationRunner() SettingOption {
 	return func(s *App) {
-		s.callRunnersFunc = fn
+		s.enableApplicationRunner = false
 	}
 }

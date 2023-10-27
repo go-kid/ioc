@@ -1,15 +1,19 @@
-package factory
+package registry
 
 import (
 	"github.com/go-kid/ioc/defination"
+	"github.com/go-kid/ioc/injector"
 	"github.com/go-kid/ioc/meta"
-	"github.com/go-kid/ioc/registry"
 	"github.com/samber/lo"
 	"reflect"
 )
 
 type registryInjector struct {
-	registry.Registry
+	Registry
+}
+
+func newRegistryInjector(r Registry) injector.Injector {
+	return &registryInjector{r}
 }
 
 func (r *registryInjector) GetOneByInterfaceType(typ reflect.Type) (reflect.Value, bool) {

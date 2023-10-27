@@ -1,14 +1,14 @@
 package configure
 
 import (
-	"github.com/go-kid/ioc/defination"
+	"github.com/go-kid/ioc/injector"
 )
 
-type ConfigLoader interface {
+type Loader interface {
 	LoadConfig(u string) ([]byte, error)
 }
 
-type ConfigBinder interface {
+type Binder interface {
 	SetConfig(c []byte) error
-	PropInject(properties []*defination.Node) error
+	PropInject(properties []*injector.Node) error
 }

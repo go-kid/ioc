@@ -1,7 +1,7 @@
 package scanner
 
 import (
-	"github.com/go-kid/ioc/defination"
+	"github.com/go-kid/ioc/injector"
 	"github.com/go-kid/ioc/util/reflectx"
 	"reflect"
 )
@@ -17,18 +17,18 @@ func New(tag string) *Scanner {
 	}
 }
 
-func (i *Scanner) ScanNodes(t reflect.Type, v reflect.Value) []*defination.Node {
-	var nodes []*defination.Node
+func (i *Scanner) ScanNodes(t reflect.Type, v reflect.Value) []*injector.Node {
+	var nodes []*injector.Node
 	_ = reflectx.ForEachFieldV2(t, v, true, func(field reflect.StructField, value reflect.Value) error {
 		if tag, ok := field.Tag.Lookup(i.tag); ok {
-			nodes = append(nodes, &defination.Node{
+			nodes = append(nodes, &injector.Node{
 				Tag:   tag,
 				Type:  field.Type,
 				Value: value,
 			})
 		} else if i.ExtendTag != nil {
 			if tag, ok := i.ExtendTag(field, value); ok {
-				nodes = append(nodes, &defination.Node{
+				nodes = append(nodes, &injector.Node{
 					Tag:   tag,
 					Type:  field.Type,
 					Value: value,

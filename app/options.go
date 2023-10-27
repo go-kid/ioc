@@ -4,6 +4,7 @@ import (
 	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/factory"
 	"github.com/go-kid/ioc/registry"
+	"github.com/go-kid/ioc/scanner"
 )
 
 type SettingOption func(s *App)
@@ -47,5 +48,11 @@ func SetConfigBinder(binder configure.Binder) SettingOption {
 func DisableApplicationRunner() SettingOption {
 	return func(s *App) {
 		s.enableApplicationRunner = false
+	}
+}
+
+func SetScanner(sc scanner.Scanner) SettingOption {
+	return func(s *App) {
+		s.Registry.SetScanner(sc)
 	}
 }

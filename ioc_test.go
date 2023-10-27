@@ -168,7 +168,7 @@ type arrImpl struct {
 
 func TestInjectDebug(t *testing.T) {
 	a := &arrImpl{}
-	err := RunDebug(SetComponents(
+	_, err := RunDebug(SetComponents(
 		&aImpl{},
 		&bImpl{},
 		&cImpl{},

@@ -5,13 +5,18 @@ import (
 	"reflect"
 )
 
-func TryCallMethod(b interface{}, methodName string, args ...interface{}) []reflect.Value {
+func TryCallMethod(b interface{}, methodName string, args ...any) []reflect.Value {
 	inputs := make([]reflect.Value, len(args))
 	for i := range args {
 		inputs[i] = reflect.ValueOf(args[i])
 	}
-
-	handleMethod := reflect.ValueOf(b).MethodByName(methodName)
+	var handleMethod reflect.Value
+	switch b.(type) {
+	case reflect.Value:
+		handleMethod = b.(reflect.Value).MethodByName(methodName)
+	default:
+		handleMethod = reflect.ValueOf(b).MethodByName(methodName)
+	}
 	if handleMethod.IsValid() {
 		values := handleMethod.Call(inputs)
 		return values
@@ -19,15 +24,15 @@ func TryCallMethod(b interface{}, methodName string, args ...interface{}) []refl
 	return nil
 }
 
-func IsImplement(instance interface{}, _interface interface{}) bool {
+func IsImplement(instance any, _interface any) bool {
 	return IsTypeImplement(reflect.TypeOf(instance), _interface)
 }
 
-func IsTypeImplement(typ reflect.Type, _interface interface{}) bool {
+func IsTypeImplement(typ reflect.Type, _interface any) bool {
 	return typ.Implements(reflect.TypeOf(_interface).Elem())
 }
 
-func Values2Interfaces(values []reflect.Value) []interface{} {
+func Values2Interfaces(values []reflect.Value) []any {
 	var result []interface{}
 	for i := range values {
 		result = append(result, values[i].Interface())
@@ -35,7 +40,7 @@ func Values2Interfaces(values []reflect.Value) []interface{} {
 	return result
 }
 
-func Interfaces2Values(o []interface{}) []reflect.Value {
+func Interfaces2Values(o []any) []reflect.Value {
 	var values []reflect.Value
 	for i := range o {
 		values = append(values, reflect.ValueOf(o[i]))

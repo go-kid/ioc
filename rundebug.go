@@ -9,11 +9,11 @@ import (
 	"sort"
 )
 
-func RunDebug(ops ...SettingOption) error {
+func RunDebug(ops ...SettingOption) (*App, error) {
 	s := NewApp(append([]SettingOption{SetRegistry(registry.NewRegistry())}, ops...)...)
 	err := s.Run()
 	if err != nil {
-		return err
+		return s, err
 	}
 	metas := s.GetComponents()
 	sort.Slice(metas, func(i, j int) bool {
@@ -26,20 +26,20 @@ func RunDebug(ops ...SettingOption) error {
 	graphAst, _ := gographviz.ParseString("digraph G {}")
 	graph := gographviz.NewGraph()
 	if err := gographviz.Analyse(graphAst, graph); err != nil {
-		return err
+		return s, err
 	}
 	for _, m := range metas {
 		err := graph.AddNode("g", meta.StringEscape(m.Name), m.DotNodeAttr())
 		if err != nil {
-			return err
+			return s, err
 		}
 		for _, p := range m.DependsBy {
 			err := graph.AddEdge(meta.StringEscape(p.Name), meta.StringEscape(m.Name), true, nil)
 			if err != nil {
-				return err
+				return s, err
 			}
 		}
 	}
 	fmt.Println(graph.String())
-	return nil
+	return s, nil
 }

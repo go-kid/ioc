@@ -45,3 +45,10 @@ func (r *registryInjector) GetByName(name string) (reflect.Value, bool) {
 	}
 	return m.Value, true
 }
+
+func (r *registryInjector) GetByFunc(funcName string) []reflect.Value {
+	metas := r.GetComponentsByFunc(funcName)
+	return lo.Map(metas, func(item *meta.Meta, _ int) reflect.Value {
+		return item.Value.MethodByName(funcName)
+	})
+}

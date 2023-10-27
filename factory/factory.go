@@ -34,6 +34,12 @@ func (f *DefaultFactory) Initialize(r registry.Registry, m *meta.Meta) error {
 	if err != nil {
 		return err
 	}
+
+	err = injector.CustomizedInject(r.Injector(), m.ID(), m.CustomizedField)
+	if err != nil {
+		return err
+	}
+
 	r.ComponentInited(m.Name)
 
 	for _, dependency := range m.Dependencies {

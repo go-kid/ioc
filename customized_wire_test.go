@@ -1,21 +1,27 @@
 package ioc
 
 import (
-	"fmt"
 	"github.com/go-kid/ioc/app"
 	"github.com/go-kid/ioc/scanner"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 type customized struct {
-	CompA *compA `comp:""`
-	CompB *compB `comp:""`
+	CompA *compA `Comp:""`
+	CompB *compB `Comp:""`
 }
 
 type compA struct {
 }
 
+func (a *compA) Comp() {}
+
 type compB struct {
+}
+
+func (b *compB) Comp() string {
+	return "compB"
 }
 
 func TestCustomizedTagInject(t *testing.T) {
@@ -24,8 +30,11 @@ func TestCustomizedTagInject(t *testing.T) {
 		a = &compA{}
 		b = &compB{}
 	)
-	meta := scanner.New("comp").
-		ScanComponent(m)
-	RunTest(t, app.SetComponents(m, a, b))
-	fmt.Println(meta)
+
+	sc := scanner.New("Comp")
+	//meta := sc.ScanComponent(m)
+	//RunTest(t, app.SetComponents(m, a, b))
+	//fmt.Println(meta)
+	_, err := RunDebug(app.SetComponents(m, a, b), app.SetScanner(sc))
+	assert.NoError(t, err)
 }

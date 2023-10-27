@@ -73,7 +73,10 @@ func (s *scanner) scanProperties(t reflect.Type, v reflect.Value) []*meta.Node {
 func (s *scanner) scanCustomizedField(t reflect.Type, v reflect.Value) map[string][]*meta.Node {
 	var m = make(map[string][]*meta.Node)
 	for _, tag := range s.tags {
-		m[tag] = s.ScanNodes(tag, t, v)
+		nodes := s.ScanNodes(tag, t, v)
+		if len(nodes) > 0 {
+			m[tag] = nodes
+		}
 	}
 	return m
 }

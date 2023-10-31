@@ -60,6 +60,7 @@ func TestCustomizedTagInject(t *testing.T) {
 	//RunTest(t, app.SetComponents(m, a, b))
 	//fmt.Println(meta)
 	_, err := RunDebug(DebugSetting{
+		DisablePackageView:      true,
 		DisableConfig:           false,
 		DisableConfigDetail:     true,
 		DisableDependency:       false,

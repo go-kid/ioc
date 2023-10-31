@@ -12,6 +12,7 @@ import (
 )
 
 type DebugSetting struct {
+	DisablePackageView      bool
 	DisableConfig           bool
 	DisableConfigDetail     bool
 	DisableDependency       bool
@@ -36,8 +37,12 @@ func RunDebug(setting DebugSetting, ops ...SettingOption) (*App, error) {
 	})
 
 	diagram := class_diagram.NewClassDiagram().
-		AddSetting(class_diagram.NamespaceSeparator("/")).
 		AddSetting(class_diagram.GroupInheritance(2))
+	if setting.DisablePackageView {
+		diagram.AddSetting(class_diagram.NamespaceSeparator("*"))
+	} else {
+		diagram.AddSetting(class_diagram.NamespaceSeparator("/"))
+	}
 	for _, m := range metas {
 		class := class_diagram.NewClass(m.Name)
 		if !setting.DisableConfig {

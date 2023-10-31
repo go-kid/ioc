@@ -41,18 +41,12 @@ func (s *scanner) newMeta(c any) *meta.Meta {
 	}
 }
 
-const (
-	InjectTag  = "wire"
-	ProduceTag = "produce"
-	PropTag    = "prop"
-)
-
 func (s *scanner) scanDependencies(t reflect.Type, v reflect.Value) []*meta.Node {
-	return s.ScanNodes(InjectTag, t, v)
+	return s.ScanNodes(meta.InjectTag, t, v)
 }
 
 func (s *scanner) scanProduces(t reflect.Type, v reflect.Value) []*meta.Meta {
-	return lo.Map(s.ScanNodes(ProduceTag, t, v), func(item *meta.Node, _ int) *meta.Meta {
+	return lo.Map(s.ScanNodes(meta.ProduceTag, t, v), func(item *meta.Node, _ int) *meta.Meta {
 		v := reflectx.New(item.Type)
 		reflectx.Set(item.Value, v)
 		p := s.newMeta(item.Value.Interface())
@@ -68,7 +62,7 @@ func (s *scanner) scanProperties(t reflect.Type, v reflect.Value) []*meta.Node {
 		}
 		return "", "", false
 	}
-	return s.ScanNodes(PropTag, t, v, configureHandler)
+	return s.ScanNodes(meta.PropTag, t, v, configureHandler)
 }
 
 func (s *scanner) scanCustomizedField(t reflect.Type, v reflect.Value) []*meta.Node {

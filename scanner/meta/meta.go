@@ -6,6 +6,12 @@ import (
 	"reflect"
 )
 
+const (
+	InjectTag  = "wire"
+	ProduceTag = "produce"
+	PropTag    = "prop"
+)
+
 type Meta struct {
 	Name      string
 	Address   string

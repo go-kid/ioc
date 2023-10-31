@@ -28,12 +28,7 @@ func (f *DefaultFactory) Initialize(r registry.Registry, m *meta.Meta) error {
 		return nil
 	}
 
-	err := injector.DependencyInject(r, m.ID(), m.Dependencies)
-	if err != nil {
-		return err
-	}
-
-	err = injector.CustomizedInject(r, m.ID(), m.CustomizedField)
+	err := injector.DependencyInject(r, m.ID(), m.AllDependencies())
 	if err != nil {
 		return err
 	}

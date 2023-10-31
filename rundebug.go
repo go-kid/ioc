@@ -12,10 +12,13 @@ import (
 )
 
 type DebugSetting struct {
-	DisableConfig       bool
-	DisableDependency   bool
-	DisableUselessClass bool
-	Writer              io.Writer
+	DisableConfig           bool
+	DisableConfigDetail     bool
+	DisableDependency       bool
+	DisableDependencyDetail bool
+	DisableUselessClass     bool
+	PreciseArrow            bool
+	Writer                  io.Writer
 }
 
 func RunDebug(setting DebugSetting, ops ...SettingOption) (*App, error) {
@@ -36,27 +39,31 @@ func RunDebug(setting DebugSetting, ops ...SettingOption) (*App, error) {
 		AddSetting(class_diagram.NamespaceSeparator("/")).
 		AddSetting(class_diagram.GroupInheritance(2))
 	for _, m := range metas {
-		if setting.DisableUselessClass && setting.DisableConfig && setting.DisableDependency {
-			continue
-		}
 		class := class_diagram.NewClass(m.Name)
-		diagram.AddClass(class)
 		if !setting.DisableConfig {
 			configGroup := class_diagram.NewFieldGroup("Config")
 			class.AddGroup(configGroup)
 			for _, p := range m.Properties {
-				configGroup.AddField(p.Field.Name, p.Type.String(), string(p.Field.Tag))
+				if !setting.DisableConfigDetail {
+					configGroup.AddField(p.Field.Name, p.Type.String(), string(p.Field.Tag))
+				}
 				configName := reflectx.TypeId(p.Type)
 				if p.Type.Kind() == reflect.Struct || p.Type.Kind() == reflect.Pointer {
 					fg := class_diagram.NewFieldGroup("Field")
 					pfg := class_diagram.NewFieldGroup("Prefix")
-					diagram.AddClass(class_diagram.NewClass(configName).AddGroup(pfg).AddGroup(fg))
-					pfg.AddField(p.Tag, p.TagVal)
-					_ = reflectx.ForEachFieldV2(p.Type, reflectx.New(p.Type), true, func(field reflect.StructField, value reflect.Value) error {
-						fg.AddField(field.Name, field.Type.String())
-						return nil
-					})
-					diagram.AddLine(class_diagram.NewLine(configName, "", m.Name, p.Field.Name, "left", "o", ""))
+					diagram.AddClass(class_diagram.NewClass(configName, "struct").AddGroup(pfg).AddGroup(fg))
+					if !setting.DisableConfigDetail {
+						pfg.AddField(p.Tag, p.TagVal)
+						_ = reflectx.ForEachFieldV2(p.Type, reflectx.New(p.Type), true, func(field reflect.StructField, value reflect.Value) error {
+							fg.AddField(field.Name, field.Type.String())
+							return nil
+						})
+					}
+					if setting.PreciseArrow {
+						diagram.AddLine(class_diagram.NewLine(configName, "", m.Name, p.Field.Name, "", "o", ""))
+					} else {
+						diagram.AddLine(class_diagram.NewLine(configName, "", m.Name, "", "", "o", ""))
+					}
 				}
 			}
 		}
@@ -64,12 +71,23 @@ func RunDebug(setting DebugSetting, ops ...SettingOption) (*App, error) {
 			dependencyGroup := class_diagram.NewFieldGroup("Dependency")
 			class.AddGroup(dependencyGroup)
 			for _, node := range m.AllDependencies() {
-				dependencyGroup.AddField(node.Field.Name, node.Type.String(), string(node.Field.Tag))
-				for _, ij := range node.Injects {
-					diagram.AddLine(class_diagram.NewLine(ij.Name, "", m.Name, node.Field.Name, "up", "*", ""))
+				if !setting.DisableDependencyDetail {
+					dependencyGroup.AddField(node.Field.Name, node.Type.String(), string(node.Field.Tag))
 				}
+				for _, ij := range node.Injects {
+					if setting.PreciseArrow {
+						diagram.AddLine(class_diagram.NewLine(ij.Name, "", m.Name, node.Field.Name, "", "*", ""))
+					} else {
+						diagram.AddLine(class_diagram.NewLine(ij.Name, "", m.Name, "", "", "*", ""))
+					}
+				}
+
 			}
 		}
+		if setting.DisableUselessClass {
+			diagram.CleanClasses()
+		}
+		diagram.AddClass(class)
 	}
 	if setting.Writer == nil {
 		setting.Writer = os.Stdout

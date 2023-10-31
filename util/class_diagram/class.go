@@ -8,12 +8,19 @@ import (
 
 type class struct {
 	name   string
+	Type   string
 	Groups []*fieldGroup
 }
 
-func NewClass(name string) *class {
+func NewClass(name string, typ ...string) *class {
+	var t = "class"
+	if len(typ) > 0 {
+		t = typ[0]
+	}
 	return &class{
-		name: name,
+		name:   name,
+		Type:   t,
+		Groups: nil,
 	}
 }
 
@@ -28,7 +35,7 @@ func (c *class) Name() string {
 
 func (c *class) String() string {
 	builder := strings.Builder{}
-	builder.WriteString(fmt.Sprintf("class %s {\n", c.Name()))
+	builder.WriteString(fmt.Sprintf("%s %s {\n", c.Type, c.Name()))
 	groups := lo.Filter(c.Groups, func(item *fieldGroup, _ int) bool {
 		return len(item.Fields) > 0
 	})

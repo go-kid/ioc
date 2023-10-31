@@ -59,6 +59,14 @@ func TestCustomizedTagInject(t *testing.T) {
 	//meta := sc.ScanComponent(m)
 	//RunTest(t, app.SetComponents(m, a, b))
 	//fmt.Println(meta)
-	_, err := RunDebug(DebugSetting{}, app.SetScanner(sc), app.SetComponents(m, a, b))
+	_, err := RunDebug(DebugSetting{
+		DisableConfig:           false,
+		DisableConfigDetail:     true,
+		DisableDependency:       false,
+		DisableDependencyDetail: true,
+		DisableUselessClass:     false,
+		PreciseArrow:            false,
+		Writer:                  nil,
+	}, app.SetScanner(sc), app.SetComponents(m, a, b))
 	assert.NoError(t, err)
 }

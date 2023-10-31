@@ -2,14 +2,10 @@ package registry
 
 import (
 	"fmt"
-	"github.com/go-kid/ioc/injector"
 	"github.com/go-kid/ioc/scanner"
 	"github.com/go-kid/ioc/scanner/meta"
 	"github.com/go-kid/ioc/util/list"
-	"github.com/go-kid/ioc/util/reflectx"
 	"github.com/modern-go/concurrent"
-	"github.com/samber/lo"
-	"reflect"
 )
 
 /*
@@ -20,15 +16,11 @@ Dependency Register and Dependency Lookup
 type Registry interface {
 	SetScanner(scanner scanner.Scanner)
 	Register(cs ...any)
-	GetComponents() []*meta.Meta
+	GetComponents(opts ...Option) []*meta.Meta
 	GetComponentByName(name string) *meta.Meta
-	GetBeansByInterfaceType(typ reflect.Type) []*meta.Meta
-	GetBeansByInterface(a any) []*meta.Meta
 	RemoveComponents(name string)
 	ComponentInited(name string)
 	IsComponentInited(name string) bool
-	GetComponentsByFunc(funcName string) []*meta.Meta
-	Injector() injector.Injector
 }
 
 type registry struct {
@@ -79,10 +71,13 @@ func (r *registry) register(c any) {
 	r.components.Store(m.Name, m)
 }
 
-func (r *registry) GetComponents() []*meta.Meta {
+func (r *registry) GetComponents(opts ...Option) []*meta.Meta {
 	var metas = make([]*meta.Meta, 0)
 	r.components.Range(func(k, v any) bool {
-		metas = append(metas, v.(*meta.Meta))
+		m := v.(*meta.Meta)
+		if accept(m, opts...) {
+			metas = append(metas, m)
+		}
 		return true
 	})
 	return metas
@@ -95,20 +90,6 @@ func (r *registry) GetComponentByName(name string) *meta.Meta {
 	return nil
 }
 
-func (r *registry) GetBeansByInterfaceType(typ reflect.Type) []*meta.Meta {
-	return r.GetBeansByInterface(reflect.New(typ).Interface())
-}
-
-func (r *registry) GetBeansByInterface(a any) []*meta.Meta {
-	var beans = make([]*meta.Meta, 0)
-	for _, m := range r.GetComponents() {
-		if reflectx.IsTypeImplement(m.Type, a) {
-			beans = append(beans, m)
-		}
-	}
-	return beans
-}
-
 func (r *registry) RemoveComponents(name string) {
 	r.components.Delete(name)
 }
@@ -119,14 +100,4 @@ func (r *registry) IsComponentInited(name string) bool {
 
 func (r *registry) ComponentInited(name string) {
 	r.initedComponents.Put(name)
-}
-
-func (r *registry) GetComponentsByFunc(funcName string) []*meta.Meta {
-	return lo.Filter(r.GetComponents(), func(item *meta.Meta, _ int) bool {
-		return item.Value.MethodByName(funcName).IsValid()
-	})
-}
-
-func (r *registry) Injector() injector.Injector {
-	return newRegistryInjector(r)
 }

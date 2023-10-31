@@ -4,15 +4,7 @@ import (
 	"fmt"
 	"github.com/samber/lo"
 	"reflect"
-	"strings"
 )
-
-//
-//const (
-//	InjectTag  = "wire"
-//	ProduceTag = "produce"
-//	PropTag    = "prop"
-//)
 
 type Meta struct {
 	Name      string
@@ -25,7 +17,7 @@ type Meta struct {
 
 	Dependencies    []*Node
 	Properties      []*Node
-	CustomizedField map[string][]*Node
+	CustomizedField []*Node
 }
 
 func (m *Meta) ID() string {
@@ -33,33 +25,15 @@ func (m *Meta) ID() string {
 }
 
 func (m *Meta) DependBy(parent *Meta) {
-	m.DependsBy = append(m.DependsBy, parent)
+	if !lo.ContainsBy(m.DependsBy, func(item *Meta) bool {
+		return item.ID() == parent.ID()
+	}) {
+		m.DependsBy = append(m.DependsBy, parent)
+	}
 }
 
-type kv struct {
-	k string
-	v string
-}
-
-func (m *Meta) DotNodeAttr() map[string]string {
-	var label = []*kv{
-		{k: "", v: m.Name},
-		{k: "Type", v: m.Type.String()},
-		{k: "Props", v: strings.Join(lo.Map[*Node, string](m.Properties, func(p *Node, _ int) string {
-			return p.Tag
-		}), ", ")},
-	}
-
-	labels := lo.Map[*kv, string](label, func(item *kv, _ int) string {
-		if item.k == "" {
-			return item.v
-		}
-		return fmt.Sprintf("%s: %s", item.k, item.v)
-	})
-	return map[string]string{
-		"label": StringEscape("{" + strings.Join(labels, "|") + "}"),
-		"shape": "record",
-	}
+func (m *Meta) AllDependencies() []*Node {
+	return append(m.Dependencies, m.CustomizedField...)
 }
 
 func StringEscape(s string) string {

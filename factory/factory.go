@@ -1,11 +1,9 @@
 package factory
 
 import (
-	"fmt"
 	"github.com/go-kid/ioc/injector"
 	"github.com/go-kid/ioc/registry"
 	"github.com/go-kid/ioc/scanner/meta"
-	"reflect"
 )
 
 type Factory interface {
@@ -30,39 +28,20 @@ func (f *DefaultFactory) Initialize(r registry.Registry, m *meta.Meta) error {
 		return nil
 	}
 
-	err := injector.DependencyInject(r.Injector(), m.ID(), m.Dependencies)
+	err := injector.DependencyInject(r, m.ID(), m.Dependencies)
 	if err != nil {
 		return err
 	}
 
-	err = injector.CustomizedInject(r.Injector(), m.ID(), m.CustomizedField)
+	err = injector.CustomizedInject(r, m.ID(), m.CustomizedField)
 	if err != nil {
 		return err
 	}
 
 	r.ComponentInited(m.Name)
 
-	for _, dependency := range m.Dependencies {
-		switch dependency.Type.Kind() {
-		case reflect.Slice:
-			for i := 0; i < dependency.Value.Len(); i++ {
-				elem := dependency.Value.Index(i)
-				name := meta.GetComponentName(elem)
-				dm := r.GetComponentByName(name)
-				if dm == nil {
-					return fmt.Errorf("component %s not found", dependency.Id())
-				}
-				dm.DependBy(m)
-				err := f.Initialize(r, dm)
-				if err != nil {
-					return err
-				}
-			}
-		default:
-			dm := r.GetComponentByName(dependency.Id())
-			if dm == nil {
-				return fmt.Errorf("component %s not found", dependency.Id())
-			}
+	for _, dependency := range m.AllDependencies() {
+		for _, dm := range dependency.Injects {
 			dm.DependBy(m)
 			err := f.Initialize(r, dm)
 			if err != nil {

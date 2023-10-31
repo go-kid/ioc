@@ -105,7 +105,7 @@ func (s *App) initConfig() error {
 }
 
 func (s *App) initComponentPostProcessors() {
-	metas := s.GetBeansByInterface(new(defination.ComponentPostProcessor))
+	metas := s.GetComponents(registry.Interface(new(defination.ComponentPostProcessor)))
 	s.postProcessors = make([]defination.ComponentPostProcessor, 0, len(metas))
 	for _, m := range metas {
 		s.postProcessors = append(s.postProcessors, m.Raw.(defination.ComponentPostProcessor))
@@ -119,7 +119,7 @@ func (s *App) wire() error {
 		if len(components[i].DependsBy) != len(components[j].DependsBy) {
 			return len(components[i].DependsBy) < len(components[j].DependsBy)
 		}
-		return len(components[i].Dependencies) < len(components[j].Dependencies)
+		return len(components[i].AllDependencies()) < len(components[j].AllDependencies())
 	})
 	for _, m := range components {
 		err := s.Initialize(s, m)
@@ -162,7 +162,7 @@ func (s *App) callRunners() error {
 	if !s.enableApplicationRunner {
 		return nil
 	}
-	metas := s.GetBeansByInterface(new(defination.ApplicationRunner))
+	metas := s.GetComponents(registry.Interface(new(defination.ApplicationRunner)))
 	var runners = lo.Map(metas, func(item *meta.Meta, _ int) defination.ApplicationRunner {
 		return item.Raw.(defination.ApplicationRunner)
 	})

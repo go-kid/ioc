@@ -61,27 +61,23 @@ func (s *scanner) scanProduces(t reflect.Type, v reflect.Value) []*meta.Meta {
 }
 
 func (s *scanner) scanProperties(t reflect.Type, v reflect.Value) []*meta.Node {
-	configureHandler := func(field reflect.StructField, value reflect.Value) (string, bool) {
+	var tag = "Configuration.Prefix"
+	configureHandler := func(field reflect.StructField, value reflect.Value) (string, string, bool) {
 		if configuration, ok := value.Interface().(defination.Configuration); ok {
-			return configuration.Prefix(), true
+			return tag, configuration.Prefix(), true
 		}
-		return "", false
+		return "", "", false
 	}
 	return s.ScanNodes(PropTag, t, v, configureHandler)
 }
 
-func (s *scanner) scanCustomizedField(t reflect.Type, v reflect.Value) map[string][]*meta.Node {
-	var m = make(map[string][]*meta.Node)
-	for _, tag := range s.tags {
-		nodes := s.ScanNodes(tag, t, v)
-		if len(nodes) > 0 {
-			m[tag] = nodes
-		}
-	}
-	return m
+func (s *scanner) scanCustomizedField(t reflect.Type, v reflect.Value) []*meta.Node {
+	return lo.FlatMap(s.tags, func(tag string, _ int) []*meta.Node {
+		return s.ScanNodes(tag, t, v)
+	})
 }
 
-type ExtTagHandler func(field reflect.StructField, value reflect.Value) (string, bool)
+type ExtTagHandler func(field reflect.StructField, value reflect.Value) (string, string, bool)
 
 func (s *scanner) ScanNodes(tag string, t reflect.Type, v reflect.Value, handlers ...ExtTagHandler) []*meta.Node {
 	var nodes []*meta.Node
@@ -90,9 +86,12 @@ func (s *scanner) ScanNodes(tag string, t reflect.Type, v reflect.Value, handler
 		if tag != "" {
 			if tagVal, ok := field.Tag.Lookup(tag); ok {
 				nodes = append(nodes, &meta.Node{
-					Tag:   tagVal,
-					Type:  field.Type,
-					Value: value,
+					Field:   field,
+					Tag:     tag,
+					TagVal:  tagVal,
+					Type:    field.Type,
+					Value:   value,
+					Injects: nil,
 				})
 				return nil
 			}
@@ -105,11 +104,14 @@ func (s *scanner) ScanNodes(tag string, t reflect.Type, v reflect.Value, handler
 		//use first success extra tag handler
 		if len(handlers) > 0 {
 			for _, handler := range handlers {
-				if tagVal, ok := handler(field, value); ok {
+				if tag, tagVal, ok := handler(field, value); ok {
 					nodes = append(nodes, &meta.Node{
-						Tag:   tagVal,
-						Type:  field.Type,
-						Value: value,
+						Field:   field,
+						Tag:     tag,
+						TagVal:  tagVal,
+						Type:    field.Type,
+						Value:   value,
+						Injects: nil,
 					})
 					return nil
 				}

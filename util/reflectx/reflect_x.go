@@ -71,5 +71,8 @@ func TypeId(p reflect.Type) string {
 	if p.Kind() == reflect.Pointer {
 		p = p.Elem()
 	}
+	if p.Name() == "" {
+		return p.String()
+	}
 	return path.Join(p.PkgPath(), p.Name())
 }

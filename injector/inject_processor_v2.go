@@ -2,6 +2,8 @@ package injector
 
 import (
 	"fmt"
+	"github.com/go-kid/ioc/defination"
+	"github.com/go-kid/ioc/registry"
 	"github.com/go-kid/ioc/scanner/meta"
 	"github.com/go-kid/ioc/util/list"
 	"log"
@@ -10,7 +12,7 @@ import (
 
 type injectProcessor interface {
 	Filter(d *meta.Node) bool
-	Inject(r Injector, d *meta.Node) error
+	Inject(r registry.Registry, d *meta.Node) error
 }
 
 var injectors = []injectProcessor{
@@ -20,9 +22,9 @@ var injectors = []injectProcessor{
 	new(unSpecifyInterfaceSliceInjector),
 }
 
-func DependencyInject(r Injector, id string, dependencies []*meta.Node) error {
+func DependencyInject(r registry.Registry, id string, dependencies []*meta.Node) error {
 	for _, dependency := range dependencies {
-		err := injectDependency(r, id, dependency)
+		err := injectDependency(injectors, r, id, dependency)
 		if err != nil {
 			return err
 		}
@@ -35,7 +37,7 @@ const diErrOutput = "DI report error by processor: %d\n" +
 	"caused field: %s\n" +
 	"caused by: %v\n"
 
-func injectDependency(r Injector, metaID string, d *meta.Node) error {
+func injectDependency(injectors []injectProcessor, r registry.Registry, metaID string, d *meta.Node) error {
 	i, find := list.NewList(injectors).FindBy(func(i int) bool {
 		return injectors[i].Filter(d)
 	})
@@ -44,7 +46,7 @@ func injectDependency(r Injector, metaID string, d *meta.Node) error {
 	}
 	defer func() {
 		if err := recover(); err != nil {
-			log.Printf(diErrOutput, i+1, metaID, d.Id(), err)
+			log.Panicf(diErrOutput, i+1, metaID, d.Id(), err)
 		}
 	}()
 	err := injectors[i].Inject(r, d)
@@ -64,16 +66,16 @@ func injectDependency(r Injector, metaID string, d *meta.Node) error {
 type specifyInjector struct{}
 
 func (b *specifyInjector) Filter(d *meta.Node) bool {
-	return d.Tag != "" && //ruleTagNotEmpty
+	return d.TagVal != "" && //ruleTagNotEmpty
 		(d.Type.Kind() == reflect.Ptr || d.Type.Kind() == reflect.Interface)
 }
 
-func (b *specifyInjector) Inject(r Injector, d *meta.Node) error {
-	dm, ok := r.GetByName(d.Tag)
-	if !ok {
-		return fmt.Errorf("no instance found for specify name: %s", d.Tag)
+func (b *specifyInjector) Inject(r registry.Registry, d *meta.Node) error {
+	dm := r.GetComponentByName(d.TagVal)
+	if dm == nil {
+		return fmt.Errorf("no instance found for specify name: %s", d.TagVal)
 	}
-	d.Value.Set(dm)
+	d.Inject(dm)
 	return nil
 }
 
@@ -87,16 +89,16 @@ func (b *specifyInjector) Inject(r Injector, d *meta.Node) error {
 type unSpecifyPtrInjector struct{}
 
 func (b *unSpecifyPtrInjector) Filter(d *meta.Node) bool {
-	return d.Tag == "" && //ruleEmptyTag
+	return d.TagVal == "" && //ruleEmptyTag
 		d.Type.Kind() == reflect.Ptr //rulePointer
 }
 
-func (b *unSpecifyPtrInjector) Inject(r Injector, d *meta.Node) error {
-	dm, ok := r.GetByName(d.Id())
-	if !ok {
+func (b *unSpecifyPtrInjector) Inject(r registry.Registry, d *meta.Node) error {
+	dm := r.GetComponentByName(d.Id())
+	if dm == nil {
 		return fmt.Errorf("no instance found for pointer type %s", d.Id())
 	}
-	d.Value.Set(dm)
+	d.Inject(dm)
 	return nil
 }
 
@@ -111,16 +113,23 @@ func (b *unSpecifyPtrInjector) Inject(r Injector, d *meta.Node) error {
 type unSpecifyInterfaceInjector struct{}
 
 func (i *unSpecifyInterfaceInjector) Filter(d *meta.Node) bool {
-	return d.Tag == "" && //ruleEmptyTag
+	return d.TagVal == "" && //ruleEmptyTag
 		d.Type.Kind() == reflect.Interface //ruleInterface
 }
 
-func (i *unSpecifyInterfaceInjector) Inject(r Injector, d *meta.Node) error {
-	dm, ok := r.GetOneByInterfaceType(d.Type)
-	if !ok {
+func (i *unSpecifyInterfaceInjector) Inject(r registry.Registry, d *meta.Node) error {
+	metas := r.GetComponents(registry.InterfaceType(d.Type))
+	if len(metas) < 1 {
 		return fmt.Errorf("no instance found implement interface: %s", d.Type.String())
 	}
-	d.Value.Set(dm)
+	var dm = metas[0]
+	for _, m := range metas {
+		if _, ok := m.Raw.(defination.NamingComponent); !ok {
+			dm = m
+			break
+		}
+	}
+	d.Inject(dm)
 	return nil
 }
 
@@ -134,15 +143,15 @@ func (i *unSpecifyInterfaceInjector) Inject(r Injector, d *meta.Node) error {
 type unSpecifyInterfaceSliceInjector struct{}
 
 func (s *unSpecifyInterfaceSliceInjector) Filter(d *meta.Node) bool {
-	return d.Tag == "" && //ruleEmptyTag
+	return d.TagVal == "" && //ruleEmptyTag
 		d.Type.Kind() == reflect.Slice && d.Type.Elem().Kind() == reflect.Interface //ruleSliceInterface
 }
 
-func (s *unSpecifyInterfaceSliceInjector) Inject(r Injector, d *meta.Node) error {
-	vals := r.GetsByInterfaceType(d.Type.Elem())
-	if len(vals) == 0 {
+func (s *unSpecifyInterfaceSliceInjector) Inject(r registry.Registry, d *meta.Node) error {
+	metas := r.GetComponents(registry.InterfaceType(d.Type.Elem()))
+	if len(metas) == 0 {
 		return nil
 	}
-	d.Value.Set(reflect.Append(d.Value, vals...))
+	d.Inject(metas...)
 	return nil
 }

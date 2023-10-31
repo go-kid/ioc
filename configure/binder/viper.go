@@ -46,7 +46,7 @@ func (d *ViperBinder) PropInject(properties []*meta.Node) error {
 			isPtrType = true
 		}
 		var val = reflect.New(fieldType)
-		err := unmarshall(prop.Tag, val.Interface())
+		err := unmarshall(prop.TagVal, val.Interface())
 		if err != nil {
 			return err
 		}

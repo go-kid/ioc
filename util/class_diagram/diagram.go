@@ -15,7 +15,6 @@ type ClassDiagram interface {
 	AddSetting(s string) ClassDiagram
 	AddClass(c Object) ClassDiagram
 	AddLine(l *line) ClassDiagram
-	CleanClasses()
 	fmt.Stringer
 }
 
@@ -52,14 +51,6 @@ func (d *diagram) AddLine(l *line) ClassDiagram {
 		d.Lines = append(d.Lines, l)
 	}
 	return d
-}
-
-func (d *diagram) CleanClasses() {
-	d.Classes = lo.Filter(d.Classes, func(obj Object, _ int) bool {
-		return lo.ContainsBy(d.Lines, func(l *line) bool {
-			return obj.Name() == l.FromClass || obj.Name() == l.ToClass
-		})
-	})
 }
 
 func (d *diagram) String() string {

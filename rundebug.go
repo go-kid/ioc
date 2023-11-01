@@ -12,16 +12,15 @@ import (
 	"os"
 	"reflect"
 	"sort"
+	"strings"
 )
 
 type DebugSetting struct {
 	DisablePackageView      bool
 	DisableConfig           bool
 	DisableConfigDetail     bool
-	ConfigDirection         string
 	DisableDependency       bool
 	DisableDependencyDetail bool
-	DependencyDirection     string
 	DisableUselessClass     bool
 	PreciseArrow            bool
 	Writer                  io.Writer
@@ -53,6 +52,9 @@ func RunDebug(setting DebugSetting, ops ...SettingOption) (*App, error) {
 	diagram := class_diagram.NewClassDiagram().
 		AddSetting(class_diagram.GroupInheritance(2)).
 		AddSetting(class_diagram.NamespaceSeparator("/"))
+	if setting.DisableUselessClass {
+		diagram.AddSetting("remove @unlinked")
+	}
 
 	for _, m := range metas {
 		metaName := fas.TernaryOp(setting.DisablePackageView, m.Type.String(), m.Name)
@@ -81,7 +83,7 @@ func RunDebug(setting DebugSetting, ops ...SettingOption) (*App, error) {
 					if setting.PreciseArrow {
 						toField = p.Field.Name
 					}
-					diagram.AddLine(class_diagram.NewLine(configName, "", metaName, toField, setting.ConfigDirection, "o", ""))
+					diagram.AddLine(class_diagram.NewLine(configName, "", metaName, toField, "o--", ""))
 				}
 			}
 		}
@@ -92,21 +94,34 @@ func RunDebug(setting DebugSetting, ops ...SettingOption) (*App, error) {
 				if !setting.DisableDependencyDetail {
 					dependencyGroup.AddField(node.Field.Name, node.Type.String(), string(node.Field.Tag))
 				}
+				var interfaceName string
+				if node.Type.Kind() == reflect.Interface {
+					interfaceName = fas.TernaryOp(setting.DisablePackageView, node.Type.String(), reflectx.TypeId(node.Type))
+				} else if node.Type.Kind() == reflect.Slice && node.Type.Elem().Kind() == reflect.Interface {
+					interfaceName = fas.TernaryOp(setting.DisablePackageView, node.Type.Elem().String(), reflectx.TypeId(node.Type.Elem()))
+				}
+				if interfaceName != "" {
+					interfaceName = strings.ReplaceAll(interfaceName, "interface {}", "any")
+					diagram.AddClass(class_diagram.NewClass(interfaceName, "interface"))
+				}
 				for _, ij := range node.Injects {
 					injectName := fas.TernaryOp(setting.DisablePackageView, ij.Type.String(), ij.Name)
 					var toField string
 					if setting.PreciseArrow {
 						toField = node.Field.Name
 					}
-					diagram.AddLine(class_diagram.NewLine(injectName, "", metaName, toField, setting.DependencyDirection, "*", ""))
+					if interfaceName != "" {
+						diagram.AddLine(class_diagram.NewLine(interfaceName, "", injectName, "", "<|--", ""))
+						diagram.AddLine(class_diagram.NewLine(interfaceName, "", metaName, toField, "*--", ""))
+					} else {
+						diagram.AddLine(class_diagram.NewLine(injectName, "", metaName, toField, "*--", ""))
+					}
 				}
 			}
 		}
-		if setting.DisableUselessClass {
-			diagram.CleanClasses()
-		}
 		diagram.AddClass(class)
 	}
+
 	if setting.Writer == nil {
 		setting.Writer = os.Stdout
 	}

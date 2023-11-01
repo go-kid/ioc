@@ -29,7 +29,7 @@ func NewApp(ops ...SettingOption) *App {
 	var s = &App{
 		Loader:                  &loader.FileLoader{},          //default use file loader
 		Binder:                  binder.NewViperBinder("yaml"), //default use viper binder and 'yaml' config type
-		Registry:                nil,
+		Registry:                registry.GlobalRegistry(),
 		Factory:                 &factory.DefaultFactory{},
 		configPath:              "",
 		postProcessors:          nil,

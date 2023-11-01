@@ -2,7 +2,9 @@ package ioc
 
 import (
 	. "github.com/go-kid/ioc/app"
+	"github.com/go-kid/ioc/factory"
 	"github.com/go-kid/ioc/registry"
+	"github.com/go-kid/ioc/scanner/meta"
 	"github.com/go-kid/ioc/util/class_diagram"
 	"github.com/go-kid/ioc/util/fas"
 	"github.com/go-kid/ioc/util/reflectx"
@@ -25,7 +27,16 @@ type DebugSetting struct {
 }
 
 func RunDebug(setting DebugSetting, ops ...SettingOption) (*App, error) {
-	s := NewApp(append([]SettingOption{SetRegistry(registry.NewRegistry())}, ops...)...)
+	s := NewApp(append([]SettingOption{
+		SetRegistry(registry.NewRegistry()),
+		SetFactory(func() factory.Factory {
+			var df = &factory.DefaultFactory{}
+			df.SetIfNilPostInitFunc(func(m *meta.Meta) error {
+				return nil
+			})
+			return df
+		}()),
+		DisableApplicationRunner()}, ops...)...)
 	err := s.Run()
 	if err != nil {
 		return s, err

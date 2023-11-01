@@ -5,24 +5,18 @@ import (
 	"github.com/go-kid/ioc/scanner/meta"
 )
 
-var _registry = registry.NewRegistry()
-
 func Register(cs ...interface{}) {
-	_registry.Register(cs...)
+	registry.GlobalRegistry().Register(cs...)
 }
 
 func GetComponents(options ...registry.Option) []*meta.Meta {
-	return _registry.GetComponents(options...)
+	return registry.GlobalRegistry().GetComponents(options...)
 }
 
 func GetComponentByName(name string) *meta.Meta {
-	return _registry.GetComponentByName(name)
+	return registry.GlobalRegistry().GetComponentByName(name)
 }
 
 func RemoveComponents(name string) {
-	_registry.RemoveComponents(name)
-}
-
-func GlobalRegistry() registry.Registry {
-	return _registry
+	registry.GlobalRegistry().RemoveComponents(name)
 }

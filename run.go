@@ -5,8 +5,6 @@ import (
 )
 
 func Run(ops ...SettingOption) (*App, error) {
-	s := NewApp(append([]SettingOption{
-		SetRegistry(_registry),
-	}, ops...)...)
+	s := NewApp(ops...)
 	return s, s.Run()
 }

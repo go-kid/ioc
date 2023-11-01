@@ -18,8 +18,10 @@ type DebugSetting struct {
 	DisablePackageView      bool
 	DisableConfig           bool
 	DisableConfigDetail     bool
+	ConfigDirection         string
 	DisableDependency       bool
 	DisableDependencyDetail bool
+	DependencyDirection     string
 	DisableUselessClass     bool
 	PreciseArrow            bool
 	Writer                  io.Writer
@@ -49,8 +51,8 @@ func RunDebug(setting DebugSetting, ops ...SettingOption) (*App, error) {
 	})
 
 	diagram := class_diagram.NewClassDiagram().
-		AddSetting(class_diagram.GroupInheritance(2))
-	diagram.AddSetting(class_diagram.NamespaceSeparator("/"))
+		AddSetting(class_diagram.GroupInheritance(2)).
+		AddSetting(class_diagram.NamespaceSeparator("/"))
 
 	for _, m := range metas {
 		metaName := fas.TernaryOp(setting.DisablePackageView, m.Type.String(), m.Name)
@@ -75,11 +77,11 @@ func RunDebug(setting DebugSetting, ops ...SettingOption) (*App, error) {
 							return nil
 						})
 					}
+					var toField string
 					if setting.PreciseArrow {
-						diagram.AddLine(class_diagram.NewLine(configName, "", metaName, p.Field.Name, "", "o", ""))
-					} else {
-						diagram.AddLine(class_diagram.NewLine(configName, "", metaName, "", "", "o", ""))
+						toField = p.Field.Name
 					}
+					diagram.AddLine(class_diagram.NewLine(configName, "", metaName, toField, setting.ConfigDirection, "o", ""))
 				}
 			}
 		}
@@ -92,13 +94,12 @@ func RunDebug(setting DebugSetting, ops ...SettingOption) (*App, error) {
 				}
 				for _, ij := range node.Injects {
 					injectName := fas.TernaryOp(setting.DisablePackageView, ij.Type.String(), ij.Name)
+					var toField string
 					if setting.PreciseArrow {
-						diagram.AddLine(class_diagram.NewLine(injectName, "", metaName, node.Field.Name, "", "*", ""))
-					} else {
-						diagram.AddLine(class_diagram.NewLine(injectName, "", metaName, "", "", "*", ""))
+						toField = node.Field.Name
 					}
+					diagram.AddLine(class_diagram.NewLine(injectName, "", metaName, toField, setting.DependencyDirection, "*", ""))
 				}
-
 			}
 		}
 		if setting.DisableUselessClass {

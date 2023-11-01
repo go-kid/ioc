@@ -4,9 +4,11 @@ import (
 	. "github.com/go-kid/ioc/app"
 	"github.com/go-kid/ioc/registry"
 	"github.com/go-kid/ioc/util/class_diagram"
+	"github.com/go-kid/ioc/util/fas"
 	"github.com/go-kid/ioc/util/reflectx"
 	"io"
 	"os"
+	"path"
 	"reflect"
 	"sort"
 )
@@ -38,13 +40,12 @@ func RunDebug(setting DebugSetting, ops ...SettingOption) (*App, error) {
 
 	diagram := class_diagram.NewClassDiagram().
 		AddSetting(class_diagram.GroupInheritance(2))
-	if setting.DisablePackageView {
-		diagram.AddSetting(class_diagram.NamespaceSeparator("*"))
-	} else {
+	if !setting.DisablePackageView {
 		diagram.AddSetting(class_diagram.NamespaceSeparator("/"))
 	}
 	for _, m := range metas {
-		class := class_diagram.NewClass(m.Name)
+		metaName := fas.TernaryOp(setting.DisablePackageView, path.Base(m.Name), m.Name)
+		class := class_diagram.NewClass(metaName)
 		if !setting.DisableConfig {
 			configGroup := class_diagram.NewFieldGroup("Config")
 			class.AddGroup(configGroup)
@@ -52,7 +53,8 @@ func RunDebug(setting DebugSetting, ops ...SettingOption) (*App, error) {
 				if !setting.DisableConfigDetail {
 					configGroup.AddField(p.Field.Name, p.Type.String(), string(p.Field.Tag))
 				}
-				configName := reflectx.TypeId(p.Type)
+
+				configName := fas.TernaryOp(setting.DisablePackageView, path.Base(reflectx.TypeId(p.Type)), reflectx.TypeId(p.Type))
 				if p.Type.Kind() == reflect.Struct || p.Type.Kind() == reflect.Pointer {
 					fg := class_diagram.NewFieldGroup("Field")
 					pfg := class_diagram.NewFieldGroup("Prefix")
@@ -65,9 +67,9 @@ func RunDebug(setting DebugSetting, ops ...SettingOption) (*App, error) {
 						})
 					}
 					if setting.PreciseArrow {
-						diagram.AddLine(class_diagram.NewLine(configName, "", m.Name, p.Field.Name, "", "o", ""))
+						diagram.AddLine(class_diagram.NewLine(configName, "", metaName, p.Field.Name, "", "o", ""))
 					} else {
-						diagram.AddLine(class_diagram.NewLine(configName, "", m.Name, "", "", "o", ""))
+						diagram.AddLine(class_diagram.NewLine(configName, "", metaName, "", "", "o", ""))
 					}
 				}
 			}
@@ -80,10 +82,11 @@ func RunDebug(setting DebugSetting, ops ...SettingOption) (*App, error) {
 					dependencyGroup.AddField(node.Field.Name, node.Type.String(), string(node.Field.Tag))
 				}
 				for _, ij := range node.Injects {
+					injectName := fas.TernaryOp(setting.DisablePackageView, path.Base(ij.Name), ij.Name)
 					if setting.PreciseArrow {
-						diagram.AddLine(class_diagram.NewLine(ij.Name, "", m.Name, node.Field.Name, "", "*", ""))
+						diagram.AddLine(class_diagram.NewLine(injectName, "", metaName, node.Field.Name, "", "*", ""))
 					} else {
-						diagram.AddLine(class_diagram.NewLine(ij.Name, "", m.Name, "", "", "*", ""))
+						diagram.AddLine(class_diagram.NewLine(injectName, "", metaName, "", "", "*", ""))
 					}
 				}
 

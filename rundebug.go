@@ -10,7 +10,6 @@ import (
 	"github.com/go-kid/ioc/util/reflectx"
 	"io"
 	"os"
-	"path"
 	"reflect"
 	"sort"
 )
@@ -51,11 +50,10 @@ func RunDebug(setting DebugSetting, ops ...SettingOption) (*App, error) {
 
 	diagram := class_diagram.NewClassDiagram().
 		AddSetting(class_diagram.GroupInheritance(2))
-	if !setting.DisablePackageView {
-		diagram.AddSetting(class_diagram.NamespaceSeparator("/"))
-	}
+	diagram.AddSetting(class_diagram.NamespaceSeparator("/"))
+
 	for _, m := range metas {
-		metaName := fas.TernaryOp(setting.DisablePackageView, path.Base(m.Name), m.Name)
+		metaName := fas.TernaryOp(setting.DisablePackageView, m.Type.String(), m.Name)
 		class := class_diagram.NewClass(metaName)
 		if !setting.DisableConfig {
 			configGroup := class_diagram.NewFieldGroup("Config")
@@ -65,7 +63,7 @@ func RunDebug(setting DebugSetting, ops ...SettingOption) (*App, error) {
 					configGroup.AddField(p.Field.Name, p.Type.String(), string(p.Field.Tag))
 				}
 
-				configName := fas.TernaryOp(setting.DisablePackageView, path.Base(reflectx.TypeId(p.Type)), reflectx.TypeId(p.Type))
+				configName := fas.TernaryOp(setting.DisablePackageView, p.Type.String(), reflectx.TypeId(p.Type))
 				if p.Type.Kind() == reflect.Struct || p.Type.Kind() == reflect.Pointer {
 					fg := class_diagram.NewFieldGroup("Field")
 					pfg := class_diagram.NewFieldGroup("Prefix")
@@ -93,7 +91,7 @@ func RunDebug(setting DebugSetting, ops ...SettingOption) (*App, error) {
 					dependencyGroup.AddField(node.Field.Name, node.Type.String(), string(node.Field.Tag))
 				}
 				for _, ij := range node.Injects {
-					injectName := fas.TernaryOp(setting.DisablePackageView, path.Base(ij.Name), ij.Name)
+					injectName := fas.TernaryOp(setting.DisablePackageView, ij.Type.String(), ij.Name)
 					if setting.PreciseArrow {
 						diagram.AddLine(class_diagram.NewLine(injectName, "", metaName, node.Field.Name, "", "*", ""))
 					} else {

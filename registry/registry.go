@@ -1,11 +1,12 @@
 package registry
 
 import (
-	"fmt"
 	"github.com/go-kid/ioc/scanner"
 	"github.com/go-kid/ioc/scanner/meta"
 	"github.com/go-kid/ioc/util/list"
 	"github.com/modern-go/concurrent"
+	"log"
+	"sync"
 )
 
 /*
@@ -17,7 +18,7 @@ type Registry interface {
 	Register(cs ...any)
 	SetScanner(scanner scanner.Scanner)
 	SetExtraTags(tags ...string)
-	Scan() error
+	Scan()
 	GetComponents(opts ...Option) []*meta.Meta
 	GetComponentByName(name string) *meta.Meta
 	RemoveComponents(name string)
@@ -60,17 +61,19 @@ func (r *registry) SetExtraTags(tags ...string) {
 	r.scanner.AddTags(tags...)
 }
 
-func (r *registry) Scan() error {
+func (r *registry) Scan() {
+	wg := sync.WaitGroup{}
+	wg.Add(len(r.components))
 	for _, component := range r.components {
-		err := r.register(component)
-		if err != nil {
-			return err
-		}
+		go func(c any) {
+			r.register(c)
+			wg.Done()
+		}(component)
 	}
-	return nil
+	wg.Wait()
 }
 
-func (r *registry) register(c any) error {
+func (r *registry) register(c any) {
 	var m *meta.Meta
 	switch c.(type) {
 	case *meta.Meta:
@@ -81,12 +84,11 @@ func (r *registry) register(c any) error {
 	if a, ok := r.metaMaps.Load(m.Name); ok {
 		ec := a.(*meta.Meta)
 		if ec.Address == m.Address {
-			return nil
+			return
 		}
-		return fmt.Errorf("register duplicated component: %s", m.Name)
+		log.Fatalf("register duplicated component: %s", m.Name)
 	}
 	r.metaMaps.Store(m.Name, m)
-	return nil
 }
 
 func (r *registry) GetComponents(opts ...Option) []*meta.Meta {

@@ -51,10 +51,6 @@ func (s *App) Run() error {
 	}
 	/* registry ready */
 
-	//s.initProduceComponents()
-
-	/* producer component ready */
-
 	//init configure
 	if err := s.initConfig(); err != nil {
 		return err
@@ -141,10 +137,7 @@ func (s *App) initRegistry() error {
 	if s.Scanner != nil {
 		s.Registry.SetScanner(s.Scanner)
 	}
-	err := s.Registry.Scan()
-	if err != nil {
-		return err
-	}
+	s.Registry.Scan()
 	return nil
 }
 

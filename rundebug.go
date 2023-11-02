@@ -94,15 +94,25 @@ func RunDebug(setting DebugSetting, ops ...SettingOption) (*App, error) {
 				if !setting.DisableDependencyDetail {
 					dependencyGroup.AddField(node.Field.Name, node.Type.String(), string(node.Field.Tag))
 				}
-				var interfaceName string
+				var interfaceType reflect.Type
 				if node.Type.Kind() == reflect.Interface {
-					interfaceName = fas.TernaryOp(setting.DisablePackageView, node.Type.String(), reflectx.TypeId(node.Type))
+					interfaceType = node.Type
 				} else if node.Type.Kind() == reflect.Slice && node.Type.Elem().Kind() == reflect.Interface {
-					interfaceName = fas.TernaryOp(setting.DisablePackageView, node.Type.Elem().String(), reflectx.TypeId(node.Type.Elem()))
+					interfaceType = node.Type.Elem()
+				}
+
+				var interfaceName string
+				if interfaceType != nil {
+					interfaceName = fas.TernaryOp(setting.DisablePackageView, interfaceType.String(), reflectx.TypeId(interfaceType))
 				}
 				if interfaceName != "" {
 					interfaceName = strings.ReplaceAll(interfaceName, "interface {}", "any")
-					diagram.AddClass(class_diagram.NewClass(interfaceName, "interface"))
+					methodFg := class_diagram.NewFieldGroup("Method")
+					for i := 0; i < interfaceType.NumMethod(); i++ {
+						method := interfaceType.Method(i)
+						methodFg.AddField(method.Name, method.Type.String())
+					}
+					diagram.AddClass(class_diagram.NewClass(interfaceName, "interface").AddGroup(methodFg))
 				}
 				for _, ij := range node.Injects {
 					injectName := fas.TernaryOp(setting.DisablePackageView, ij.Type.String(), ij.Name)

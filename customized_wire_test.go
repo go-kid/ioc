@@ -3,8 +3,6 @@ package ioc
 import (
 	"github.com/go-kid/ioc/app"
 	"github.com/go-kid/ioc/defination"
-	"github.com/go-kid/ioc/scanner"
-	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -55,19 +53,6 @@ func TestCustomizedTagInject(t *testing.T) {
 		b = &compB{}
 	)
 
-	sc := scanner.New("Comp")
-	//meta := sc.ScanComponent(m)
-	//RunTest(t, app.SetComponents(m, a, b))
-	//fmt.Println(meta)
-	_, err := RunDebug(DebugSetting{
-		DisablePackageView:      false,
-		DisableConfig:           false,
-		DisableConfigDetail:     false,
-		DisableDependency:       false,
-		DisableDependencyDetail: false,
-		DisableUselessClass:     true,
-		PreciseArrow:            true,
-		Writer:                  nil,
-	}, app.SetScanner(sc), app.SetComponents(m, a, b))
-	assert.NoError(t, err)
+	//sc := scanner.New("Comp")
+	RunTest(t, app.SetScanTags("Comp"), app.SetComponents(m, a, b))
 }

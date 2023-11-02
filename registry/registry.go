@@ -14,8 +14,10 @@ Dependency Register and Dependency Lookup
 */
 
 type Registry interface {
-	SetScanner(scanner scanner.Scanner)
 	Register(cs ...any)
+	SetScanner(scanner scanner.Scanner)
+	SetExtraTags(tags ...string)
+	Scan() error
 	GetComponents(opts ...Option) []*meta.Meta
 	GetComponentByName(name string) *meta.Meta
 	RemoveComponents(name string)
@@ -25,35 +27,50 @@ type Registry interface {
 
 type registry struct {
 	scanner          scanner.Scanner
-	components       *concurrent.Map
+	components       []any
+	metaMaps         *concurrent.Map
 	initedComponents list.Set
 }
 
 func NewRegistry() Registry {
 	return &registry{
 		scanner:          scanner.New(),
-		components:       concurrent.NewMap(),
+		metaMaps:         concurrent.NewMap(),
 		initedComponents: list.NewConcurrentSets(),
 	}
 }
 
+func (r *registry) Register(cs ...any) {
+	if len(cs) < 1 {
+		return
+	}
+	for _, c := range cs {
+		if c == nil {
+			panic("a nil value is passing to register")
+		}
+	}
+	r.components = append(r.components, cs...)
+}
+
 func (r *registry) SetScanner(scanner scanner.Scanner) {
 	r.scanner = scanner
-	for _, m := range r.GetComponents() {
-		r.components.Store(m.Name, r.scanner.ScanComponent(m.Raw))
-	}
 }
 
-func (r *registry) Register(cs ...any) {
-	for _, c := range cs {
-		r.register(c)
-	}
+func (r *registry) SetExtraTags(tags ...string) {
+	r.scanner.AddTags(tags...)
 }
 
-func (r *registry) register(c any) {
-	if c == nil {
-		panic("a nil value is passing to register")
+func (r *registry) Scan() error {
+	for _, component := range r.components {
+		err := r.register(component)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
+}
+
+func (r *registry) register(c any) error {
 	var m *meta.Meta
 	switch c.(type) {
 	case *meta.Meta:
@@ -61,19 +78,20 @@ func (r *registry) register(c any) {
 	default:
 		m = r.scanner.ScanComponent(c)
 	}
-	if a, ok := r.components.Load(m.Name); ok {
+	if a, ok := r.metaMaps.Load(m.Name); ok {
 		ec := a.(*meta.Meta)
 		if ec.Address == m.Address {
-			return
+			return nil
 		}
-		panic(fmt.Sprintf("register duplicated component: %s", m.Name))
+		return fmt.Errorf("register duplicated component: %s", m.Name)
 	}
-	r.components.Store(m.Name, m)
+	r.metaMaps.Store(m.Name, m)
+	return nil
 }
 
 func (r *registry) GetComponents(opts ...Option) []*meta.Meta {
 	var metas = make([]*meta.Meta, 0)
-	r.components.Range(func(k, v any) bool {
+	r.metaMaps.Range(func(k, v any) bool {
 		m := v.(*meta.Meta)
 		if accept(m, opts...) {
 			metas = append(metas, m)
@@ -84,14 +102,14 @@ func (r *registry) GetComponents(opts ...Option) []*meta.Meta {
 }
 
 func (r *registry) GetComponentByName(name string) *meta.Meta {
-	if c, ok := r.components.Load(name); ok {
+	if c, ok := r.metaMaps.Load(name); ok {
 		return c.(*meta.Meta)
 	}
 	return nil
 }
 
 func (r *registry) RemoveComponents(name string) {
-	r.components.Delete(name)
+	r.metaMaps.Delete(name)
 }
 
 func (r *registry) IsComponentInited(name string) bool {

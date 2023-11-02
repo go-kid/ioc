@@ -8,18 +8,18 @@ import (
 	"log"
 )
 
-type injectProcessor interface {
+type InjectProcessor interface {
 	Filter(d *meta.Node) bool
 	Inject(r registry.Registry, d *meta.Node) error
 }
 
-var modifyInjectors []injectProcessor
+var modifyInjectors []InjectProcessor
 
-func AddModifyInjectors(injectors []injectProcessor) {
+func AddModifyInjectors(injectors []InjectProcessor) {
 	modifyInjectors = append(modifyInjectors, injectors...)
 }
 
-var injectors = []injectProcessor{
+var injectors = []InjectProcessor{
 	new(specifyInjector),
 	new(unSpecifyPtrInjector),
 	new(unSpecifyInterfaceInjector),
@@ -44,7 +44,7 @@ const diErrOutput = "DI report error by processor: %d\n" +
 	"caused field: %s\n" +
 	"caused by: %v\n"
 
-func injectDependency(injectors []injectProcessor, r registry.Registry, metaID string, d *meta.Node) error {
+func injectDependency(injectors []InjectProcessor, r registry.Registry, metaID string, d *meta.Node) error {
 	i, find := list.NewList(injectors).FindBy(func(i int) bool {
 		return injectors[i].Filter(d)
 	})

@@ -17,6 +17,10 @@ func New(tags ...string) Scanner {
 	return &scanner{tags: tags}
 }
 
+func (s *scanner) AddTags(tags ...string) {
+	s.tags = append(s.tags, tags...)
+}
+
 func (s *scanner) ScanComponent(c any) *meta.Meta {
 	if c == nil {
 		panic("passed nil interface to ioc")
@@ -35,7 +39,6 @@ func (s *scanner) newMeta(c any) *meta.Meta {
 		Value:           v,
 		Dependencies:    s.scanDependencies(t, v),
 		Properties:      s.scanProperties(t, v),
-		Produce:         s.scanProduces(t, v),
 		DependsBy:       nil,
 		CustomizedField: s.scanCustomizedField(t, v),
 	}
@@ -43,15 +46,6 @@ func (s *scanner) newMeta(c any) *meta.Meta {
 
 func (s *scanner) scanDependencies(t reflect.Type, v reflect.Value) []*meta.Node {
 	return s.ScanNodes(meta.InjectTag, t, v)
-}
-
-func (s *scanner) scanProduces(t reflect.Type, v reflect.Value) []*meta.Meta {
-	return lo.Map(s.ScanNodes(meta.ProduceTag, t, v), func(item *meta.Node, _ int) *meta.Meta {
-		v := reflectx.New(item.Type)
-		reflectx.Set(item.Value, v)
-		p := s.newMeta(item.Value.Interface())
-		return p
-	})
 }
 
 func (s *scanner) scanProperties(t reflect.Type, v reflect.Value) []*meta.Node {

@@ -8,23 +8,22 @@ import (
 )
 
 type ViperBinder struct {
-	ct string
-	v  *viper.Viper
+	v *viper.Viper
 }
 
 func NewViperBinder(configType string) *ViperBinder {
 	if configType == "" {
 		configType = "yaml"
 	}
+	v := viper.New()
+	v.SetConfigType(configType)
 	return &ViperBinder{
-		ct: configType,
-		v:  viper.New(),
+		v: v,
 	}
 }
 
 func (d *ViperBinder) SetConfig(c []byte) error {
-	d.v.SetConfigType(d.ct)
-	err := d.v.ReadConfig(bytes.NewBuffer(c))
+	err := d.v.MergeConfig(bytes.NewBuffer(c))
 	if err != nil {
 		return err
 	}

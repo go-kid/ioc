@@ -9,6 +9,7 @@ import (
 	"github.com/go-kid/ioc/defination"
 	"github.com/go-kid/ioc/factory"
 	"github.com/go-kid/ioc/registry"
+	"github.com/go-kid/ioc/scanner"
 	"github.com/go-kid/ioc/scanner/meta"
 	"github.com/samber/lo"
 	"log"
@@ -16,10 +17,11 @@ import (
 )
 
 type App struct {
-	configure.Loader
+	configLoaders []configure.Loader
 	configure.Binder
 	registry.Registry
 	factory.Factory
+	scanner.Scanner
 	configPath              string
 	postProcessors          []defination.ComponentPostProcessor
 	enableApplicationRunner bool
@@ -27,10 +29,11 @@ type App struct {
 
 func NewApp(ops ...SettingOption) *App {
 	var s = &App{
-		Loader:                  &loader.FileLoader{},          //default use file loader
-		Binder:                  binder.NewViperBinder("yaml"), //default use viper binder and 'yaml' config type
+		configLoaders:           []configure.Loader{&loader.FileLoader{}}, //default use file loader
+		Binder:                  binder.NewViperBinder("yaml"),            //default use viper binder and 'yaml' config type
 		Registry:                registry.GlobalRegistry(),
 		Factory:                 &factory.DefaultFactory{},
+		Scanner:                 nil,
 		configPath:              "",
 		postProcessors:          nil,
 		enableApplicationRunner: true,
@@ -42,23 +45,37 @@ func NewApp(ops ...SettingOption) *App {
 }
 
 func (s *App) Run() error {
-	//check registry
-	if s.Registry == nil {
-		return fmt.Errorf("no registry")
+	err := s.initRegistry()
+	if err != nil {
+		return err
 	}
-	s.initProduceComponents()
+	/* registry ready */
+
+	//s.initProduceComponents()
+
+	/* producer component ready */
+
 	//init configure
 	if err := s.initConfig(); err != nil {
 		return err
 	}
+
+	/* config ready */
+
 	//init factory
 	s.SetIfNilPostInitFunc(s.defaultPostInitFunc)
 
+	/* factory ready */
+
 	s.initComponentPostProcessors()
+
+	/* post processors ready */
 
 	if err := s.wire(); err != nil {
 		return err
 	}
+
+	/* components ready */
 
 	if err := s.callRunners(); err != nil {
 		return fmt.Errorf("runners failed: %v", err)
@@ -66,37 +83,41 @@ func (s *App) Run() error {
 	return nil
 }
 
-func (s *App) initProduceComponents() {
-	metas := s.GetComponents()
-	produces := lo.FlatMap[*meta.Meta, *meta.Meta](metas, func(item *meta.Meta, _ int) []*meta.Meta {
-		return item.Produce
-	})
-	lo.ForEach(produces, func(item *meta.Meta, _ int) {
-		s.Register(item)
-	})
-}
+//func (s *App) initProduceComponents() {
+//	metas := s.GetComponents()
+//	produces := lo.FlatMap[*meta.Meta, *meta.Meta](metas, func(item *meta.Meta, _ int) []*meta.Meta {
+//		return item.Produce
+//	})
+//	lo.ForEach(produces, func(item *meta.Meta, _ int) {
+//		s.Register(item)
+//	})
+//}
 
 func (s *App) initConfig() error {
 	if s.configPath == "" {
 		return nil
 	}
-	if s.Loader == nil {
-		return errors.New("config loader not available")
+	if len(s.configLoaders) < 1 {
+		return errors.New("config loader is not available")
 	}
 	if s.Binder == nil {
-		return errors.New("config binder not available")
+		return errors.New("config binder is not available")
 	}
-	c, err := s.Loader.LoadConfig(s.configPath)
-	if err != nil {
-		return fmt.Errorf("load config failed: %v", err)
+
+	for _, l := range s.configLoaders {
+		config, err := l.LoadConfig(s.configPath)
+		if err != nil {
+			return fmt.Errorf("load config failed: %v", err)
+		}
+		err = s.Binder.SetConfig(config)
+		if err != nil {
+			return fmt.Errorf("init config failed: %v", err)
+		}
 	}
-	err = s.Binder.SetConfig(c)
-	if err != nil {
-		return fmt.Errorf("init config failed: %v", err)
-	}
+
 	metas := s.GetComponents()
 	for _, m := range metas {
-		err = s.PropInject(m.Properties)
+		err := s.Binder.PropInject(m.Properties)
 		if err != nil {
 			return err
 		}
@@ -113,6 +134,20 @@ func (s *App) initComponentPostProcessors() {
 	}
 }
 
+func (s *App) initRegistry() error {
+	if s.Registry == nil {
+		return errors.New("registry is not available")
+	}
+	if s.Scanner != nil {
+		s.Registry.SetScanner(s.Scanner)
+	}
+	err := s.Registry.Scan()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *App) wire() error {
 	components := s.GetComponents()
 	sort.Slice(components, func(i, j int) bool {
@@ -122,7 +157,7 @@ func (s *App) wire() error {
 		return len(components[i].AllDependencies()) < len(components[j].AllDependencies())
 	})
 	for _, m := range components {
-		err := s.Initialize(s, m)
+		err := s.Initialize(s.Registry, m)
 		if err != nil {
 			return fmt.Errorf("initialize failed: %v", err)
 		}

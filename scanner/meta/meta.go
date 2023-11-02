@@ -18,7 +18,6 @@ type Meta struct {
 	Raw       interface{}
 	Type      reflect.Type
 	Value     reflect.Value
-	Produce   []*Meta
 	DependsBy []*Meta
 
 	Dependencies    []*Node

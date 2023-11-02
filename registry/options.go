@@ -48,9 +48,10 @@ func FuncNameAndResult(fn, result string) Option {
 				return true
 			}
 			results := method.Call(nil)
-			if (len(results) > 0 && results[0].String() == result) ||
-				(len(results) < 1 && result == "") {
-				return true
+			if len(results) < 1 {
+				return result == ""
+			} else {
+				return results[0].String() == result
 			}
 		}
 		return false

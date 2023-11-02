@@ -21,3 +21,6 @@ type ComponentPostProcessor interface {
 	PostProcessBeforeInitialization(component interface{}) error
 	PostProcessAfterInitialization(component interface{}) error
 }
+
+type FactoryComponent interface {
+}

@@ -33,9 +33,15 @@ func SetFactory(factory factory.Factory) SettingOption {
 	}
 }
 
-func SetConfigLoader(loader configure.Loader) SettingOption {
+func SetConfigLoader(loaders ...configure.Loader) SettingOption {
 	return func(s *App) {
-		s.Loader = loader
+		s.configLoaders = loaders
+	}
+}
+
+func AppendConfigLoader(loaders ...configure.Loader) SettingOption {
+	return func(s *App) {
+		s.configLoaders = append(s.configLoaders, loaders...)
 	}
 }
 
@@ -53,6 +59,12 @@ func DisableApplicationRunner() SettingOption {
 
 func SetScanner(sc scanner.Scanner) SettingOption {
 	return func(s *App) {
-		s.Registry.SetScanner(sc)
+		s.Scanner = sc
+	}
+}
+
+func SetScanTags(tags ...string) SettingOption {
+	return func(s *App) {
+		s.Registry.SetExtraTags(tags...)
 	}
 }

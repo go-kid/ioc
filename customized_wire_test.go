@@ -27,13 +27,13 @@ func (c *config) Prefix() string {
 }
 
 type compA struct {
-	baseProcessor
+	base
 }
 
 func (a *compA) Comp() {}
 
 type compB struct {
-	baseProcessor
+	base
 }
 
 func (b *compB) Comp() string {
@@ -41,17 +41,19 @@ func (b *compB) Comp() string {
 }
 
 type compC struct {
-	baseProcessor
+	base
 }
 
 func (b *compC) Comp() string {
 	return "group1"
 }
 
-type baseProcessor struct {
+type base struct {
+	CompA *compA `wire:""`
+	//Config *config
 }
 
-func (b *baseProcessor) Init() error {
+func (b *base) Init() error {
 	return nil
 }
 

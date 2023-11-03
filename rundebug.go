@@ -88,19 +88,11 @@ func RunDebug(setting DebugSetting, ops ...SettingOption) (*App, error) {
 			}
 		}
 		if !setting.DisableDependency {
+			var sourceClass = class
 			dependencyGroup := class_diagram.NewFieldGroup("Dependency")
-			class.AddGroup(dependencyGroup)
 			for _, node := range m.AllDependencies() {
-				if !setting.DisableDependencyDetail {
-					dependencyGroup.AddField(node.Field.Name, node.Type.String(), string(node.Field.Tag))
-				}
-				var interfaceType reflect.Type
-				if node.Type.Kind() == reflect.Interface {
-					interfaceType = node.Type
-				} else if node.Type.Kind() == reflect.Slice && node.Type.Elem().Kind() == reflect.Interface {
-					interfaceType = node.Type.Elem()
-				}
-
+				//find if is interface type
+				var interfaceType = _interfaceType(node.Type)
 				var interfaceName string
 				if interfaceType != nil {
 					interfaceName = fas.TernaryOp(setting.DisablePackageView, interfaceType.String(), reflectx.TypeId(interfaceType))
@@ -114,6 +106,21 @@ func RunDebug(setting DebugSetting, ops ...SettingOption) (*App, error) {
 					}
 					diagram.AddClass(class_diagram.NewClass(interfaceName, "interface").AddGroup(methodFg))
 				}
+
+				var sourceName = metaName
+				if source := node.Source; source != nil && source.IsAnonymous {
+					embedGroup := class_diagram.NewFieldGroup("Embed")
+					embedGroup.AddField(source.Type.Name(), source.Type.String())
+					sourceClass.AddGroup(embedGroup)
+					sourceName = fas.TernaryOp(setting.DisablePackageView, source.Type.String(), reflectx.TypeId(source.Type))
+					sourceClass = class_diagram.NewClass(sourceName, "abstract")
+					diagram.AddClass(sourceClass)
+					diagram.AddLine(class_diagram.NewLine(sourceName, "", metaName, "", "<|--", ""))
+				}
+				if !setting.DisableDependencyDetail {
+					dependencyGroup.AddField(node.Field.Name, node.Type.String(), string(node.Field.Tag))
+				}
+
 				for _, ij := range node.Injects {
 					injectName := fas.TernaryOp(setting.DisablePackageView, ij.Type.String(), ij.Name)
 					var toField string
@@ -121,13 +128,23 @@ func RunDebug(setting DebugSetting, ops ...SettingOption) (*App, error) {
 						toField = node.Field.Name
 					}
 					if interfaceName != "" {
-						diagram.AddLine(class_diagram.NewLine(interfaceName, "", injectName, "", "<|--", ""))
-						diagram.AddLine(class_diagram.NewLine(interfaceName, "", metaName, toField, "*--", ""))
+						for _, n := range ij.AllDependencies() {
+							if n.Source == nil || !n.Source.IsAnonymous {
+								continue
+							}
+							if reflect.New(n.Source.Type).Type().Implements(interfaceType) {
+								diagram.AddLine(class_diagram.NewLine(interfaceName, "", fas.TernaryOp(setting.DisablePackageView, n.Source.Type.String(), reflectx.TypeId(n.Source.Type)), "", "<|--", ""))
+							} else {
+								diagram.AddLine(class_diagram.NewLine(interfaceName, "", injectName, "", "<|--", ""))
+							}
+						}
+						diagram.AddLine(class_diagram.NewLine(interfaceName, "", sourceName, toField, "--*", ""))
 					} else {
-						diagram.AddLine(class_diagram.NewLine(injectName, "", metaName, toField, "*--", ""))
+						diagram.AddLine(class_diagram.NewLine(injectName, "", sourceName, toField, "--*", ""))
 					}
 				}
 			}
+			sourceClass.AddGroup(dependencyGroup)
 		}
 		diagram.AddClass(class)
 	}
@@ -137,4 +154,13 @@ func RunDebug(setting DebugSetting, ops ...SettingOption) (*App, error) {
 	}
 	_, err = setting.Writer.Write([]byte(diagram.String()))
 	return s, err
+}
+
+func _interfaceType(p reflect.Type) reflect.Type {
+	if p.Kind() == reflect.Interface {
+		return p
+	} else if p.Kind() == reflect.Slice && p.Elem().Kind() == reflect.Interface {
+		return p.Elem()
+	}
+	return nil
 }

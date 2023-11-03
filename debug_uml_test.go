@@ -21,7 +21,7 @@ func TestDebugUml(t *testing.T) {
 		DisableConfigDetail:     false,
 		DisableDependency:       false,
 		DisableDependencyDetail: false,
-		DisableUselessClass:     true,
+		DisableUselessClass:     false,
 		PreciseArrow:            true,
 		Writer:                  nil,
 	}, app.SetScanTags("Comp"), app.SetComponents(m, a, b, c))

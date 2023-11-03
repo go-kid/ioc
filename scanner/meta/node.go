@@ -8,6 +8,7 @@ import (
 )
 
 type Node struct {
+	Source  *Source
 	Field   reflect.StructField
 	Tag     string
 	TagVal  string

@@ -45,7 +45,10 @@ func (s *scanner) newMeta(c any) *meta.Meta {
 }
 
 func (s *scanner) scanDependencies(t reflect.Type, v reflect.Value) []*meta.Node {
-	return s.ScanNodes(meta.InjectTag, t, v)
+	return s.ScanNodes(&meta.Source{
+		Type:  t,
+		Value: v,
+	}, meta.InjectTag)
 }
 
 func (s *scanner) scanProperties(t reflect.Type, v reflect.Value) []*meta.Node {
@@ -56,51 +59,64 @@ func (s *scanner) scanProperties(t reflect.Type, v reflect.Value) []*meta.Node {
 		}
 		return "", "", false
 	}
-	return s.ScanNodes(meta.PropTag, t, v, configureHandler)
+	return s.ScanNodes(&meta.Source{
+		Type:  t,
+		Value: v,
+	}, meta.PropTag, configureHandler)
 }
 
 func (s *scanner) scanCustomizedField(t reflect.Type, v reflect.Value) []*meta.Node {
 	return lo.FlatMap(s.tags, func(tag string, _ int) []*meta.Node {
-		return s.ScanNodes(tag, t, v)
+		return s.ScanNodes(&meta.Source{
+			Type:  t,
+			Value: v,
+		}, tag)
 	})
 }
 
 type ExtTagHandler func(field reflect.StructField, value reflect.Value) (string, string, bool)
 
-func (s *scanner) ScanNodes(tag string, t reflect.Type, v reflect.Value, handlers ...ExtTagHandler) []*meta.Node {
+func (s *scanner) ScanNodes(source *meta.Source, tag string, handlers ...ExtTagHandler) []*meta.Node {
 	var nodes []*meta.Node
-	_ = reflectx.ForEachFieldV2(t, v, true, func(field reflect.StructField, value reflect.Value) error {
-		//find tag in struct field tag
-		if tag != "" {
-			if tagVal, ok := field.Tag.Lookup(tag); ok {
-				nodes = append(nodes, &meta.Node{
-					Field:   field,
-					Tag:     tag,
-					TagVal:  tagVal,
-					Type:    field.Type,
-					Value:   value,
-					Injects: nil,
-				})
-				return nil
+	_ = reflectx.ForEachFieldV2(source.Type, source.Value, false, func(field reflect.StructField, value reflect.Value) error {
+		var newNodeFn = func(tag, tagVal string) *meta.Node {
+			return &meta.Node{
+				Source:  source,
+				Field:   field,
+				Tag:     tag,
+				TagVal:  tagVal,
+				Type:    field.Type,
+				Value:   value,
+				Injects: nil,
 			}
 		}
 		//if is embed struct, find inside
-		if field.Anonymous && field.Type.Kind() == reflect.Struct {
-			nodes = append(nodes, s.ScanNodes(tag, field.Type, value, handlers...)...)
+		if field.Anonymous && field.Tag == "" && field.Type.Kind() == reflect.Struct {
+			var child = &meta.Source{
+				Source:      source,
+				IsAnonymous: true,
+				Type:        field.Type,
+				Value:       value,
+			}
+			nodes = append(nodes, s.ScanNodes(child, tag, handlers...)...)
 			return nil
 		}
+
+		if !value.CanSet() {
+			return nil
+		}
+
+		//find tag in struct field tag
+		if tagVal, ok := field.Tag.Lookup(tag); ok {
+			nodes = append(nodes, newNodeFn(tag, tagVal))
+			return nil
+		}
+
 		//use first success extra tag handler
 		if len(handlers) > 0 {
 			for _, handler := range handlers {
 				if tag, tagVal, ok := handler(field, value); ok {
-					nodes = append(nodes, &meta.Node{
-						Field:   field,
-						Tag:     tag,
-						TagVal:  tagVal,
-						Type:    field.Type,
-						Value:   value,
-						Injects: nil,
-					})
+					nodes = append(nodes, newNodeFn(tag, tagVal))
 					return nil
 				}
 			}

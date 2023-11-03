@@ -82,13 +82,13 @@ func (r *registry) register(c any) {
 		m = r.scanner.ScanComponent(c)
 	}
 	if a, ok := r.metaMaps.Load(m.Name); ok {
-		ec := a.(*meta.Meta)
-		if ec.Address == m.Address {
-			return
+		if a.(*meta.Meta).ID() != m.ID() {
+			log.Fatalf("register duplicated component: %s", m.Name)
 		}
-		log.Fatalf("register duplicated component: %s", m.Name)
+		return
 	}
 	r.metaMaps.Store(m.Name, m)
+	log.Printf("register component: %s [%s]\n", m.Name, m.ID())
 }
 
 func (r *registry) GetComponents(opts ...Option) []*meta.Meta {

@@ -7,12 +7,13 @@ import (
 )
 
 type customized struct {
-	CompA   *compA                         `Comp:""`
-	CompB   *compB                         `Comp:"compB"`
-	CompB2  defination.InitializeComponent `Comp:"compB"`
-	Comps   []any                          `Comp:"-"`
-	Config  *config
-	Config2 string `prop:"path"`
+	CompA      *compA                           `Comp:""`
+	CompB      *compB                           `Comp:"group1"`
+	CompB2     defination.InitializeComponent   `Comp:"group1"`
+	Comps      []defination.InitializeComponent `Comp:"-"`
+	CompsGroup []defination.InitializeComponent `Comp:"group1"`
+	Config     *config
+	Config2    string `prop:"path"`
 }
 
 type config struct {
@@ -36,7 +37,15 @@ type compB struct {
 }
 
 func (b *compB) Comp() string {
-	return "compB"
+	return "group1"
+}
+
+type compC struct {
+	baseProcessor
+}
+
+func (b *compC) Comp() string {
+	return "group1"
 }
 
 type baseProcessor struct {

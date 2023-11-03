@@ -11,6 +11,7 @@ func TestDebugUml(t *testing.T) {
 		m = &customized{}
 		a = &compA{}
 		b = &compB{}
+		c = &compC{}
 	)
 
 	//sc := scanner.New("Comp")
@@ -23,6 +24,6 @@ func TestDebugUml(t *testing.T) {
 		DisableUselessClass:     true,
 		PreciseArrow:            true,
 		Writer:                  nil,
-	}, app.SetScanTags("Comp"), app.SetComponents(m, a, b))
+	}, app.SetScanTags("Comp"), app.SetComponents(m, a, b, c))
 	assert.NoError(t, err)
 }

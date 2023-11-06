@@ -9,6 +9,7 @@ import (
 )
 
 type InjectProcessor interface {
+	RuleName() string
 	Filter(d *meta.Node) bool
 	Inject(r registry.Registry, d *meta.Node) error
 }
@@ -39,7 +40,7 @@ func DependencyInject(r registry.Registry, id string, dependencies []*meta.Node)
 	return nil
 }
 
-const diErrOutput = "DI report error by processor: %d\n" +
+const diErrOutput = "DI report error by processor: %s\n" +
 	"caused instance: %s\n" +
 	"caused field: %s\n" +
 	"caused by: %v\n"
@@ -49,16 +50,17 @@ func injectDependency(injectors []InjectProcessor, r registry.Registry, metaID s
 		return injectors[i].Filter(d)
 	})
 	if !find {
-		return fmt.Errorf(diErrOutput, 0, metaID, d.Id(), "injection condition not found")
+		return fmt.Errorf(diErrOutput, "nil", metaID, d.Id(), "injection condition not found")
 	}
+	inj := injectors[i]
 	defer func() {
 		if err := recover(); err != nil {
-			log.Panicf(diErrOutput, i+1, metaID, d.Id(), err)
+			log.Panicf(diErrOutput, inj.RuleName(), metaID, d.Id(), err)
 		}
 	}()
-	err := injectors[i].Inject(r, d)
+	err := inj.Inject(r, d)
 	if err != nil {
-		return fmt.Errorf(diErrOutput, i+1, metaID, d.Id(), err)
+		return fmt.Errorf(diErrOutput, inj.RuleName(), metaID, d.Id(), err)
 	}
 	return nil
 }

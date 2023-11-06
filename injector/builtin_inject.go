@@ -17,6 +17,10 @@ import (
 */
 type specifyInjector struct{}
 
+func (b *specifyInjector) RuleName() string {
+	return "Any_Type_With_Specifying_Name"
+}
+
 func (b *specifyInjector) Filter(d *meta.Node) bool {
 	return d.Tag == meta.InjectTag && d.TagVal != "" && //ruleTagNotEmpty
 		(d.Type.Kind() == reflect.Ptr || d.Type.Kind() == reflect.Interface)
@@ -39,6 +43,10 @@ func (b *specifyInjector) Inject(r registry.Registry, d *meta.Node) error {
 - field has injectTag tag, and is empty
 */
 type unSpecifyPtrInjector struct{}
+
+func (b *unSpecifyPtrInjector) RuleName() string {
+	return "Pointer_Without_Specifying_Name"
+}
 
 func (b *unSpecifyPtrInjector) Filter(d *meta.Node) bool {
 	return d.Tag == meta.InjectTag && d.TagVal == "" && //ruleEmptyTag
@@ -63,6 +71,10 @@ func (b *unSpecifyPtrInjector) Inject(r registry.Registry, d *meta.Node) error {
 - prefer the first unnamed(not implement NamingComponent) instance
 */
 type unSpecifyInterfaceInjector struct{}
+
+func (i *unSpecifyInterfaceInjector) RuleName() string {
+	return "Interface_Without_Specifying_Name"
+}
 
 func (i *unSpecifyInterfaceInjector) Filter(d *meta.Node) bool {
 	return d.Tag == meta.InjectTag && d.TagVal == "" && //ruleEmptyTag
@@ -93,6 +105,10 @@ func (i *unSpecifyInterfaceInjector) Inject(r registry.Registry, d *meta.Node) e
 - field has injectTag tag, and is empty
 */
 type unSpecifyInterfaceSliceInjector struct{}
+
+func (s *unSpecifyInterfaceSliceInjector) RuleName() string {
+	return "Interface_Slice"
+}
 
 func (s *unSpecifyInterfaceSliceInjector) Filter(d *meta.Node) bool {
 	return d.Tag == meta.InjectTag && d.TagVal == "" && //ruleEmptyTag

@@ -10,6 +10,10 @@ import (
 type customizedPtrInjector struct {
 }
 
+func (c *customizedPtrInjector) RuleName() string {
+	return "Customized_Pointer"
+}
+
 func (c *customizedPtrInjector) Filter(d *meta.Node) bool {
 	return d.Type.Kind() == reflect.Ptr
 }
@@ -26,6 +30,10 @@ func (c *customizedPtrInjector) Inject(r registry.Registry, d *meta.Node) error 
 type customizedInterfaceInjector struct {
 }
 
+func (c *customizedInterfaceInjector) RuleName() string {
+	return "Customized_Interface"
+}
+
 func (c *customizedInterfaceInjector) Filter(d *meta.Node) bool {
 	return d.Type.Kind() == reflect.Interface
 }
@@ -40,6 +48,10 @@ func (c *customizedInterfaceInjector) Inject(r registry.Registry, d *meta.Node) 
 }
 
 type customizedInterfaceSliceInjector struct {
+}
+
+func (s *customizedInterfaceSliceInjector) RuleName() string {
+	return "Customized_Interface_Slice"
 }
 
 func (s *customizedInterfaceSliceInjector) Filter(d *meta.Node) bool {

@@ -21,7 +21,7 @@ func (n *Node) Id() string {
 	if n.TagVal != "" {
 		return n.TagVal
 	}
-	return GetComponentName(n.Value)
+	return GetComponentName(reflectx.New(n.Type))
 }
 
 func (n *Node) Inject(m ...*Meta) {

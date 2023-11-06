@@ -13,6 +13,10 @@ import (
 type myInjector struct {
 }
 
+func (m *myInjector) RuleName() string {
+	return "my-injector"
+}
+
 func (m *myInjector) Filter(d *meta.Node) bool {
 	return d.Tag == "time"
 }

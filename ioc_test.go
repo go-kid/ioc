@@ -210,7 +210,7 @@ a:
    d2: 123`
 		RunTest(t, SetComponents(app),
 			SetConfig(_tConfig),
-			SetConfigLoader(&loader.RawLoader{}))
+			SetConfigLoader(loader.NewRawLoader()))
 		fmt.Println(app)
 		assert.Equal(t, 123, app.A.B)
 		assert.Equal(t, []int{1, 2, 3, 4}, app.A.C)
@@ -224,7 +224,7 @@ a:
 		var _tConfig = `{"a": {"b": 123, "c": [1,2,3,4], "d": {"d1": "abc", "d2": 123}}}`
 		RunTest(t, SetComponents(app),
 			SetConfig(_tConfig),
-			SetConfigLoader(&loader.RawLoader{}),
+			SetConfigLoader(loader.NewRawLoader()),
 			SetConfigBinder(binder.NewViperBinder("json")))
 		assert.Equal(t, 123, app.A.B)
 		assert.Equal(t, []int{1, 2, 3, 4}, app.A.C)

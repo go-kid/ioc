@@ -28,7 +28,7 @@ func (e *ExpressionBinder) SetConfig(c []byte) error {
 		return fmt.Errorf("parse config template failed: %v", err)
 	}
 	var m = map[string]any{}
-	err = e.v.Unmarshal(&m)
+	err = e.Viper.Unmarshal(&m)
 	if err != nil {
 		return err
 	}

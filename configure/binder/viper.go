@@ -8,7 +8,7 @@ import (
 )
 
 type ViperBinder struct {
-	v *viper.Viper
+	Viper *viper.Viper
 }
 
 func NewViperBinder(configType string) *ViperBinder {
@@ -18,12 +18,12 @@ func NewViperBinder(configType string) *ViperBinder {
 	v := viper.New()
 	v.SetConfigType(configType)
 	return &ViperBinder{
-		v: v,
+		Viper: v,
 	}
 }
 
 func (d *ViperBinder) SetConfig(c []byte) error {
-	err := d.v.MergeConfig(bytes.NewBuffer(c))
+	err := d.Viper.MergeConfig(bytes.NewBuffer(c))
 	if err != nil {
 		return err
 	}
@@ -33,9 +33,9 @@ func (d *ViperBinder) SetConfig(c []byte) error {
 func (d *ViperBinder) PropInject(properties []*meta.Node) error {
 	unmarshall := func(key string, a interface{}) error {
 		if key == "" {
-			return d.v.Unmarshal(a)
+			return d.Viper.Unmarshal(a)
 		}
-		return d.v.UnmarshalKey(key, a)
+		return d.Viper.UnmarshalKey(key, a)
 	}
 	for _, prop := range properties {
 		var fieldType = prop.Type

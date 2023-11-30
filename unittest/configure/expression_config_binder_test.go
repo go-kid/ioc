@@ -1,6 +1,7 @@
-package ioc
+package configure
 
 import (
+	"github.com/go-kid/ioc"
 	"github.com/go-kid/ioc/app"
 	"github.com/go-kid/ioc/configure/binder"
 	"github.com/go-kid/ioc/configure/loader"
@@ -36,7 +37,7 @@ type expressionConfig struct {
 
 func TestExpressionBinder(t *testing.T) {
 	var a = &expressionTestApp{}
-	RunTest(t,
+	ioc.RunTest(t,
 		app.SetConfigLoader(loader.NewRawLoader()),
 		app.SetConfigBinder(binder.NewExpressionBinder("yaml")),
 		app.SetConfig(expressionYaml),

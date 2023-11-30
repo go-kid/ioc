@@ -41,13 +41,16 @@ func scan(cmd *cobra.Command, args []string) {
 		return nil
 	})
 
+	c := util.GoCmd{}
+	list, err := c.List()
+	if err != nil {
+		log.Fatal(err)
+	}
+	mod := list.Path
+
 	var registers []*Register
-	for _, file := range files {
-		fileBytes, err := os.ReadFile(file)
-		if err != nil {
-			return
-		}
-		r, err := analyseFile(fileBytes)
+	for _, path := range files {
+		r, err := analyseFile(path)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -60,16 +63,16 @@ func scan(cmd *cobra.Command, args []string) {
 	var creators []creator.FileCreator
 	for group, registers := range groups {
 		f := creator.NewGoFile("register", outputDirArg, "scan_"+group, false)
-		paths := lo.Map(registers, func(item *Register, index int) string {
-			return item.Path
+		imports := lo.Map(registers, func(item *Register, index int) string {
+			return filepath.Join(mod, item.Path)
 		})
-		paths = lo.Uniq(paths)
-		f.SetAttribute("Imports", paths)
+		imports = lo.Uniq(imports)
+		f.SetAttribute("Imports", imports)
 		f.SetAttribute("Components", registers)
 		creators = append(creators, f)
 	}
 
-	err := creator.NewBatchCreator(creators...).Create()
+	err = creator.NewBatchCreator(creators...).Create()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -83,21 +86,30 @@ type Register struct {
 	Kind  string
 }
 
-func analyseFile(bytes []byte) (registers []*Register, err error) {
+func analyseFile(path string) (registers []*Register, err error) {
+	bytes, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
 	fset := token.NewFileSet()
 	var f *ast.File
 	f, err = parser.ParseFile(fset, "", string(bytes), parser.ParseComments)
 	if err != nil {
 		return
 	}
-	//ast.Print(fset, f)
-
-	c := util.GoCmd{}
-	list, err := c.List()
+	dir, _ := filepath.Split(path)
+	registers, err = analyseToken(f)
 	if err != nil {
-		return nil, err
+		return
 	}
-	mod := list.Path
+	for _, r := range registers {
+		r.Path = dir
+	}
+	return
+}
+
+func analyseToken(f *ast.File) (registers []*Register, err error) {
+	//ast.Print(fset, f)
 
 	registerCommentMatch, err := regexp.Compile("//\\s*\\S+\\s+@\\S+")
 	if err != nil {
@@ -120,7 +132,6 @@ func analyseFile(bytes []byte) (registers []*Register, err error) {
 				return true
 			})
 			registers = append(registers, &Register{
-				Path:  filepath.Join(mod, f.Name.Name),
 				Pkg:   f.Name.Name,
 				Name:  name,
 				Group: group,

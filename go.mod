@@ -3,7 +3,6 @@ module github.com/go-kid/ioc
 go 1.20
 
 require (
-	github.com/awalterschulze/gographviz v2.0.3+incompatible
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
 	github.com/samber/lo v1.38.1
 	github.com/spf13/viper v1.15.0

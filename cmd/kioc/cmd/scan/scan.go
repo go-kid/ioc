@@ -23,13 +23,19 @@ var Scan = &cobra.Command{
 }
 
 var (
-	packageArg   string
-	outputDirArg string
+	packageArg    string
+	outputDirArg  string
+	replacePkgArg []string
 )
 
 func init() {
 	Scan.Flags().StringVarP(&packageArg, "package", "p", ".", "scan package path")
 	Scan.Flags().StringVarP(&outputDirArg, "output_dir", "o", "./register", "register file path")
+	Scan.Flags().StringArrayVarP(&replacePkgArg, "replace", "r", nil, "used when package not equal directory's name\n"+
+		"exp:\n"+
+		"directory name: /xxx.com/project/utils\n"+
+		"package name: util\n"+
+		"then: xxx.com/project/utils=>xxx.com/project/util")
 }
 
 func scan(cmd *cobra.Command, args []string) {
@@ -60,11 +66,22 @@ func scan(cmd *cobra.Command, args []string) {
 		return item.Group
 	})
 
+	var replaceRules [][]string
+	for _, expression := range replacePkgArg {
+		replaceRules = append(replaceRules, strings.SplitN(expression, "=>", 2))
+	}
+
 	var creators []creator.FileCreator
 	for group, registers := range groups {
 		f := creator.NewGoFile("register", outputDirArg, "scan_"+group, false)
 		imports := lo.Map(registers, func(item *Register, index int) string {
-			return filepath.Join(mod, item.Path)
+			importPath := filepath.Join(mod, item.Path)
+			if len(replaceRules) > 0 {
+				for _, rule := range replaceRules {
+					importPath = strings.ReplaceAll(importPath, rule[0], rule[1])
+				}
+			}
+			return importPath
 		})
 		imports = lo.Uniq(imports)
 		f.SetAttribute("Imports", imports)

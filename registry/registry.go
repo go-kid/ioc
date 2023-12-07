@@ -3,9 +3,9 @@ package registry
 import (
 	"github.com/go-kid/ioc/scanner"
 	"github.com/go-kid/ioc/scanner/meta"
+	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/list"
 	"github.com/modern-go/concurrent"
-	"log"
 	"sync"
 )
 
@@ -83,12 +83,12 @@ func (r *registry) register(c any) {
 	}
 	if a, ok := r.metaMaps.Load(m.Name); ok {
 		if a.(*meta.Meta).ID() != m.ID() {
-			log.Fatalf("register duplicated component: %s", m.Name)
+			syslog.Fatalf("register duplicated component: %s\n", m.Name)
 		}
 		return
 	}
 	r.metaMaps.Store(m.Name, m)
-	log.Printf("register component: %s [%s]\n", m.Name, m.ID())
+	syslog.Infof("register component: %s [%s]\n", m.Name, m.ID())
 }
 
 func (r *registry) GetComponents(opts ...Option) []*meta.Meta {

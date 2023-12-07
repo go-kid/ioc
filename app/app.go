@@ -11,8 +11,8 @@ import (
 	"github.com/go-kid/ioc/registry"
 	"github.com/go-kid/ioc/scanner"
 	"github.com/go-kid/ioc/scanner/meta"
+	"github.com/go-kid/ioc/syslog"
 	"github.com/samber/lo"
-	"log"
 	"sort"
 )
 
@@ -173,7 +173,7 @@ func (s *App) defaultPostInitFunc(m *meta.Meta) error {
 			return fmt.Errorf("component: %s inited failed: %s", m.ID(), err)
 		}
 	}
-	log.Printf("ioc: %s inited\n", m.ID())
+	syslog.Infof("initialize component: %s\n", m.ID())
 
 	// after process
 	for _, processor := range s.postProcessors {

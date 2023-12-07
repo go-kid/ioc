@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"github.com/go-kid/ioc/registry"
 	"github.com/go-kid/ioc/scanner/meta"
+	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/list"
-	"log"
 )
 
 type InjectProcessor interface {
@@ -55,7 +55,7 @@ func injectDependency(injectors []InjectProcessor, r registry.Registry, metaID s
 	inj := injectors[i]
 	defer func() {
 		if err := recover(); err != nil {
-			log.Panicf(diErrOutput, inj.RuleName(), metaID, d.Id(), err)
+			syslog.Panicf(diErrOutput, inj.RuleName(), metaID, d.Id(), err)
 		}
 	}()
 	err := inj.Inject(r, d)

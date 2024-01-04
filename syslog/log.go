@@ -1,27 +1,17 @@
 package syslog
 
-import "log"
+import (
+	"log"
+	"os"
+)
 
-func Fatal(v ...any) {
-	log.Fatal(append([]any{"[ioc]"}, v...)...)
-}
+var std = log.New(os.Stderr, "[ioc] ", log.LstdFlags)
 
-func Fatalf(format string, v ...any) {
-	log.Fatalf("[ioc] "+format, v...)
-}
-
-func Info(v ...any) {
-	log.Println(append([]any{"[ioc]"}, v...)...)
-}
-
-func Infof(format string, v ...any) {
-	log.Printf("[ioc] "+format, v...)
-}
-
-func Panic(v ...any) {
-	log.Panic(append([]any{"[ioc]"}, v...)...)
-}
-
-func Panicf(format string, v ...any) {
-	log.Panicf("[ioc] "+format, v...)
-}
+var (
+	Fatal  = std.Fatalln
+	Fatalf = std.Fatalf
+	Info   = std.Println
+	Infof  = std.Printf
+	Panic  = std.Panicln
+	Panicf = std.Panicf
+)

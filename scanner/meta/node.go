@@ -41,14 +41,15 @@ func (n *Node) Inject(m ...*Meta) {
 }
 
 func GetComponentName(t any) string {
+	var c any
 	switch t.(type) {
 	case reflect.Value:
-		c := t.(reflect.Value).Interface()
-		if n, ok := c.(defination.NamingComponent); ok {
-			return n.Naming()
-		}
-		return reflectx.Id(c)
+		c = t.(reflect.Value).Interface()
 	default:
-		return reflectx.Id(t)
+		c = t
 	}
+	if n, ok := c.(defination.NamingComponent); ok {
+		return n.Naming()
+	}
+	return reflectx.Id(c)
 }

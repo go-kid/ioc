@@ -14,6 +14,7 @@ import (
 	"github.com/go-kid/ioc/syslog"
 	"github.com/samber/lo"
 	"sort"
+	"sync"
 )
 
 type App struct {
@@ -204,4 +205,21 @@ func (s *App) callRunners() error {
 		}
 	}
 	return nil
+}
+
+func (s *App) Close() {
+	metas := s.GetComponents(registry.Interface(new(defination.CloserComponent)))
+	wg := sync.WaitGroup{}
+	wg.Add(len(metas))
+	for _, m := range metas {
+		go func(m *meta.Meta) {
+			defer wg.Done()
+			if err := m.Raw.(defination.CloserComponent).Close(); err != nil {
+				syslog.Infof("Error closing %s", m.ID())
+			} else {
+				syslog.Infof("close component: %s", m.ID())
+			}
+		}(m)
+	}
+	wg.Wait()
 }

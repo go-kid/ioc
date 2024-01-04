@@ -22,5 +22,6 @@ type ComponentPostProcessor interface {
 	PostProcessAfterInitialization(component interface{}) error
 }
 
-type FactoryComponent interface {
+type CloserComponent interface {
+	Close() error
 }

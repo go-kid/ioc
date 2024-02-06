@@ -1,5 +1,9 @@
 package defination
 
+type ConstructComponent interface {
+	New()
+}
+
 type InitializeComponent interface {
 	Init() error
 }

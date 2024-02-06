@@ -6,51 +6,90 @@ import (
 	"strings"
 )
 
+type Field interface {
+	SetHolding1(h1, h2 int)
+	Name() string
+	Type() string
+	Arg() string
+	fmt.Stringer
+}
+
 type field struct {
-	Name     string
-	Holding1 int
-	Type     string
-	Holding2 int
-	Arg      string
+	name     string
+	holding1 int
+	typ      string
+	holding2 int
+	arg      string
+}
+
+func (f *field) SetHolding1(h1, h2 int) {
+	f.holding1 = h1
+	f.holding2 = h2
+}
+
+func (f *field) Name() string {
+	return f.name
+}
+
+func (f *field) Type() string {
+	return f.typ
+}
+
+func (f *field) Arg() string {
+	return f.arg
 }
 
 func (f *field) String() string {
-	return fmt.Sprintf("  +%s%s : %s%s %s\n", f.Name, strings.Repeat(" ", f.Holding1-len(f.Name)), f.Type, strings.Repeat(" ", f.Holding2-len(f.Type)), f.Arg)
+	return fmt.Sprintf("  +%s%s : %s%s %s\n", f.name, strings.Repeat(" ", f.holding1-len(f.name)), f.typ, strings.Repeat(" ", f.holding2-len(f.typ)), f.arg)
+}
+
+type FieldGroup interface {
+	AddField(fieldName, fieldType string, arg ...string) FieldGroup
+	Group() string
+	Fields() []Field
+	fmt.Stringer
 }
 
 type fieldGroup struct {
-	Group      string
-	Fields     []*field
+	group      string
+	fields     []Field
 	MaxNameLen int
 	MaxTypeLen int
 }
 
-func NewFieldGroup(group string) *fieldGroup {
+func NewFieldGroup(group string) FieldGroup {
 	return &fieldGroup{
-		Group: group,
+		group: group,
 	}
 }
 
-func (f *fieldGroup) AddField(fieldName, fieldType string, arg ...string) *fieldGroup {
-	f.Fields = append(f.Fields, &field{
-		Name:     fieldName,
-		Holding1: 0,
-		Type:     fieldType,
-		Holding2: 0,
-		Arg:      strings.Join(arg, " "),
+func (f *fieldGroup) Group() string {
+	return f.group
+}
+
+func (f *fieldGroup) Fields() []Field {
+	return f.fields
+}
+
+func (f *fieldGroup) AddField(fieldName, fieldType string, arg ...string) FieldGroup {
+	f.fields = append(f.fields, &field{
+		name:     fieldName,
+		holding1: 0,
+		typ:      fieldType,
+		holding2: 0,
+		arg:      strings.Join(arg, " "),
 	})
 	return f
 }
 
 func (f *fieldGroup) String() string {
 	builder := strings.Builder{}
-	for _, field := range f.Fields {
-		f.MaxNameLen = fas.Max(len(field.Name), f.MaxNameLen)
-		f.MaxTypeLen = fas.Max(len(field.Type), f.MaxTypeLen)
+	for _, field := range f.fields {
+		f.MaxNameLen = fas.Max(len(field.Name()), f.MaxNameLen)
+		f.MaxTypeLen = fas.Max(len(field.Type()), f.MaxTypeLen)
 	}
-	for _, field := range f.Fields {
-		field.Holding1 = f.MaxNameLen
-		field.Holding2 = f.MaxTypeLen
+	for _, field := range f.fields {
+		field.SetHolding1(f.MaxNameLen, f.MaxTypeLen)
 		builder.WriteString(field.String())
 	}
 	return builder.String()

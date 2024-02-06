@@ -5,32 +5,51 @@ import (
 	"github.com/go-kid/ioc/util/fas"
 )
 
-type line struct {
-	FromClass string
-	FromField string
-	ToClass   string
-	ToField   string
-	ArrowType string
-	Tag       string
+type Line interface {
+	From() (class, field string)
+	To() (class, field string)
+	Tag() string
+	fmt.Stringer
 }
 
-func NewLine(from, fromField, to, toField, arrowType, tag string) *line {
+type line struct {
+	fromClass string
+	fromField string
+	toClass   string
+	toField   string
+	arrowType string
+	tag       string
+}
+
+func (l *line) From() (class, field string) {
+	return l.fromClass, l.fromField
+}
+
+func (l *line) To() (class, field string) {
+	return l.toClass, l.toField
+}
+
+func (l *line) Tag() string {
+	return l.tag
+}
+
+func NewLine(from, fromField, to, toField, arrowType, tag string) Line {
 	return &line{
-		FromClass: from,
-		FromField: fromField,
-		ToClass:   to,
-		ToField:   toField,
-		ArrowType: arrowType,
-		Tag:       tag,
+		fromClass: from,
+		fromField: fromField,
+		toClass:   to,
+		toField:   toField,
+		arrowType: arrowType,
+		tag:       tag,
 	}
 }
 
 func (l *line) String() string {
 	return fmt.Sprintf("\"%s%s\" %s \"%s%s%s\"\n",
-		l.FromClass,
-		fas.TernaryOp(l.FromField == "", "", "::"+l.FromField),
-		fas.TernaryOp(l.ArrowType == "", "--", l.ArrowType),
-		l.ToClass, fas.TernaryOp(l.ToField == "", "", "::"+l.ToField),
-		l.Tag,
+		l.fromClass,
+		fas.TernaryOp(l.fromField == "", "", "::"+l.fromField),
+		fas.TernaryOp(l.arrowType == "", "--", l.arrowType),
+		l.toClass, fas.TernaryOp(l.toField == "", "", "::"+l.toField),
+		l.tag,
 	)
 }

@@ -9,7 +9,7 @@
 <div style="height: 100%" id="container"></div>
 
 <!--/* 引入 G6 */-->
-<script src="https://gw.alipayobjects.com/os/lib/antv/g6/4.3.11/dist/g6.min.js"></script>
+<script src="https://gw.alipayobjects.com/os/lib/antv/g6/4.8.21/dist/g6.min.js"></script>
 
 <script src="https://unpkg.com/axios@1.6.7/dist/axios.min.js"></script>
 
@@ -39,6 +39,8 @@
         };
 
         const itemHeight = 20;
+        const lineDash = [4, 2, 1, 2];
+
         registerBehavior("dice-er-scroll", {
             getDefaultCfg() {
                 return {
@@ -48,84 +50,84 @@
             getEvents() {
                 return {
                     itemHeight,
-                    wheel: "scorll",
+                    // wheel: "scorll",
                     click: "click",
                     "node:mousemove": "move",
                     "node:mousedown": "mousedown",
                     "node:mouseup": "mouseup"
                 };
             },
-            scorll(e) {
-                e.preventDefault();
-                const {
-                    graph
-                } = this;
-                const nodes = graph.getNodes().filter((n) => {
-                    const bbox = n.getBBox();
-
-                    return isInBBox(graph.getPointByClient(e.clientX, e.clientY), bbox);
-                });
-
-                const x = e.deltaX || e.movementX;
-                let y = e.deltaY || e.movementY;
-                if (!y && navigator.userAgent.indexOf('Firefox') > -1) y = (-e.wheelDelta * 125) / 3
-
-                if (nodes) {
-                    const edgesToUpdate = new Set();
-                    nodes.forEach((node) => {
-                        const model = node.getModel();
-                        if (model.attrs.length < 2) {
-                            return;
-                        }
-                        const idx = model.startIndex || 0;
-                        let startX = model.startX || 0.5;
-                        let startIndex = idx + y * 0.02;
-                        startX -= x;
-                        if (startIndex < 0) {
-                            startIndex = 0;
-                        }
-                        if (startX > 0) {
-                            startX = 0;
-                        }
-                        if (startIndex > model.attrs.length - 1) {
-                            startIndex = model.attrs.length - 1;
-                        }
-                        graph.updateItem(node, {
-                            startIndex,
-                            startX,
-                        });
-                        node.getEdges().forEach(edge => edgesToUpdate.add(edge))
-                    });
-                    // G6 update the related edges when graph.updateItem with a node according to the new properties
-                    // here you need to update the related edges manualy since the new properties { startIndex, startX } for the nodes are custom, and cannot be recognized by G6
-                    edgesToUpdate.forEach(edge => edge.refresh())
-                }
-
-
-            },
+            // scorll(e) {
+            //     e.preventDefault();
+            //     const {
+            //         graph
+            //     } = this;
+            //     const nodes = graph.getNodes().filter((n) => {
+            //         const bbox = n.getBBox();
+            //
+            //         return isInBBox(graph.getPointByClient(e.clientX, e.clientY), bbox);
+            //     });
+            //
+            //     const x = e.deltaX || e.movementX;
+            //     let y = e.deltaY || e.movementY;
+            //     if (!y && navigator.userAgent.indexOf('Firefox') > -1) y = (-e.wheelDelta * 125) / 3
+            //
+            //     if (nodes) {
+            //         const edgesToUpdate = new Set();
+            //         nodes.forEach((node) => {
+            //             const model = node.getModel();
+            //             if (model.attrs.length < 2) {
+            //                 return;
+            //             }
+            //             const idx = model.startIndex || 0;
+            //             let startX = model.startX || 0.5;
+            //             let startIndex = idx + y * 0.02;
+            //             startX -= x;
+            //             if (startIndex < 0) {
+            //                 startIndex = 0;
+            //             }
+            //             if (startX > 0) {
+            //                 startX = 0;
+            //             }
+            //             if (startIndex > model.attrs.length - 1) {
+            //                 startIndex = model.attrs.length - 1;
+            //             }
+            //             graph.updateItem(node, {
+            //                 startIndex,
+            //                 startX,
+            //             });
+            //             node.getEdges().forEach(edge => edgesToUpdate.add(edge))
+            //         });
+            //         // G6 update the related edges when graph.updateItem with a node according to the new properties
+            //         // here you need to update the related edges manualy since the new properties { startIndex, startX } for the nodes are custom, and cannot be recognized by G6
+            //         edgesToUpdate.forEach(edge => edge.refresh())
+            //     }
+            //
+            //
+            // },
             click(e) {
-                const {
-                    graph
-                } = this;
-                const item = e.item;
-                const shape = e.shape;
-                if (!item) {
-                    return;
-                }
+                // const {
+                //     graph
+                // } = this;
+                // const item = e.item;
+                // const shape = e.shape;
+                // if (!item) {
+                //     return;
+                // }
 
-                if (shape.get("name") === "collapse") {
-                    graph.updateItem(item, {
-                        collapsed: true,
-                        size: [300, 50],
-                    });
-                    setTimeout(() => graph.layout(), 100);
-                } else if (shape.get("name") === "expand") {
-                    graph.updateItem(item, {
-                        collapsed: false,
-                        size: [300, 80],
-                    });
-                    setTimeout(() => graph.layout(), 100);
-                }
+                // if (shape.get("name") === "collapse") {
+                //     graph.updateItem(item, {
+                //         collapsed: true,
+                //         size: [300, 50],
+                //     });
+                //     setTimeout(() => graph.layout(), 100);
+                // } else if (shape.get("name") === "expand") {
+                //     graph.updateItem(item, {
+                //         collapsed: false,
+                //         size: [300, 80],
+                //     });
+                //     setTimeout(() => graph.layout(), 100);
+                // }
             },
             mousedown(e) {
                 this.isMousedown = true;
@@ -268,19 +270,49 @@
                 });
                 label.rotateAtStart(labelStyle.rotate);
             },
+            // 复写setState方法
+            setState(name, value, item) {
+                const shape = item.get('keyShape');
+                // 监听 running 状态
+                if (name === 'running') {
+                    // running 状态为 true 时
+                    if (value) {
+                        let index = 0; // 边 path 图形的动画
+                        shape.animate(
+                            () => {
+                                index++;
+                                if (index > 9) {
+                                    index = 0;
+                                }
+                                const res = {
+                                    lineDash,
+                                    lineDashOffset: -index,
+                                };
+                                // 返回需要修改的参数集，这里修改了 lineDash,lineDashOffset
+                                return res;
+                            },
+                            {
+                                repeat: true, // 动画重复
+                                duration: 3000, // 一次动画的时长为 3000
+                            },
+                        );
+                    } else {
+                        // running 状态为 false 时
+                        // 结束动画
+                        shape.stopAnimate();
+                        // 清空 lineDash
+                        shape.attr('lineDash', null);
+                    }
+                }
+            },
         });
-
 
         registerNode("dice-er-box", {
             draw(cfg, group) {
-                console.log(cfg)
-                const collapseBarHeight = 15
                 const itemCount = cfg.attrs.length + 1;
-                const expandY = Math.max(itemCount * itemHeight, 80)
                 const titleHeight = 30
                 const width = 250;
-                const height = Math.max(itemHeight * cfg.attrs.length, expandY + collapseBarHeight + 1);
-
+                const height = Math.max(itemCount * itemHeight + 20, 80)
 
                 const boxStyle = {
                     radius: 4,
@@ -290,7 +322,6 @@
                     attrs = [],
                     startIndex = 0,
                     selectedIndex,
-                    collapsed,
                     icon,
                     nodeType,
                 } = cfg;
@@ -347,54 +378,20 @@
                     },
                 });
 
-                function collapseBarY() {
-                    return collapsed ? titleHeight : Math.max(expandY, 80)
-                }
-
-                //gray collapse bar
-                group.addShape("rect", {
-                    attrs: {
-                        x: 0,
-                        y: collapseBarY(),
-                        height: collapseBarHeight,
-                        width,
-                        fill: "#eee",
-                        radius: [0, 0, boxStyle.radius, boxStyle.radius],
-                        cursor: "pointer",
-                    },
-                    // must be assigned in G6 3.3 and later versions. it can be any string you want, but should be unique in a custom item type
-                    name: collapsed ? "expand" : "collapse",
-                });
-
-                //gray collapse bar icon
-                group.addShape("text", {
-                    attrs: {
-                        x: width / 2 - 6,
-                        y: (collapseBarY()) + 12,
-                        text: collapsed ? "+" : "-",
-                        width,
-                        fill: "#000",
-                        radius: [0, 0, boxStyle.radius, boxStyle.radius],
-                        cursor: "pointer",
-                    },
-                    // must be assigned in G6 3.3 and later versions. it can be any string you want, but should be unique in a custom item type
-                    name: collapsed ? "expand" : "collapse",
-                });
-
                 const keyshape = group.addShape("rect", {
                     attrs: {
                         x: 0,
                         y: 0,
                         width,
-                        height: collapsed ? 45 : height,
+                        height: height,
                         ...boxStyle,
                     },
                     draggable: true,
                 });
 
-                if (collapsed) {
-                    return keyshape;
-                }
+                // if (collapsed) {
+                //     return keyshape;
+                // }
 
                 const listContainer = group.addGroup({});
                 //list遮罩
@@ -404,7 +401,7 @@
                         x: -8,
                         y: titleHeight,
                         width: width + 16,
-                        height: expandY - titleHeight,
+                        height: height,
                     },
                 });
                 //list背景
@@ -414,51 +411,12 @@
                         x: 1,
                         y: titleHeight,
                         width: width - 2,
-                        height: expandY - titleHeight,
+                        height: height - titleHeight - 1,
                         fill: "#fff",
                     },
                     draggable: true,
                 });
 
-                // if (list.length > itemCount) {
-                //     const barStyle = {
-                //         width: 4,
-                //         padding: 0,
-                //         boxStyle: {
-                //             stroke: "#00000022",
-                //         },
-                //         innerStyle: {
-                //             fill: "#00000022",
-                //         },
-                //     };
-                //
-                //     listContainer.addShape("rect", {
-                //         attrs: {
-                //             x: width - barStyle.padding - barStyle.width,
-                //             y: titleHeight,
-                //             width: barStyle.width,
-                //             height: height - titleHeight,
-                //             ...barStyle.boxStyle,
-                //         },
-                //     });
-                //
-                //     const indexHeight =
-                //         afterList.length > itemCount ?
-                //             (afterList.length / list.length) * height :
-                //             10;
-                //
-                //     listContainer.addShape("rect", {
-                //         attrs: {
-                //             y: titleHeight +
-                //                 barStyle.padding +
-                //                 (startIndex / list.length) * (height - titleHeight),
-                //             x: width - barStyle.padding - barStyle.width,
-                //             width: barStyle.width,
-                //             height: Math.min(height, indexHeight),
-                //             ...barStyle.innerStyle,
-                //         },
-                //     });
-                // }
                 if (afterList) {
                     afterList.forEach((e, i) => {
                         const isSelected =
@@ -469,7 +427,8 @@
                         if (type) {
                             key += " - " + type;
                         }
-                        const label = key.length > 26 ? key.slice(0, 24) + "..." : key;
+                        // const label = key.length > 26 ? key.slice(0, 24) + "..." : key;
+                        const label = key;
 
                         listContainer.addShape("rect", {
                             attrs: {
@@ -542,21 +501,72 @@
             },
         });
 
-        const dataTransform = (data) => {
-            // const nodes = data.nodes;
-            // const edges = data.edges;
-            // return {
-            //     nodes,
-            //     edges,
-            // };
-            return {
-                nodes: data.nodes,
-                edges: data.edges,
-                combos: data.combos,
-            }
-        }
-
         const container = document.getElementById('container');
+
+        const snapLine = new G6.SnapLine();
+        const grid = new G6.Grid();
+        const edgeBundling = new G6.Bundling({
+            bundleThreshold: 0.6,
+            K: 0.1,
+        });
+        // const toolbar = new G6.ToolBar()
+        const toolbar = new G6.ToolBar({
+            container: container,
+            getContent: () => {
+                return `
+    <ul class="g6-component-toolbar">
+        <li code="redo">
+          <svg class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="24" height="24" style="opacity: 0.4">
+            <path d="M256 682.666667c0-102.741333 66.730667-213.333333 213.333333-213.333334 107.008 0 190.762667 56.576 230.570667 125.354667L611.968 682.666667H853.333333v-241.365334l-91.562666 91.562667C704.768 448.469333 601.130667 384 469.333333 384c-196.096 0-298.666667 150.229333-298.666666 298.666667h85.333333z" fill="" p-id="2041"></path>
+          </svg>
+        </li>
+        <li code="undo">
+          <svg class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="24" height="24" style="opacity: 0.4">
+            <path d="M170.666667 682.666667h241.365333l-87.936-87.978667C363.904 525.909333 447.658667 469.333333 554.666667 469.333333c146.602667 0 213.333333 110.592 213.333333 213.333334h85.333333c0-148.437333-102.570667-298.666667-298.666666-298.666667-131.797333 0-235.392 64.469333-292.48 148.821333L170.666667 441.301333V682.666667z" fill="" p-id="2764"></path>
+          </svg>
+        </li>
+        <li code="zoomOut">
+          <svg class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="24" height="24">
+            <path d="M658.432 428.736a33.216 33.216 0 0 1-33.152 33.152H525.824v99.456a33.216 33.216 0 0 1-66.304 0V461.888H360.064a33.152 33.152 0 0 1 0-66.304H459.52V296.128a33.152 33.152 0 0 1 66.304 0V395.52H625.28c18.24 0 33.152 14.848 33.152 33.152z m299.776 521.792a43.328 43.328 0 0 1-60.864-6.912l-189.248-220.992a362.368 362.368 0 0 1-215.36 70.848 364.8 364.8 0 1 1 364.8-364.736 363.072 363.072 0 0 1-86.912 235.968l192.384 224.64a43.392 43.392 0 0 1-4.8 61.184z m-465.536-223.36a298.816 298.816 0 0 0 298.432-298.432 298.816 298.816 0 0 0-298.432-298.432A298.816 298.816 0 0 0 194.24 428.8a298.816 298.816 0 0 0 298.432 298.432z"></path>
+          </svg>
+        </li>
+        <li code="zoomIn">
+          <svg class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="24" height="24">
+            <path d="M639.936 416a32 32 0 0 1-32 32h-256a32 32 0 0 1 0-64h256a32 32 0 0 1 32 32z m289.28 503.552a41.792 41.792 0 0 1-58.752-6.656l-182.656-213.248A349.76 349.76 0 0 1 480 768 352 352 0 1 1 832 416a350.4 350.4 0 0 1-83.84 227.712l185.664 216.768a41.856 41.856 0 0 1-4.608 59.072zM479.936 704c158.784 0 288-129.216 288-288S638.72 128 479.936 128a288.32 288.32 0 0 0-288 288c0 158.784 129.216 288 288 288z" p-id="3853"></path>
+          </svg>
+        </li>
+        <li code="realZoom">
+          <svg class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="20" height="24">
+            <path d="M384 320v384H320V320h64z m256 0v384H576V320h64zM512 576v64H448V576h64z m0-192v64H448V384h64z m355.968 576H92.032A28.16 28.16 0 0 1 64 931.968V28.032C64 12.608 76.608 0 95.168 0h610.368L896 192v739.968a28.16 28.16 0 0 1-28.032 28.032zM704 64v128h128l-128-128z m128 192h-190.464V64H128v832h704V256z"></path>
+          </svg>
+        </li>
+        <li code="autoZoom">
+          <svg class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="20" height="24">
+            <path d="M684.288 305.28l0.128-0.64-0.128-0.64V99.712c0-19.84 15.552-35.904 34.496-35.712a35.072 35.072 0 0 1 34.56 35.776v171.008h170.944c19.648 0 35.84 15.488 35.712 34.432a35.072 35.072 0 0 1-35.84 34.496h-204.16l-0.64-0.128a32.768 32.768 0 0 1-20.864-7.552c-1.344-1.024-2.816-1.664-3.968-2.816-0.384-0.32-0.512-0.768-0.832-1.088a33.472 33.472 0 0 1-9.408-22.848zM305.28 64a35.072 35.072 0 0 0-34.56 35.776v171.008H99.776A35.072 35.072 0 0 0 64 305.216c0 18.944 15.872 34.496 35.84 34.496h204.16l0.64-0.128a32.896 32.896 0 0 0 20.864-7.552c1.344-1.024 2.816-1.664 3.904-2.816 0.384-0.32 0.512-0.768 0.768-1.088a33.024 33.024 0 0 0 9.536-22.848l-0.128-0.64 0.128-0.704V99.712A35.008 35.008 0 0 0 305.216 64z m618.944 620.288h-204.16l-0.64 0.128-0.512-0.128c-7.808 0-14.72 3.2-20.48 7.68-1.28 1.024-2.752 1.664-3.84 2.752-0.384 0.32-0.512 0.768-0.832 1.088a33.664 33.664 0 0 0-9.408 22.912l0.128 0.64-0.128 0.704v204.288c0 19.712 15.552 35.904 34.496 35.712a35.072 35.072 0 0 0 34.56-35.776V753.28h170.944c19.648 0 35.84-15.488 35.712-34.432a35.072 35.072 0 0 0-35.84-34.496z m-593.92 11.52c-0.256-0.32-0.384-0.768-0.768-1.088-1.088-1.088-2.56-1.728-3.84-2.688a33.088 33.088 0 0 0-20.48-7.68l-0.512 0.064-0.64-0.128H99.84a35.072 35.072 0 0 0-35.84 34.496 35.072 35.072 0 0 0 35.712 34.432H270.72v171.008c0 19.84 15.552 35.84 34.56 35.776a35.008 35.008 0 0 0 34.432-35.712V720l-0.128-0.64 0.128-0.704a33.344 33.344 0 0 0-9.472-22.848zM512 374.144a137.92 137.92 0 1 0 0.128 275.84A137.92 137.92 0 0 0 512 374.08z"></path>
+          </svg>
+        </li>
+        <li code='add'>Add</li>
+      </ul>
+    `
+            },
+            handleClick: (code, graph) => {
+                if (code === 'add') {
+                    graph.addItem('node', {
+                        "id": "uml.Base",
+                        "label": "abstract uml.Base",
+                        "attrs": [{
+                            "key": "NodeB",
+                            "type": "*uml.NodeB wire:\"\"",
+                            "relation": [{"key": "", "nodeId": "*uml.NodeB"}]
+                        }]
+                    })
+                } else {
+                    // 其他操作保持默认不变
+                    toolbar.handleDefaultOperator(code)
+                }
+            }
+        });
+
 
         const width = container.scrollWidth;
         const height = (container.scrollHeight || 500) - 20;
@@ -592,44 +602,54 @@
                 /* The minimum size of the combo. combo 最小大小 */
                 size: [50, 50],
                 /* style for the keyShape */
-                // style: {
-                //   lineWidth: 1,
-                // },
+                style: {
+                    lineWidth: 2,
+                    fill: 'rgba(225,225,225,0.2)',
+                    // opacity: 1,
+                },
+                padding: 40,
                 labelCfg: {
                     /* label's offset to the keyShape */
-                    // refY: 10,
+                    refY: 10,
                     /* label's position, options: center, top, bottom, left, right */
                     position: 'top',
                     /* label's style */
                     // style: {
-                    //   fontSize: 18,
+                    //   fontSize: 12,
                     // },
                 },
             },
             /* styles for different states, there are built-in styles for states: active, inactive, selected, highlight, disable */
             /* you can extend it or override it as you want */
-            // comboStateStyles: {
-            //   active: {
-            //     fill: '#f00',
-            //     opacity: 0.5
-            //   },
-            // },
+            comboStateStyles: {
+                active: {
+                    fill: 'rgba(102,204,255,0.2)',
+                    opacity: 0.5
+                },
+                selected: {
+                    fill: 'rgba(102,204,255,0.2)',
+                    opacity: 0.5
+                }
+            },
             modes: {
-                default: ['dice-er-scroll', 'drag-node', 'drag-canvas', 'drag-combo'],
+                default: ['dice-er-scroll', 'drag-node', 'drag-canvas', 'drag-combo', 'zoom-canvas'],
             },
             layout: {
-                type: 'dagre',
-                rankdir: 'LR',
-                align: 'UL',
+                type: 'comboCombined',
+                // rankdir: 'LR',
+                // align: 'UL',
                 controlPoints: true,
+                groupByTypes: false,
+                preventOverlap: true,
                 nodesepFunc: () => 0.2,
                 ranksepFunc: () => 0.5,
             },
+            plugins: [snapLine, grid, edgeBundling, toolbar],
             animate: true,
             fitView: true
         })
 
-        graph.data(dataTransform(rawData));
+        graph.data(rawData);
 
         graph.render();
 
@@ -644,13 +664,86 @@
         });
         graph.on('combo:click', (evt) => {
             const {item} = evt;
-            graph.setItemState(item, 'selected', true);
+            graph.getCombos().forEach((combo) => {
+                if (item._cfg.id !== combo._cfg.id) {
+                    graph.setItemState(combo, 'selected', false);
+                }
+                combo.getNodes().forEach(node => {
+                    nodeEdgeDashAnimateStop(node);
+                })
+            })
+            if (item._cfg.states.includes("selected")) {
+                graph.setItemState(item, 'selected', false);
+                item.getNodes().forEach(node => {
+                    nodeEdgeDashAnimateStop(node);
+                })
+            } else {
+                graph.setItemState(item, 'selected', true);
+                item.getNodes().forEach(node => {
+                    nodeEdgeDashAnimateRun(node);
+                })
+            }
         });
         graph.on('canvas:click', (evt) => {
             graph.getCombos().forEach((combo) => {
                 graph.clearItemStates(combo);
             });
+            graph.getNodes().forEach((node) => {
+                graph.clearItemStates(node);
+            });
+            graph.getEdges().forEach((edge) => {
+                graph.clearItemStates(edge);
+            });
         });
+
+        function nodeEdgeDashAnimateRun(node){
+            // 获得目标节点的所有相关边
+            const edges = node.getEdges();
+            // 将所有相关边的 running 状态置为 true，此时将会触发自定义节点的 setState 函数
+            edges.forEach((edge) => graph.setItemState(edge, 'running', true));
+        }
+        function nodeEdgeDashAnimateStop(node){
+            // 获得目标节点的所有相关边
+            const edges = node.getEdges();
+            // 将所有相关边的 running 状态置为 false，此时将会触发自定义节点的 setState 函数
+            edges.forEach((edge) => graph.setItemState(edge, 'running', false));
+        }
+
+        graph.on('node:mouseenter', (ev) => {
+            // 获得当前鼠标操作的目标节点
+            // const node = ev.item;
+            // nodeEdgeDashAnimateRun(node);
+        });
+
+        // 监听节点的 mouseleave 事件
+        graph.on('node:mouseleave', (ev) => {
+            // 获得当前鼠标操作的目标节点
+            // const node = ev.item;
+            // nodeEdgeDashAnimateStop(node);
+        });
+        graph.on('node:click', (ev) => {
+            const {item} = ev;
+            graph.getNodes().forEach((node) => {
+                if (item._cfg.id !== node._cfg.id) {
+                    graph.setItemState(node, 'selected', false);
+                }
+            })
+            if (item._cfg.states.includes("selected")) {
+                graph.setItemState(item, 'selected', false);
+                nodeEdgeDashAnimateStop(item);
+            } else {
+                graph.setItemState(item, 'selected', true);
+                nodeEdgeDashAnimateRun(item);
+                console.log("selected")
+            }
+        });
+
+        if (typeof window !== 'undefined')
+            window.onresize = () => {
+                if (!graph || graph.get('destroyed')) return;
+                if (!container || !container.scrollWidth || !container.scrollHeight) return;
+                graph.changeSize(container.scrollWidth, container.scrollHeight);
+            };
     }
 
     let mock = false
@@ -749,12 +842,6 @@
         })
     }
 
-    if (typeof window !== 'undefined')
-        window.onresize = () => {
-            if (!graph || graph.get('destroyed')) return;
-            if (!container || !container.scrollWidth || !container.scrollHeight) return;
-            graph.changeSize(container.scrollWidth, container.scrollHeight);
-        };
 </script>
 </body>
 </html>

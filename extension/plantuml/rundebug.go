@@ -1,4 +1,4 @@
-package ioc
+package plantuml
 
 import (
 	. "github.com/go-kid/ioc/app"
@@ -26,7 +26,7 @@ type DebugSetting struct {
 	Writer                  io.Writer
 }
 
-func RunDebug(setting DebugSetting, ops ...SettingOption) (*App, error) {
+func Run(setting DebugSetting, ops ...SettingOption) (*App, error) {
 	s := NewApp(append([]SettingOption{
 		SetRegistry(registry.NewRegistry()),
 		SetFactory(func() factory.Factory {
@@ -37,9 +37,22 @@ func RunDebug(setting DebugSetting, ops ...SettingOption) (*App, error) {
 			return df
 		}()),
 		DisableApplicationRunner()}, ops...)...)
+	diagram, err := BuildDiagram(s, setting)
+	if err != nil {
+		return nil, err
+	}
+
+	if setting.Writer == nil {
+		setting.Writer = os.Stdout
+	}
+	_, err = setting.Writer.Write([]byte(diagram.String()))
+	return s, err
+}
+
+func BuildDiagram(s *App, setting DebugSetting) (class_diagram.ClassDiagram, error) {
 	err := s.Run()
 	if err != nil {
-		return s, err
+		return nil, err
 	}
 	metas := s.GetComponents()
 	sort.Slice(metas, func(i, j int) bool {
@@ -83,21 +96,19 @@ func RunDebug(setting DebugSetting, ops ...SettingOption) (*App, error) {
 					if setting.PreciseArrow {
 						toField = p.Field.Name
 					}
-					diagram.AddLine(class_diagram.NewLine(configName, "", metaName, toField, "o--", ""))
+					diagram.AddLine(class_diagram.NewLine(metaName, toField, configName, "", "--o", ""))
 				}
 			}
 		}
 		if !setting.DisableDependency {
-			var sourceClass = class
-			dependencyGroup := class_diagram.NewFieldGroup("Dependency")
 			for _, node := range m.AllDependencies() {
+				var sourceClass = class
+				dependencyGroup := class_diagram.NewFieldGroup("Dependency")
 				//find if is interface type
 				var interfaceType = _interfaceType(node.Type)
 				var interfaceName string
 				if interfaceType != nil {
 					interfaceName = fas.TernaryOp(setting.DisablePackageView, interfaceType.String(), reflectx.TypeId(interfaceType))
-				}
-				if interfaceName != "" {
 					interfaceName = strings.ReplaceAll(interfaceName, "interface {}", "any")
 					methodFg := class_diagram.NewFieldGroup("Method")
 					for i := 0; i < interfaceType.NumMethod(); i++ {
@@ -115,7 +126,7 @@ func RunDebug(setting DebugSetting, ops ...SettingOption) (*App, error) {
 					sourceName = fas.TernaryOp(setting.DisablePackageView, source.Type.String(), reflectx.TypeId(source.Type))
 					sourceClass = class_diagram.NewClass(sourceName, "abstract")
 					diagram.AddClass(sourceClass)
-					diagram.AddLine(class_diagram.NewLine(sourceName, "", metaName, "", "<|--", ""))
+					diagram.AddLine(class_diagram.NewLine(metaName, source.Type.Name(), sourceName, "", "-->", ""))
 				}
 				if !setting.DisableDependencyDetail {
 					dependencyGroup.AddField(node.Field.Name, node.Type.String(), string(node.Field.Tag))
@@ -127,33 +138,28 @@ func RunDebug(setting DebugSetting, ops ...SettingOption) (*App, error) {
 					if setting.PreciseArrow {
 						toField = node.Field.Name
 					}
-					if interfaceName != "" {
+					if interfaceType != nil {
 						for _, n := range ij.AllDependencies() {
 							if n.Source == nil || !n.Source.IsAnonymous {
 								continue
 							}
 							if reflect.New(n.Source.Type).Type().Implements(interfaceType) {
-								diagram.AddLine(class_diagram.NewLine(interfaceName, "", fas.TernaryOp(setting.DisablePackageView, n.Source.Type.String(), reflectx.TypeId(n.Source.Type)), "", "<|--", ""))
+								diagram.AddLine(class_diagram.NewLine(fas.TernaryOp(setting.DisablePackageView, n.Source.Type.String(), reflectx.TypeId(n.Source.Type)), "", interfaceName, "", "-->", ""))
 							} else {
-								diagram.AddLine(class_diagram.NewLine(interfaceName, "", injectName, "", "<|--", ""))
+								diagram.AddLine(class_diagram.NewLine(injectName, "", interfaceName, "", "-->", ""))
 							}
 						}
-						diagram.AddLine(class_diagram.NewLine(interfaceName, "", sourceName, toField, "--*", ""))
+						diagram.AddLine(class_diagram.NewLine(sourceName, toField, interfaceName, "", "--*", ""))
 					} else {
-						diagram.AddLine(class_diagram.NewLine(injectName, "", sourceName, toField, "--*", ""))
+						diagram.AddLine(class_diagram.NewLine(sourceName, toField, injectName, "", "--*", ""))
 					}
 				}
+				sourceClass.AddGroup(dependencyGroup)
 			}
-			sourceClass.AddGroup(dependencyGroup)
 		}
 		diagram.AddClass(class)
 	}
-
-	if setting.Writer == nil {
-		setting.Writer = os.Stdout
-	}
-	_, err = setting.Writer.Write([]byte(diagram.String()))
-	return s, err
+	return diagram, nil
 }
 
 func _interfaceType(p reflect.Type) reflect.Type {

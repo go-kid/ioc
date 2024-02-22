@@ -6,26 +6,34 @@ import (
 	"strings"
 )
 
-type class struct {
-	name   string
-	Type   string
-	Groups []*fieldGroup
+type Object interface {
+	Name() string
+	AddGroup(group FieldGroup) Object
+	Type() string
+	FieldGroups() []FieldGroup
+	fmt.Stringer
 }
 
-func NewClass(name string, typ ...string) *class {
+type class struct {
+	name        string
+	typ         string
+	fieldGroups []FieldGroup
+}
+
+func NewClass(name string, typ ...string) Object {
 	var t = "class"
 	if len(typ) > 0 {
 		t = typ[0]
 	}
 	return &class{
-		name:   name,
-		Type:   t,
-		Groups: nil,
+		name:        name,
+		typ:         t,
+		fieldGroups: nil,
 	}
 }
 
-func (c *class) AddGroup(group *fieldGroup) *class {
-	c.Groups = append(c.Groups, group)
+func (c *class) AddGroup(group FieldGroup) Object {
+	c.fieldGroups = append(c.fieldGroups, group)
 	return c
 }
 
@@ -33,17 +41,25 @@ func (c *class) Name() string {
 	return c.name
 }
 
+func (c *class) Type() string {
+	return c.typ
+}
+
+func (c *class) FieldGroups() []FieldGroup {
+	return c.fieldGroups
+}
+
 func (c *class) String() string {
 	builder := strings.Builder{}
-	builder.WriteString(fmt.Sprintf("%s %s {\n", c.Type, c.Name()))
-	groups := lo.Filter(c.Groups, func(item *fieldGroup, _ int) bool {
-		return len(item.Fields) > 0
+	builder.WriteString(fmt.Sprintf("%s %s {\n", c.typ, c.Name()))
+	groups := lo.Filter(c.fieldGroups, func(item FieldGroup, _ int) bool {
+		return len(item.Fields()) > 0
 	})
 	var groupHeader = map[string]struct{}{}
 	for _, group := range groups {
-		if _, ok := groupHeader[group.Group]; !ok {
-			builder.WriteString(fmt.Sprintf("__%s__\n", group.Group))
-			groupHeader[group.Group] = struct{}{}
+		if _, ok := groupHeader[group.Group()]; !ok {
+			builder.WriteString(fmt.Sprintf("__%s__\n", group.Group()))
+			groupHeader[group.Group()] = struct{}{}
 		}
 		builder.WriteString(group.String())
 	}

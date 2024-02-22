@@ -309,15 +309,6 @@
 
         registerNode("dice-er-box", {
             draw(cfg, group) {
-                const itemCount = cfg.attrs.length + 1;
-                const titleHeight = 30
-                const width = 250;
-                const height = Math.max(itemCount * itemHeight + 20, 80)
-
-                const boxStyle = {
-                    radius: 4,
-                };
-
                 const {
                     attrs = [],
                     startIndex = 0,
@@ -325,6 +316,15 @@
                     icon,
                     nodeType,
                 } = cfg;
+
+                const itemCount = attrs.length + 1;
+                const titleHeight = 30
+                const width = 250;
+                const height = Math.max(itemCount * itemHeight + 20, 80)
+
+                const boxStyle = {
+                    radius: 4,
+                };
 
                 const colorSchema = {
                     abstract: "#d95209",

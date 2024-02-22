@@ -47,6 +47,7 @@ func NewNode(id, typ string) *Node {
 		Label:    fmt.Sprintf("%s %s", typ, file),
 		NodeType: typ,
 		ComboId:  pkg,
+		Attrs:    []*Attribute{},
 	}
 }
 
@@ -73,8 +74,8 @@ func BuildCombos(nodes []*Node) []*Combo {
 		buildLinkNode(parent, node.ComboId, node)
 	}
 	combos := Group(parent)
-	usedCombos := lo.SliceToMap(nodes, func(item *Node) (string, struct{}) {
-		return item.ComboId, struct{}{}
+	usedCombos := lo.SliceToMap(combos, func(item *Combo) (string, struct{}) {
+		return item.ParentId, struct{}{}
 	})
 	combos = lo.Filter(combos, func(item *Combo, index int) bool {
 		_, ok := usedCombos[item.Id]

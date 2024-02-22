@@ -10,14 +10,12 @@ import (
 	"github.com/go-kid/ioc/registry"
 	"github.com/go-kid/ioc/scanner/meta"
 	"github.com/go-kid/ioc/util/class_diagram"
-	"github.com/samber/lo"
 	"io"
 	"net/http"
 	"os"
 )
 
 type DebugSetting struct {
-	DisablePackageView      bool
 	DisableConfig           bool
 	DisableConfigDetail     bool
 	DisableDependency       bool
@@ -42,7 +40,7 @@ func Run(setting DebugSetting, ops ...SettingOption) (*App, error) {
 		}()),
 		DisableApplicationRunner()}, ops...)...)
 	diagram, err := plantuml.BuildDiagram(s, plantuml.DebugSetting{
-		DisablePackageView:      setting.DisablePackageView,
+		DisablePackageView:      false,
 		DisableConfig:           setting.DisableConfig,
 		DisableConfigDetail:     setting.DisableConfigDetail,
 		DisableDependency:       setting.DisableDependency,
@@ -77,17 +75,34 @@ func Run(setting DebugSetting, ops ...SettingOption) (*App, error) {
 
 func StartServer(data []byte) error {
 	http.HandleFunc("/schema", func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Add("Access-Control-Allow-Origin", "*")
+		writer.Header().Add("Access-Control-Allow-Methods", "POST")
 		writer.Write(data)
 	})
 	http.HandleFunc("/index", func(writer http.ResponseWriter, request *http.Request) {
-		writer.Write(html)
+		var file = html
+		if request.URL.Query().Get("d") != "" {
+			var err error
+			file, err = os.ReadFile("index.html")
+			if err != nil {
+				writer.WriteHeader(http.StatusInternalServerError)
+				writer.Write([]byte(err.Error()))
+				return
+			}
+		}
+		writer.Write(file)
 	})
 	return http.ListenAndServe(":8888", nil)
 }
 
-func convertDiagram2AntV(diagram class_diagram.ClassDiagram) (nodes []*Node) {
+func convertDiagram2AntV(diagram class_diagram.ClassDiagram) *SchemaResponse {
+	var (
+		nodes  []*Node
+		edges  []*Edge
+		combos []*Combo
+	)
 	for _, object := range diagram.Classes() {
-		node := NewNode(object.Name(), fmt.Sprintf("%s %s", object.Type(), object.Name()))
+		node := NewNode(object.Name(), object.Type())
 		nodes = append(nodes, node)
 		for _, fg := range object.FieldGroups() {
 			for _, field := range fg.Fields() {
@@ -96,14 +111,16 @@ func convertDiagram2AntV(diagram class_diagram.ClassDiagram) (nodes []*Node) {
 		}
 		fmt.Println(object.String())
 	}
-	nodeMap := lo.SliceToMap(nodes, func(item *Node) (string, *Node) {
-		return item.Id, item
-	})
 	for _, line := range diagram.Lines() {
 		fromClass, fromField := line.From()
 		toClass, toField := line.To()
+		edges = append(edges, NewEdge(fromClass, fromField, toClass, toField))
 		fmt.Println(line.String())
-		nodeMap[fromClass].AddRel(toClass, fromField, toField)
 	}
-	return
+	combos = BuildCombos(nodes)
+	return &SchemaResponse{
+		Nodes:  nodes,
+		Edges:  edges,
+		Combos: combos,
+	}
 }

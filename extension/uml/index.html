@@ -270,13 +270,19 @@
             },
         });
 
+
         registerNode("dice-er-box", {
             draw(cfg, group) {
+                console.log(cfg)
+                const collapseBarHeight = 15
+                const itemCount = cfg.attrs.length + 1;
+                const expandY = Math.max(itemCount * itemHeight, 80)
+                const titleHeight = 30
                 const width = 250;
-                const height = 96;
-                const itemCount = 10;
+                const height = Math.max(itemHeight * cfg.attrs.length, expandY + collapseBarHeight + 1);
+
+
                 const boxStyle = {
-                    stroke: "#096DD9",
                     radius: 4,
                 };
 
@@ -286,18 +292,29 @@
                     selectedIndex,
                     collapsed,
                     icon,
+                    nodeType,
                 } = cfg;
+
+                const colorSchema = {
+                    abstract: "#d95209",
+                    class: "#096DD9",
+                    struct: "#389b07",
+                    interface: "#6709d9",
+                }
+                boxStyle.stroke = colorSchema[nodeType] || "#096DD9"
+
                 const list = attrs;
                 const afterList = list.slice(
                     Math.floor(startIndex),
                     Math.floor(startIndex + itemCount - 1)
                 );
-                const offsetY = (0.5 - (startIndex % 1)) * itemHeight + 30;
+                const offsetY = (0.5 - (startIndex % 1)) * itemHeight + titleHeight;
 
+                //title
                 group.addShape("rect", {
                     attrs: {
                         fill: boxStyle.stroke,
-                        height: 30,
+                        height: titleHeight,
                         width,
                         radius: [boxStyle.radius, boxStyle.radius, 0, 0],
                     },
@@ -330,11 +347,16 @@
                     },
                 });
 
+                function collapseBarY() {
+                    return collapsed ? titleHeight : Math.max(expandY, 80)
+                }
+
+                //gray collapse bar
                 group.addShape("rect", {
                     attrs: {
                         x: 0,
-                        y: collapsed ? 30 : 80,
-                        height: 15,
+                        y: collapseBarY(),
+                        height: collapseBarHeight,
                         width,
                         fill: "#eee",
                         radius: [0, 0, boxStyle.radius, boxStyle.radius],
@@ -344,10 +366,11 @@
                     name: collapsed ? "expand" : "collapse",
                 });
 
+                //gray collapse bar icon
                 group.addShape("text", {
                     attrs: {
                         x: width / 2 - 6,
-                        y: (collapsed ? 30 : 80) + 12,
+                        y: (collapseBarY()) + 12,
                         text: collapsed ? "+" : "-",
                         width,
                         fill: "#000",
@@ -374,66 +397,68 @@
                 }
 
                 const listContainer = group.addGroup({});
+                //list遮罩
                 listContainer.setClip({
                     type: "rect",
                     attrs: {
                         x: -8,
-                        y: 30,
+                        y: titleHeight,
                         width: width + 16,
-                        height: 80 - 30,
+                        height: expandY - titleHeight,
                     },
                 });
+                //list背景
                 listContainer.addShape({
                     type: "rect",
                     attrs: {
                         x: 1,
-                        y: 30,
+                        y: titleHeight,
                         width: width - 2,
-                        height: 80 - 30,
+                        height: expandY - titleHeight,
                         fill: "#fff",
                     },
                     draggable: true,
                 });
 
-                if (list.length > itemCount) {
-                    const barStyle = {
-                        width: 4,
-                        padding: 0,
-                        boxStyle: {
-                            stroke: "#00000022",
-                        },
-                        innerStyle: {
-                            fill: "#00000022",
-                        },
-                    };
-
-                    listContainer.addShape("rect", {
-                        attrs: {
-                            y: 30,
-                            x: width - barStyle.padding - barStyle.width,
-                            width: barStyle.width,
-                            height: height - 30,
-                            ...barStyle.boxStyle,
-                        },
-                    });
-
-                    const indexHeight =
-                        afterList.length > itemCount ?
-                            (afterList.length / list.length) * height :
-                            10;
-
-                    listContainer.addShape("rect", {
-                        attrs: {
-                            y: 30 +
-                                barStyle.padding +
-                                (startIndex / list.length) * (height - 30),
-                            x: width - barStyle.padding - barStyle.width,
-                            width: barStyle.width,
-                            height: Math.min(height, indexHeight),
-                            ...barStyle.innerStyle,
-                        },
-                    });
-                }
+                // if (list.length > itemCount) {
+                //     const barStyle = {
+                //         width: 4,
+                //         padding: 0,
+                //         boxStyle: {
+                //             stroke: "#00000022",
+                //         },
+                //         innerStyle: {
+                //             fill: "#00000022",
+                //         },
+                //     };
+                //
+                //     listContainer.addShape("rect", {
+                //         attrs: {
+                //             x: width - barStyle.padding - barStyle.width,
+                //             y: titleHeight,
+                //             width: barStyle.width,
+                //             height: height - titleHeight,
+                //             ...barStyle.boxStyle,
+                //         },
+                //     });
+                //
+                //     const indexHeight =
+                //         afterList.length > itemCount ?
+                //             (afterList.length / list.length) * height :
+                //             10;
+                //
+                //     listContainer.addShape("rect", {
+                //         attrs: {
+                //             y: titleHeight +
+                //                 barStyle.padding +
+                //                 (startIndex / list.length) * (height - titleHeight),
+                //             x: width - barStyle.padding - barStyle.width,
+                //             width: barStyle.width,
+                //             height: Math.min(height, indexHeight),
+                //             ...barStyle.innerStyle,
+                //         },
+                //     });
+                // }
                 if (afterList) {
                     afterList.forEach((e, i) => {
                         const isSelected =
@@ -518,47 +543,17 @@
         });
 
         const dataTransform = (data) => {
-            const nodes = [];
-            const edges = [];
-
-            data.map((node) => {
-                nodes.push({
-                    ...node
-                });
-                if (node.attrs) {
-                    node.attrs.forEach((attr) => {
-                        if (attr.relation) {
-                            attr.relation.forEach((relation) => {
-                                edges.push({
-                                    source: node.id,
-                                    target: relation.nodeId,
-                                    sourceKey: attr.key,
-                                    targetKey: relation.key,
-                                    label: relation.label,
-                                });
-                            });
-                        }
-
-                    });
-                }
-                if (node.relation) {
-                    node.relation.forEach((relation) => {
-                        edges.push({
-                            source: node.id,
-                            target: relation.nodeId,
-                            targetKey: relation.key,
-                            label: relation.label,
-                        })
-                    })
-                }
-            });
-
-            console.log(nodes)
-            console.log(edges)
+            // const nodes = data.nodes;
+            // const edges = data.edges;
+            // return {
+            //     nodes,
+            //     edges,
+            // };
             return {
-                nodes,
-                edges,
-            };
+                nodes: data.nodes,
+                edges: data.edges,
+                combos: data.combos,
+            }
         }
 
         const container = document.getElementById('container');
@@ -592,8 +587,35 @@
                     endArrow: true,
                 },
             },
+            defaultCombo: {
+                type: 'rect',
+                /* The minimum size of the combo. combo 最小大小 */
+                size: [50, 50],
+                /* style for the keyShape */
+                // style: {
+                //   lineWidth: 1,
+                // },
+                labelCfg: {
+                    /* label's offset to the keyShape */
+                    // refY: 10,
+                    /* label's position, options: center, top, bottom, left, right */
+                    position: 'top',
+                    /* label's style */
+                    // style: {
+                    //   fontSize: 18,
+                    // },
+                },
+            },
+            /* styles for different states, there are built-in styles for states: active, inactive, selected, highlight, disable */
+            /* you can extend it or override it as you want */
+            // comboStateStyles: {
+            //   active: {
+            //     fill: '#f00',
+            //     opacity: 0.5
+            //   },
+            // },
             modes: {
-                default: ['dice-er-scroll', 'drag-node', 'drag-canvas',],
+                default: ['dice-er-scroll', 'drag-node', 'drag-canvas', 'drag-combo'],
             },
             layout: {
                 type: 'dagre',
@@ -610,55 +632,119 @@
         graph.data(dataTransform(rawData));
 
         graph.render();
+
+        graph.on('combo:mouseenter', (evt) => {
+            const {item} = evt;
+            graph.setItemState(item, 'active', true);
+        });
+
+        graph.on('combo:mouseleave', (evt) => {
+            const {item} = evt;
+            graph.setItemState(item, 'active', false);
+        });
+        graph.on('combo:click', (evt) => {
+            const {item} = evt;
+            graph.setItemState(item, 'selected', true);
+        });
+        graph.on('canvas:click', (evt) => {
+            graph.getCombos().forEach((combo) => {
+                graph.clearItemStates(combo);
+            });
+        });
     }
 
-    let mock = true
-    let mockData = [{
-        "id": "uml.Base",
-        "label": "abstract uml.Base",
-        "attrs": [{"key": "NodeB", "type": "*uml.NodeB wire:\"\"", "relation": [{"key": "", "nodeId": "*uml.NodeB"}]}]
-    }, {
-        "id": "*uml.NodeC",
-        "label": "class *uml.NodeC",
-        "relation": [{"key": "", "nodeId": "uml.I"}, {"key": "", "nodeId": "uml.L"}],
-        "attrs": [{
-            "key": "Base",
-            "type": "uml.Base ",
-            "relation": [{"key": "", "nodeId": "uml.Base"}]
-        }, {"key": "NodeC", "type": "*uml.NodeC wire:\"\"", "relation": [{"key": "", "nodeId": "*uml.NodeC"}]}]
-    }, {
-        "id": "*uml.Config",
-        "label": "struct *uml.Config",
-        "attrs": [{"key": "Configuration.Prefix", "type": "config "}, {"key": "Val1", "type": "int "}, {
-            "key": "Val2",
-            "type": "string "
-        }]
-    }, {"id": "uml.I", "label": "interface uml.I", "attrs": [{"key": "Do", "type": "func() "}]}, {
-        "id": "uml.L",
-        "label": "interface uml.L",
-        "attrs": [{"key": "LDo", "type": "func() string "}]
-    }, {
-        "id": "*uml.NodeA",
-        "label": "class *uml.NodeA",
-        "attrs": [{
-            "key": "Cfg",
-            "type": "*uml.Config ",
-            "relation": [{"key": "", "nodeId": "*uml.Config"}]
+    let mock = false
+    let mockData = {
+        "nodes": [{
+            "id": "uml.Base",
+            "label": "abstract uml.Base",
+            "attrs": [{
+                "key": "NodeB",
+                "type": "*uml.NodeB wire:\"\"",
+                "relation": [{"key": "", "nodeId": "*uml.NodeB"}]
+            }]
         }, {
-            "key": "NodeOne",
-            "type": "uml.I wire:\"\"",
-            "relation": [{"key": "", "nodeId": "uml.I"}]
-        }, {"key": "NodeList", "type": "[]uml.L wire:\"\"", "relation": [{"key": "", "nodeId": "uml.L"}]}]
-    }, {
-        "id": "*uml.NodeB",
-        "label": "class *uml.NodeB",
-        "attrs": [{"key": "NodeA", "type": "*uml.NodeA wire:\"\"", "relation": [{"key": "", "nodeId": "*uml.NodeA"}]}]
-    }]
+            "id": "*uml.NodeC",
+            "label": "class *uml.NodeC",
+            "relation": [{"key": "", "nodeId": "uml.I"}, {"key": "", "nodeId": "uml.L"}],
+            "attrs": [{
+                "key": "Base",
+                "type": "uml.Base ",
+                "relation": [{"key": "", "nodeId": "uml.Base"}]
+            }, {"key": "NodeC", "type": "*uml.NodeC wire:\"\"", "relation": [{"key": "", "nodeId": "*uml.NodeC"}]}]
+        }, {
+            "id": "*uml.Config",
+            "label": "struct *uml.Config",
+            "attrs": [{"key": "Configuration.Prefix", "type": "config "}, {
+                "key": "Val1",
+                "type": "int "
+            }, {"key": "Val2", "type": "string "}]
+        }, {"id": "uml.I", "label": "interface uml.I", "attrs": [{"key": "Do", "type": "func() "}]}, {
+            "id": "uml.L",
+            "label": "interface uml.L",
+            "attrs": [{"key": "LDo", "type": "func() string "}]
+        }, {
+            "id": "*uml.NodeA",
+            "label": "class *uml.NodeA",
+            "attrs": [{
+                "key": "Cfg",
+                "type": "*uml.Config ",
+                "relation": [{"key": "", "nodeId": "*uml.Config"}]
+            }, {
+                "key": "NodeOne",
+                "type": "uml.I wire:\"\"",
+                "relation": [{"key": "", "nodeId": "uml.I"}]
+            }, {"key": "NodeList", "type": "[]uml.L wire:\"\"", "relation": [{"key": "", "nodeId": "uml.L"}]}]
+        }, {
+            "id": "*uml.NodeB",
+            "label": "class *uml.NodeB",
+            "attrs": [{
+                "key": "NodeA",
+                "type": "*uml.NodeA wire:\"\"",
+                "relation": [{"key": "", "nodeId": "*uml.NodeA"}]
+            }]
+        }],
+        "edges": [{
+            "source": "uml.Base",
+            "target": "*uml.NodeB",
+            "sourceKey": "NodeB",
+            "targetKey": ""
+        }, {
+            "source": "*uml.NodeC",
+            "target": "uml.Base",
+            "sourceKey": "Base",
+            "targetKey": ""
+        }, {
+            "source": "*uml.NodeC",
+            "target": "*uml.NodeC",
+            "sourceKey": "NodeC",
+            "targetKey": ""
+        }, {"source": "*uml.NodeC", "target": "uml.I", "targetKey": ""}, {
+            "source": "*uml.NodeC",
+            "target": "uml.L",
+            "targetKey": ""
+        }, {
+            "source": "*uml.NodeA",
+            "target": "*uml.Config",
+            "sourceKey": "Cfg",
+            "targetKey": ""
+        }, {
+            "source": "*uml.NodeA",
+            "target": "uml.I",
+            "sourceKey": "NodeOne",
+            "targetKey": ""
+        }, {
+            "source": "*uml.NodeA",
+            "target": "uml.L",
+            "sourceKey": "NodeList",
+            "targetKey": ""
+        }, {"source": "*uml.NodeB", "target": "*uml.NodeA", "sourceKey": "NodeA", "targetKey": ""}]
+    }
 
     if (mock) {
         render(mockData)
     } else {
-        axios.get('/schema').then(function (response) {
+        axios.post('http://localhost:8888/schema').then(function (response) {
             render(response.data)
         })
     }

@@ -3,36 +3,21 @@ package uml
 import (
 	"github.com/go-kid/ioc/app"
 	"github.com/go-kid/ioc/extension/uml"
+	"github.com/go-kid/ioc/unittest/extension/uml/config"
+	"github.com/go-kid/ioc/unittest/extension/uml/def"
 	"github.com/stretchr/testify/assert"
 	"strings"
 	"testing"
 )
 
-type Config struct {
-	Val1 int
-	Val2 string
-}
-
-func (c *Config) Prefix() string {
-	return "config"
-}
-
 type NodeA struct {
-	Cfg      *Config
-	NodeOne  I   `wire:""`
-	NodeList []L `wire:""`
+	Cfg      *config.Config
+	NodeOne  def.I   `wire:""`
+	NodeList []def.L `wire:""`
 }
 
 type NodeB struct {
 	NodeA *NodeA `wire:""`
-}
-
-type I interface {
-	Do()
-}
-
-type L interface {
-	LDo() string
 }
 
 type Base struct {
@@ -54,7 +39,6 @@ func TestUML(t *testing.T) {
 	dataWriter := &strings.Builder{}
 	_, err := uml.Run(
 		uml.DebugSetting{
-			DisablePackageView:      true,
 			DisableConfig:           false,
 			DisableConfigDetail:     false,
 			DisableDependency:       false,

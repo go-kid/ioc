@@ -74,12 +74,17 @@ func BuildCombos(nodes []*Node) []*Combo {
 		buildLinkNode(parent, node.ComboId, node)
 	}
 	combos := Group(parent)
-	usedCombos := lo.SliceToMap(combos, func(item *Combo) (string, struct{}) {
+	usedCombos := lo.SliceToMap(nodes, func(item *Node) (string, struct{}) {
+		return item.ComboId, struct{}{}
+	})
+	usedCombos2 := lo.SliceToMap(combos, func(item *Combo) (string, struct{}) {
 		return item.ParentId, struct{}{}
 	})
+
 	combos = lo.Filter(combos, func(item *Combo, index int) bool {
 		_, ok := usedCombos[item.Id]
-		return ok
+		_, ok2 := usedCombos2[item.Id]
+		return ok || ok2
 	})
 	return combos
 }

@@ -33,16 +33,8 @@ func (d *ViperBinder) SetConfig(c []byte) error {
 	return nil
 }
 
-func (d *ViperBinder) CompareWith(newConfig []byte, path string) (bool, error) {
-	newV := viper.New()
-	newV.SetConfigType(d.configType)
-	err := newV.ReadConfig(bytes.NewBuffer(newConfig))
-	if err != nil {
-		return false, err
-	}
-	newVal := newV.Get(path)
-	originVal := d.Viper.Get(path)
-	return reflect.DeepEqual(newVal, originVal), nil
+func (d *ViperBinder) Get(path string) any {
+	return d.Viper.Get(path)
 }
 
 func (d *ViperBinder) PropInject(properties []*meta.Node) error {

@@ -63,7 +63,7 @@ a:
 		assert.Equal(t, 123, tApp.A2.B)
 		assert.Equal(t, []int{1, 2, 3, 4}, tApp.A2.C)
 	})
-	t.Run("TestCompare", func(t *testing.T) {
+	t.Run("TestGet", func(t *testing.T) {
 		var tApp = &configApp{}
 		var cfg1 = `
 a:
@@ -72,35 +72,20 @@ a:
  d:
    d1: "foo"
    d2: 123`
-		var cfg2 = `
-a:
- b: 321
- c: [ 1,2,3,4 ]
- d:
-   d1: "bar"
-   d2: 123`
 		iocApp := ioc.RunTest(t, app.SetComponents(tApp),
 			app.SetConfig(cfg1),
 			app.SetConfigLoader(loader.NewRawLoader()))
 
-		same, err := iocApp.CompareWith([]byte(cfg2), "a.b")
-		assert.NoError(t, err)
-		assert.False(t, same)
+		val := iocApp.Get("a.b")
+		assert.Equal(t, 123, val)
 
-		same, err = iocApp.CompareWith([]byte(cfg2), "a.c")
-		assert.NoError(t, err)
-		assert.True(t, same)
+		val = iocApp.Get("a.c")
+		assert.Equal(t, []any{1, 2, 3, 4}, val)
 
-		same, err = iocApp.CompareWith([]byte(cfg2), "a.d")
-		assert.NoError(t, err)
-		assert.False(t, same)
+		val = iocApp.Get("a.d.d1")
+		assert.Equal(t, "foo", val)
 
-		same, err = iocApp.CompareWith([]byte(cfg2), "a.d.d1")
-		assert.NoError(t, err)
-		assert.False(t, same)
-
-		same, err = iocApp.CompareWith([]byte(cfg2), "a.d.d2")
-		assert.NoError(t, err)
-		assert.True(t, same)
+		val = iocApp.Get("a.d.d2")
+		assert.Equal(t, 123, val)
 	})
 }

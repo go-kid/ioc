@@ -8,6 +8,13 @@ import (
 	"reflect"
 )
 
+const (
+	PrioritySpecifyInjector = iota + 1000
+	PriorityUnSpecifyPtrInjector
+	PriorityUnSpecifyInterfaceInjector
+	PriorityUnSpecifyInterfaceSliceInjector
+)
+
 /*
 - Inject_Type: inject by name
 - Inject_Rule:
@@ -16,6 +23,10 @@ import (
 - field has injectTag tag, and is not empty
 */
 type specifyInjector struct{}
+
+func (b *specifyInjector) Priority() int {
+	return PrioritySpecifyInjector
+}
 
 func (b *specifyInjector) RuleName() string {
 	return "Any_Type_With_Specifying_Name"
@@ -44,6 +55,10 @@ func (b *specifyInjector) Inject(r registry.Registry, d *meta.Node) error {
 */
 type unSpecifyPtrInjector struct{}
 
+func (b *unSpecifyPtrInjector) Priority() int {
+	return PriorityUnSpecifyPtrInjector
+}
+
 func (b *unSpecifyPtrInjector) RuleName() string {
 	return "Pointer_Without_Specifying_Name"
 }
@@ -71,6 +86,10 @@ func (b *unSpecifyPtrInjector) Inject(r registry.Registry, d *meta.Node) error {
 - prefer the first unnamed(not implement NamingComponent) instance
 */
 type unSpecifyInterfaceInjector struct{}
+
+func (i *unSpecifyInterfaceInjector) Priority() int {
+	return PriorityUnSpecifyInterfaceInjector
+}
 
 func (i *unSpecifyInterfaceInjector) RuleName() string {
 	return "Interface_Without_Specifying_Name"
@@ -105,6 +124,10 @@ func (i *unSpecifyInterfaceInjector) Inject(r registry.Registry, d *meta.Node) e
 - field has injectTag tag, and is empty
 */
 type unSpecifyInterfaceSliceInjector struct{}
+
+func (s *unSpecifyInterfaceSliceInjector) Priority() int {
+	return PriorityUnSpecifyInterfaceSliceInjector
+}
 
 func (s *unSpecifyInterfaceSliceInjector) RuleName() string {
 	return "Interface_Slice"

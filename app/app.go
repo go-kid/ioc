@@ -1,13 +1,13 @@
 package app
 
 import (
-	"errors"
 	"fmt"
 	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/configure/binder"
 	"github.com/go-kid/ioc/configure/loader"
 	"github.com/go-kid/ioc/defination"
 	"github.com/go-kid/ioc/factory"
+	"github.com/go-kid/ioc/injector"
 	"github.com/go-kid/ioc/registry"
 	"github.com/go-kid/ioc/scanner"
 	"github.com/go-kid/ioc/scanner/meta"
@@ -20,11 +20,11 @@ import (
 type App struct {
 	configLoaders []configure.Loader
 	configure.Binder
+	injector.Injector
 	registry.Registry
 	factory.Factory
 	scanner.Scanner
 	configPath              string
-	postProcessors          []defination.ComponentPostProcessor
 	enableApplicationRunner bool
 }
 
@@ -32,73 +32,75 @@ func NewApp(ops ...SettingOption) *App {
 	var s = &App{
 		configLoaders:           []configure.Loader{&loader.FileLoader{}}, //default use file loader
 		Binder:                  binder.NewViperBinder("yaml"),            //default use viper binder and 'yaml' config type
+		Injector:                injector.Default(),
 		Registry:                registry.GlobalRegistry(),
-		Factory:                 &factory.DefaultFactory{},
-		Scanner:                 nil,
+		Factory:                 factory.Default(),
+		Scanner:                 scanner.Default(),
 		configPath:              "",
-		postProcessors:          nil,
 		enableApplicationRunner: true,
 	}
 	for _, op := range ops {
 		op(s)
 	}
+	s.validate()
 	return s
 }
 
-func (s *App) Run() error {
-	err := s.initRegistry()
-	if err != nil {
-		return err
+func (s *App) validate() {
+	if s.configPath != "" {
+		if len(s.configLoaders) == 0 {
+			syslog.Panic("missing config loader")
+		}
+		if s.Binder == nil {
+			syslog.Panic("missing config binder")
+		}
 	}
+	if s.Injector == nil {
+		syslog.Panic("missing injector")
+	}
+	if s.Registry == nil {
+		syslog.Panic("missing registry")
+	}
+	if s.Factory == nil {
+		syslog.Panic("missing factory")
+	}
+	if s.Scanner == nil {
+		syslog.Panic("missing scanner")
+	}
+}
+
+func (s *App) Run() error {
+	/* begin scan component to meta */
+	s.Registry.Scan(s.Scanner)
 	/* registry ready */
 
-	//init configure
+	/* set default init behavior */
+	s.Factory.SetIfNilPostInitFunc(defaultPostInitFunc(getComponentPostProcessors(s.Registry)))
+	/* factory ready */
+
+	/* begin load and bind configuration */
 	if err := s.initConfig(); err != nil {
 		return err
 	}
+	/* configuration ready */
 
-	/* config ready */
-
-	//init factory
-	s.SetIfNilPostInitFunc(s.defaultPostInitFunc)
-
-	/* factory ready */
-
-	s.initComponentPostProcessors()
-
-	/* post processors ready */
-
+	/* begin inject dependencies */
 	if err := s.wire(); err != nil {
 		return err
 	}
+	/* dependency injection ready */
 
-	/* components ready */
-
+	/* begin call runners */
 	if err := s.callRunners(); err != nil {
 		return fmt.Errorf("runners failed: %v", err)
 	}
+	/* finished */
 	return nil
 }
-
-//func (s *App) initProduceComponents() {
-//	metas := s.GetComponents()
-//	produces := lo.FlatMap[*meta.Meta, *meta.Meta](metas, func(item *meta.Meta, _ int) []*meta.Meta {
-//		return item.Produce
-//	})
-//	lo.ForEach(produces, func(item *meta.Meta, _ int) {
-//		s.Register(item)
-//	})
-//}
 
 func (s *App) initConfig() error {
 	if s.configPath == "" {
 		return nil
-	}
-	if len(s.configLoaders) < 1 {
-		return errors.New("config loader is not available")
-	}
-	if s.Binder == nil {
-		return errors.New("config binder is not available")
 	}
 
 	for _, l := range s.configLoaders {
@@ -122,36 +124,27 @@ func (s *App) initConfig() error {
 	return nil
 }
 
-func (s *App) initComponentPostProcessors() {
-	metas := s.GetComponents(registry.Interface(new(defination.ComponentPostProcessor)))
-	s.postProcessors = make([]defination.ComponentPostProcessor, 0, len(metas))
-	for _, m := range metas {
-		s.postProcessors = append(s.postProcessors, m.Raw.(defination.ComponentPostProcessor))
-		s.RemoveComponents(m.Name)
+func getComponentPostProcessors(r registry.Registry) []defination.ComponentPostProcessor {
+	postMetas := r.GetComponents(registry.Interface(new(defination.ComponentPostProcessor)))
+	postProcessors := make([]defination.ComponentPostProcessor, 0, len(postMetas))
+	for _, pm := range postMetas {
+		postProcessors = append(postProcessors, pm.Raw.(defination.ComponentPostProcessor))
+		r.RemoveComponents(pm.Name)
 	}
-}
-
-func (s *App) initRegistry() error {
-	if s.Registry == nil {
-		return errors.New("registry is not available")
-	}
-	if s.Scanner != nil {
-		s.Registry.SetScanner(s.Scanner)
-	}
-	s.Registry.Scan()
-	return nil
+	return postProcessors
 }
 
 func (s *App) wire() error {
 	components := s.GetComponents()
+	//Reduce recursion depth
 	sort.Slice(components, func(i, j int) bool {
 		if len(components[i].DependsBy) != len(components[j].DependsBy) {
-			return len(components[i].DependsBy) < len(components[j].DependsBy)
+			return len(components[i].DependsBy) > len(components[j].DependsBy)
 		}
 		return len(components[i].AllDependencies()) < len(components[j].AllDependencies())
 	})
 	for _, m := range components {
-		err := s.Initialize(s.Registry, m)
+		err := s.Initialize(s.Registry, s.Injector, m)
 		if err != nil {
 			return fmt.Errorf("initialize failed: %v", err)
 		}
@@ -159,32 +152,33 @@ func (s *App) wire() error {
 	return nil
 }
 
-func (s *App) defaultPostInitFunc(m *meta.Meta) error {
-	// before process
-	for _, processor := range s.postProcessors {
-		err := processor.PostProcessBeforeInitialization(m.Raw)
-		if err != nil {
-			return fmt.Errorf("post processor: %T process before %s init error: %v", processor, m.ID(), err)
+func defaultPostInitFunc(postProcessors []defination.ComponentPostProcessor) factory.MetaFunc {
+	return func(m *meta.Meta) error {
+		// before process
+		for _, processor := range postProcessors {
+			err := processor.PostProcessBeforeInitialization(m.Raw)
+			if err != nil {
+				return fmt.Errorf("post processor: %T process before %s init error: %v", processor, m.ID(), err)
+			}
 		}
-	}
-	// init
-	if ic, ok := m.Raw.(defination.InitializeComponent); ok {
-		err := ic.Init()
-		if err != nil {
-			return fmt.Errorf("component: %s inited failed: %s", m.ID(), err)
+		// init
+		if ic, ok := m.Raw.(defination.InitializeComponent); ok {
+			err := ic.Init()
+			if err != nil {
+				return fmt.Errorf("component: %s inited failed: %s", m.ID(), err)
+			}
 		}
-	}
-	syslog.Infof("initialize component: %s\n", m.ID())
+		syslog.Infof("initialize component: %s\n", m.ID())
 
-	// after process
-	for _, processor := range s.postProcessors {
-		err := processor.PostProcessAfterInitialization(m.Raw)
-		if err != nil {
-			return fmt.Errorf("post processor: %T process after %s init error: %v", processor, m.ID(), err)
+		// after process
+		for _, processor := range postProcessors {
+			err := processor.PostProcessAfterInitialization(m.Raw)
+			if err != nil {
+				return fmt.Errorf("post processor: %T process after %s init error: %v", processor, m.ID(), err)
+			}
 		}
+		return nil
 	}
-
-	return nil
 }
 
 func (s *App) callRunners() error {

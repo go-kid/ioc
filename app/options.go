@@ -3,8 +3,10 @@ package app
 import (
 	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/factory"
+	"github.com/go-kid/ioc/injector"
 	"github.com/go-kid/ioc/registry"
 	"github.com/go-kid/ioc/scanner"
+	"github.com/go-kid/ioc/scanner/meta"
 )
 
 type SettingOption func(s *App)
@@ -57,6 +59,14 @@ func DisableApplicationRunner() SettingOption {
 	}
 }
 
+func DisableComponentInitialization() SettingOption {
+	return func(s *App) {
+		s.Factory.SetIfNilPostInitFunc(func(m *meta.Meta) error {
+			return nil
+		})
+	}
+}
+
 func SetScanner(sc scanner.Scanner) SettingOption {
 	return func(s *App) {
 		s.Scanner = sc
@@ -65,6 +75,12 @@ func SetScanner(sc scanner.Scanner) SettingOption {
 
 func SetScanTags(tags ...string) SettingOption {
 	return func(s *App) {
-		s.Registry.SetExtraTags(tags...)
+		s.Scanner.AddTags(tags)
+	}
+}
+
+func AddCustomizedInjectors(injectors ...injector.InjectProcessor) SettingOption {
+	return func(s *App) {
+		s.Injector.AddCustomizedInjectors(injectors...)
 	}
 }

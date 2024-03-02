@@ -15,10 +15,8 @@ Dependency Register and Dependency Lookup
 */
 
 type Registry interface {
+	Scan(sc scanner.Scanner)
 	Register(cs ...any)
-	SetScanner(scanner scanner.Scanner)
-	SetExtraTags(tags ...string)
-	Scan()
 	GetComponents(opts ...Option) []*meta.Meta
 	GetComponentByName(name string) *meta.Meta
 	RemoveComponents(name string)
@@ -27,7 +25,6 @@ type Registry interface {
 }
 
 type registry struct {
-	scanner          scanner.Scanner
 	components       []any
 	metaMaps         *concurrent.Map
 	initedComponents list.Set
@@ -35,7 +32,6 @@ type registry struct {
 
 func NewRegistry() Registry {
 	return &registry{
-		scanner:          scanner.New(),
 		metaMaps:         concurrent.NewMap(),
 		initedComponents: list.NewConcurrentSets(),
 	}
@@ -53,33 +49,25 @@ func (r *registry) Register(cs ...any) {
 	r.components = append(r.components, cs...)
 }
 
-func (r *registry) SetScanner(scanner scanner.Scanner) {
-	r.scanner = scanner
-}
-
-func (r *registry) SetExtraTags(tags ...string) {
-	r.scanner.AddTags(tags...)
-}
-
-func (r *registry) Scan() {
+func (r *registry) Scan(sc scanner.Scanner) {
 	wg := sync.WaitGroup{}
 	wg.Add(len(r.components))
 	for _, component := range r.components {
 		go func(c any) {
-			r.register(c)
+			r.register(sc, c)
 			wg.Done()
 		}(component)
 	}
 	wg.Wait()
 }
 
-func (r *registry) register(c any) {
+func (r *registry) register(sc scanner.Scanner, c any) {
 	var m *meta.Meta
 	switch c.(type) {
 	case *meta.Meta:
 		m = c.(*meta.Meta)
 	default:
-		m = r.scanner.ScanComponent(c)
+		m = sc.ScanComponent(c)
 	}
 	if a, ok := r.metaMaps.Load(m.Name); ok {
 		if a.(*meta.Meta).ID() != m.ID() {

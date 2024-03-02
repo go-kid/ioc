@@ -36,17 +36,12 @@ func (c *Component) Init() error {
 }
 
 func TestPostProcessor(t *testing.T) {
-	var tApp = &struct {
-		T *Component `wire:""`
-	}{}
 	c := &Component{}
 	assert.Equal(t, false, c.BeforeInitFlag)
 	assert.Equal(t, false, c.InitFlag)
 	assert.Equal(t, false, c.AfterInitFlag)
 	ioc.RunTest(t, app.SetComponents(
-		c,
-		&PostProcessor{},
-		tApp,
+		c, &PostProcessor{},
 	))
 	assert.Equal(t, true, c.BeforeInitFlag)
 	assert.Equal(t, true, c.InitFlag)

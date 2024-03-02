@@ -7,7 +7,17 @@ import (
 	"reflect"
 )
 
+const (
+	PriorityCustomizedPtrInjector = iota + 2000
+	PriorityCustomizedInterfaceInjector
+	PriorityCustomizedInterfaceSliceInjector
+)
+
 type customizedPtrInjector struct {
+}
+
+func (c *customizedPtrInjector) Priority() int {
+	return PriorityCustomizedPtrInjector
 }
 
 func (c *customizedPtrInjector) RuleName() string {
@@ -30,6 +40,10 @@ func (c *customizedPtrInjector) Inject(r registry.Registry, d *meta.Node) error 
 type customizedInterfaceInjector struct {
 }
 
+func (c *customizedInterfaceInjector) Priority() int {
+	return PriorityCustomizedInterfaceInjector
+}
+
 func (c *customizedInterfaceInjector) RuleName() string {
 	return "Customized_Interface"
 }
@@ -48,6 +62,10 @@ func (c *customizedInterfaceInjector) Inject(r registry.Registry, d *meta.Node) 
 }
 
 type customizedInterfaceSliceInjector struct {
+}
+
+func (s *customizedInterfaceSliceInjector) Priority() int {
+	return PriorityCustomizedInterfaceSliceInjector
 }
 
 func (s *customizedInterfaceSliceInjector) RuleName() string {

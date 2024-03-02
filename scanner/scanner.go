@@ -13,11 +13,11 @@ type scanner struct {
 	tags []string
 }
 
-func New(tags ...string) Scanner {
-	return &scanner{tags: tags}
+func Default() Scanner {
+	return &scanner{}
 }
 
-func (s *scanner) AddTags(tags ...string) {
+func (s *scanner) AddTags(tags []string) {
 	s.tags = append(s.tags, tags...)
 }
 

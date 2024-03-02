@@ -6,29 +6,33 @@ import (
 	"github.com/go-kid/ioc/scanner/meta"
 )
 
-type Factory interface {
-	SetIfNilPostInitFunc(fn MetaFunc)
-	Initialize(r registry.Registry, m *meta.Meta) error
-}
-
 type MetaFunc func(m *meta.Meta) error
 
-type DefaultFactory struct {
+type Factory interface {
+	SetIfNilPostInitFunc(fn MetaFunc)
+	Initialize(r registry.Registry, i injector.Injector, m *meta.Meta) error
+}
+
+type defaultFactory struct {
 	postInitFunc MetaFunc
 }
 
-func (f *DefaultFactory) SetIfNilPostInitFunc(fn MetaFunc) {
+func Default() Factory {
+	return &defaultFactory{}
+}
+
+func (f *defaultFactory) SetIfNilPostInitFunc(fn MetaFunc) {
 	if f.postInitFunc == nil {
 		f.postInitFunc = fn
 	}
 }
 
-func (f *DefaultFactory) Initialize(r registry.Registry, m *meta.Meta) error {
+func (f *defaultFactory) Initialize(r registry.Registry, i injector.Injector, m *meta.Meta) error {
 	if r.IsComponentInited(m.Name) {
 		return nil
 	}
 
-	err := injector.DependencyInject(r, m.ID(), m.AllDependencies())
+	err := i.DependencyInject(r, m.ID(), m.AllDependencies())
 	if err != nil {
 		return err
 	}
@@ -38,7 +42,7 @@ func (f *DefaultFactory) Initialize(r registry.Registry, m *meta.Meta) error {
 	for _, dependency := range m.AllDependencies() {
 		for _, dm := range dependency.Injects {
 			dm.DependBy(m)
-			err := f.Initialize(r, dm)
+			err := f.Initialize(r, i, dm)
 			if err != nil {
 				return err
 			}

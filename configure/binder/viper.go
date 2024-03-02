@@ -46,12 +46,6 @@ func (d *ViperBinder) CompareWith(newConfig []byte, path string) (bool, error) {
 }
 
 func (d *ViperBinder) PropInject(properties []*meta.Node) error {
-	unmarshall := func(key string, a interface{}) error {
-		if key == "" {
-			return d.Viper.Unmarshal(a)
-		}
-		return d.Viper.UnmarshalKey(key, a)
-	}
 	for _, prop := range properties {
 		var fieldType = prop.Type
 		var isPtrType = false
@@ -60,7 +54,7 @@ func (d *ViperBinder) PropInject(properties []*meta.Node) error {
 			isPtrType = true
 		}
 		var val = reflect.New(fieldType)
-		err := unmarshall(prop.TagVal, val.Interface())
+		err := d.unmarshall(prop.TagVal, val.Interface())
 		if err != nil {
 			return err
 		}
@@ -71,4 +65,11 @@ func (d *ViperBinder) PropInject(properties []*meta.Node) error {
 		}
 	}
 	return nil
+}
+
+func (d *ViperBinder) unmarshall(key string, a interface{}) error {
+	if key == "" {
+		return d.Viper.Unmarshal(a)
+	}
+	return d.Viper.UnmarshalKey(key, a)
 }

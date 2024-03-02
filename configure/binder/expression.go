@@ -13,7 +13,7 @@ type ExpressionBinder struct {
 
 func NewExpressionBinder(configType string) configure.Binder {
 	return &ExpressionBinder{
-		NewViperBinder(configType),
+		NewViperBinder(configType).(*ViperBinder),
 	}
 }
 

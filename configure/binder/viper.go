@@ -2,23 +2,26 @@ package binder
 
 import (
 	"bytes"
+	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/scanner/meta"
 	"github.com/spf13/viper"
 	"reflect"
 )
 
 type ViperBinder struct {
-	Viper *viper.Viper
+	configType string
+	Viper      *viper.Viper
 }
 
-func NewViperBinder(configType string) *ViperBinder {
+func NewViperBinder(configType string) configure.Binder {
 	if configType == "" {
 		configType = "yaml"
 	}
 	v := viper.New()
 	v.SetConfigType(configType)
 	return &ViperBinder{
-		Viper: v,
+		configType: configType,
+		Viper:      v,
 	}
 }
 
@@ -28,6 +31,18 @@ func (d *ViperBinder) SetConfig(c []byte) error {
 		return err
 	}
 	return nil
+}
+
+func (d *ViperBinder) CompareWith(newConfig []byte, path string) (bool, error) {
+	newV := viper.New()
+	newV.SetConfigType(d.configType)
+	err := newV.ReadConfig(bytes.NewBuffer(newConfig))
+	if err != nil {
+		return false, err
+	}
+	newVal := newV.Get(path)
+	originVal := d.Viper.Get(path)
+	return reflect.DeepEqual(newVal, originVal), nil
 }
 
 func (d *ViperBinder) PropInject(properties []*meta.Node) error {

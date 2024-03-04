@@ -64,6 +64,9 @@ func Set(dst, src reflect.Value) {
 }
 
 func Id(c any) string {
+	if c == nil {
+		return "<nil>"
+	}
 	return TypeId(reflect.TypeOf(c))
 }
 

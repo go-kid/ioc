@@ -7,6 +7,7 @@ import (
 	"github.com/go-kid/ioc/registry"
 	"github.com/go-kid/ioc/scanner"
 	"github.com/go-kid/ioc/scanner/meta"
+	"github.com/go-kid/ioc/syslog"
 )
 
 type SettingOption func(s *App)
@@ -82,5 +83,17 @@ func SetScanTags(tags ...string) SettingOption {
 func AddCustomizedInjectors(injectors ...injector.InjectProcessor) SettingOption {
 	return func(s *App) {
 		s.Injector.AddCustomizedInjectors(injectors...)
+	}
+}
+
+func LogLevel(lv syslog.Lv) SettingOption {
+	return func(s *App) {
+		syslog.Level(lv)
+	}
+}
+
+func SetLogger(l syslog.Logger) SettingOption {
+	return func(s *App) {
+		syslog.SetLogger(l)
 	}
 }

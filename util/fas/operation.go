@@ -1,5 +1,7 @@
 package fas
 
+import "reflect"
+
 // TernaryOp is ternary operation like max = a > b ? a : b
 func TernaryOp[T any](condition bool, a, b T) T {
 	if condition {
@@ -37,4 +39,14 @@ func Max[T Comparable](a, b T) T {
 
 func Min[T Comparable](a, b T) T {
 	return TernaryOp(a < b, a, b)
+}
+
+func IsNil(a any) bool {
+	if a == nil {
+		return true
+	}
+	if reflect.ValueOf(a).IsNil() {
+		return true
+	}
+	return false
 }

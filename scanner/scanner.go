@@ -22,13 +22,6 @@ func (s *scanner) AddTags(tags []string) {
 }
 
 func (s *scanner) ScanComponent(c any) *meta.Meta {
-	if c == nil {
-		panic("passed nil interface to ioc")
-	}
-	return s.newMeta(c)
-}
-
-func (s *scanner) newMeta(c any) *meta.Meta {
 	t := reflect.TypeOf(c)
 	v := reflect.ValueOf(c)
 	return &meta.Meta{

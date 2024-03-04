@@ -5,6 +5,7 @@ import (
 	"github.com/go-kid/ioc/defination"
 	"github.com/go-kid/ioc/registry"
 	"github.com/go-kid/ioc/scanner/meta"
+	"github.com/go-kid/ioc/syslog"
 	"reflect"
 )
 
@@ -111,6 +112,10 @@ func (i *unSpecifyInterfaceInjector) Inject(r registry.Registry, d *meta.Node) e
 			dm = m
 			break
 		}
+	}
+	if len(metas) > 1 {
+		syslog.Warnf("injector %s find multiple instances for %s.%s(offset: %d), randomly select %s", i.RuleName(),
+			d.Source.Type, d.Field.Name, d.Field.Offset, dm.ID())
 	}
 	d.Inject(dm)
 	return nil

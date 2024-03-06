@@ -235,7 +235,7 @@ func defaultPostInitFunc(r registry.Registry) factory.MetaFunc {
 		}
 		// init
 		if ic, ok := m.Raw.(defination.InitializeComponent); ok {
-			syslog.Trace("component %s is InitializeComponent, start init", m.ID())
+			syslog.Tracef("component %s is InitializeComponent, start do init", m.ID())
 			err := ic.Init()
 			if err != nil {
 				return fmt.Errorf("component %s inited failed: %s", m.ID(), err)

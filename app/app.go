@@ -41,9 +41,7 @@ func NewApp(ops ...SettingOption) *App {
 		configPath:              "",
 		enableApplicationRunner: true,
 	}
-	for _, op := range ops {
-		op(s)
-	}
+	Options(ops...)(s)
 	err := s.validate()
 	if err != nil {
 		syslog.Fatal(err)

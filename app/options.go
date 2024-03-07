@@ -12,6 +12,14 @@ import (
 
 type SettingOption func(s *App)
 
+func Options(opts ...SettingOption) SettingOption {
+	return func(s *App) {
+		for _, opt := range opts {
+			opt(s)
+		}
+	}
+}
+
 func SetRegistry(r registry.Registry) SettingOption {
 	return func(s *App) {
 		s.Registry = r

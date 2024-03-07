@@ -70,7 +70,7 @@ func (b *unSpecifyPtrInjector) Filter(d *meta.Node) bool {
 }
 
 func (b *unSpecifyPtrInjector) Inject(r registry.Registry, d *meta.Node) error {
-	dm := r.GetComponentByName(d.Id())
+	dm := r.GetComponentByName(d.Name())
 	if dm == nil {
 		return fmt.Errorf("none instance found for pointer type %s", d.Id())
 	}
@@ -114,8 +114,8 @@ func (i *unSpecifyInterfaceInjector) Inject(r registry.Registry, d *meta.Node) e
 		}
 	}
 	if len(metas) > 1 {
-		syslog.Warnf("injector %s find multiple instances for %s.%s(offset: %d), randomly select %s", i.RuleName(),
-			d.Source.Type, d.Field.Name, d.Field.Offset, dm.ID())
+		syslog.Warnf("injector %s find multiple instances for %s, randomly select %s", i.RuleName(),
+			d.Id(), dm.ID())
 	}
 	d.Inject(dm)
 	return nil

@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"fmt"
 	"github.com/go-kid/ioc/defination"
 	"github.com/go-kid/ioc/util/reflectx"
 	"github.com/samber/lo"
@@ -18,6 +19,10 @@ type Node struct {
 }
 
 func (n *Node) Id() string {
+	return fmt.Sprintf("%s.%s[offset:%d]", n.Source.Type, n.Field.Name, n.Field.Offset)
+}
+
+func (n *Node) Name() string {
 	if n.TagVal != "" {
 		return n.TagVal
 	}

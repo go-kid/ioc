@@ -1,7 +1,7 @@
 package syslog
 
 var (
-	_logger Logger = New(LvTrace)
+	_logger Logger = New(LvInfo)
 )
 
 func Trace(v ...any) {

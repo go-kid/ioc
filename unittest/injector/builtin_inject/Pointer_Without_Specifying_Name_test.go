@@ -13,10 +13,10 @@ type Component struct {
 
 func Test_Pointer_Without_Specifying_Name(t *testing.T) {
 	var tApp = &struct {
-		T *Component `wire:""`
+		T *SpecifyNameComponent `wire:""`
 	}{}
 	ioc.RunTest(t, app.SetComponents(
-		&Component{"TestComponent"},
+		&SpecifyNameComponent{Component{"TestComponent"}},
 		tApp,
 	))
 	assert.Equal(t, "TestComponent", tApp.T.Name)

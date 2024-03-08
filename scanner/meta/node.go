@@ -9,17 +9,16 @@ import (
 )
 
 type Node struct {
+	*Base
 	Source  *Source
 	Field   reflect.StructField
 	Tag     string
 	TagVal  string
-	Type    reflect.Type
-	Value   reflect.Value
 	Injects []*Meta
 }
 
-func (n *Node) Id() string {
-	return fmt.Sprintf("%s.%s[offset:%d]", n.Source.Type, n.Field.Name, n.Field.Offset)
+func (n *Node) ID() string {
+	return fmt.Sprintf("%s.%s", n.Source.ID(), n.Field.Name)
 }
 
 func (n *Node) Name() string {
@@ -27,6 +26,10 @@ func (n *Node) Name() string {
 		return n.TagVal
 	}
 	return GetComponentName(reflectx.New(n.Type))
+}
+
+func (n *Node) Parent() *Meta {
+	return n.Source.Meta
 }
 
 func (n *Node) Inject(m ...*Meta) {
@@ -43,6 +46,9 @@ func (n *Node) Inject(m ...*Meta) {
 		n.Value.Set(m[0].Value)
 	}
 	n.Injects = m
+	for _, inject := range n.Injects {
+		inject.dependBy(n.Parent())
+	}
 }
 
 func GetComponentName(t any) string {
@@ -53,7 +59,7 @@ func GetComponentName(t any) string {
 	default:
 		c = t
 	}
-	if n, ok := c.(defination.NamingComponent); ok {
+	if n, ok := c.(defination.NamingComponent); ok && n.Naming() != "" {
 		return n.Naming()
 	}
 	return reflectx.Id(c)

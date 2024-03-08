@@ -1,12 +1,33 @@
 package meta
 
-import "reflect"
+import (
+	"github.com/samber/lo"
+	"strings"
+)
 
 type Source struct {
-	Source      *Source
-	IsAnonymous bool
-	Type        reflect.Type
-	Value       reflect.Value
+	*Base
+	Meta    *Meta
+	IsEmbed bool
+	Source  *Source
+}
+
+func (s *Source) ID() string {
+	if s.IsEmbed {
+		var ids []string
+		_ = s.Walk(func(source *Source) error {
+			if source.IsEmbed {
+				ids = append(ids, source.Type.Name())
+			} else {
+				ids = append(ids, source.Meta.ID())
+			}
+			return nil
+		})
+		ids = lo.Reverse(ids)
+		return strings.Join(ids, ".")
+		//return s.Embeds.ID()
+	}
+	return s.Meta.ID()
 }
 
 func (s *Source) Walk(f func(source *Source) error) error {

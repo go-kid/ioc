@@ -12,6 +12,7 @@ import (
 const (
 	PrioritySpecifyInjector = iota + 1000
 	PriorityUnSpecifyPtrInjector
+	PriorityUnSpecifyPtrSliceInjector
 	PriorityUnSpecifyInterfaceInjector
 	PriorityUnSpecifyInterfaceSliceInjector
 )
@@ -70,11 +71,53 @@ func (b *unSpecifyPtrInjector) Filter(d *meta.Node) bool {
 }
 
 func (b *unSpecifyPtrInjector) Inject(r registry.Registry, d *meta.Node) error {
-	dm := r.GetComponentByName(d.Name())
-	if dm == nil {
-		return fmt.Errorf("none instance found for pointer type %s", d.Id())
+	metas := r.GetComponents(registry.Type(d.Type))
+	if len(metas) < 1 {
+		return fmt.Errorf("none instance found for the pointer type: %s", d.Type.String())
+	}
+	var dm = metas[0]
+	for _, m := range metas {
+		if _, ok := m.Raw.(defination.NamingComponent); !ok {
+			dm = m
+			break
+		}
+	}
+	if len(metas) > 1 {
+		syslog.Warnf("injector %s find multiple instances for %s, randomly select %s", b.RuleName(),
+			d.ID(), dm.ID())
 	}
 	d.Inject(dm)
+	return nil
+}
+
+/*
+- Inject_Type: inject by Ptr slice
+- Inject_Rule:
+- field is exported
+- field is Ptr slice
+- field has injectTag tag, and is empty
+*/
+type unSpecifyPtrSliceInjector struct{}
+
+func (s *unSpecifyPtrSliceInjector) Priority() int {
+	return PriorityUnSpecifyPtrSliceInjector
+}
+
+func (s *unSpecifyPtrSliceInjector) RuleName() string {
+	return "Pointer_Slice"
+}
+
+func (s *unSpecifyPtrSliceInjector) Filter(d *meta.Node) bool {
+	return d.Tag == meta.InjectTag && d.TagVal == "" && //ruleEmptyTag
+		d.Type.Kind() == reflect.Slice && d.Type.Elem().Kind() == reflect.Pointer //ruleSlicePtr
+}
+
+func (s *unSpecifyPtrSliceInjector) Inject(r registry.Registry, d *meta.Node) error {
+	metas := r.GetComponents(registry.Type(d.Type.Elem()))
+	if len(metas) == 0 {
+		return fmt.Errorf("none instance found implement the Pointer: %s", d.Type.String())
+	}
+	d.Inject(metas...)
 	return nil
 }
 
@@ -115,7 +158,7 @@ func (i *unSpecifyInterfaceInjector) Inject(r registry.Registry, d *meta.Node) e
 	}
 	if len(metas) > 1 {
 		syslog.Warnf("injector %s find multiple instances for %s, randomly select %s", i.RuleName(),
-			d.Id(), dm.ID())
+			d.ID(), dm.ID())
 	}
 	d.Inject(dm)
 	return nil

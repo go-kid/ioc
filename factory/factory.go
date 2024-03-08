@@ -46,7 +46,7 @@ func (f *defaultFactory) Initialize(r registry.Registry, i injector.Injector, m 
 
 	for _, dependency := range m.AllDependencies() {
 		for _, dm := range dependency.Injects {
-			dm.DependBy(m)
+			//dm.DependBy(m)
 			err := f.Initialize(r, i, dm)
 			if err != nil {
 				return err
@@ -54,12 +54,9 @@ func (f *defaultFactory) Initialize(r registry.Registry, i injector.Injector, m 
 		}
 	}
 
-	if f.postInitFunc != nil {
-		syslog.Tracef("factory do post init function")
-		err = f.postInitFunc(m)
-		if err != nil {
-			return fmt.Errorf("factory do post init function failed: %v", err)
-		}
+	err = f.postInitFunc(m)
+	if err != nil {
+		return fmt.Errorf("factory do post init function %s failed: %v", m.ID(), err)
 	}
 
 	syslog.Tracef("factory initialized component %s", m.ID())

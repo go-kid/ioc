@@ -2,45 +2,61 @@ package meta
 
 import (
 	"fmt"
-	"github.com/samber/lo"
 	"reflect"
 )
 
 const (
-	InjectTag  = "wire"
-	ProduceTag = "produce"
-	PropTag    = "prop"
+	InjectTag = "wire"
+	PropTag   = "prop"
 )
 
+type Base struct {
+	Type  reflect.Type
+	Value reflect.Value
+}
+
+func NewBase(c any) *Base {
+	return &Base{
+		Type:  reflect.TypeOf(c),
+		Value: reflect.ValueOf(c),
+	}
+}
+
 type Meta struct {
-	Name      string
-	Address   string
-	Raw       interface{}
-	Type      reflect.Type
-	Value     reflect.Value
-	DependsBy []*Meta
+	*Base
+	Name    string
+	Address string
+	Raw     interface{}
+
+	dependBySet map[string]struct{}
+	DependsBy   []*Meta
 
 	Dependencies    []*Node
 	Properties      []*Node
 	CustomizedField []*Node
 }
 
-func (m *Meta) ID() string {
-	return fmt.Sprintf("%s(%s#%s)", m.Name, m.Type, m.Address)
+func NewMeta(c any) *Meta {
+	return &Meta{
+		Base:        NewBase(c),
+		Name:        GetComponentName(c),
+		Address:     fmt.Sprintf("%p", c),
+		Raw:         c,
+		dependBySet: make(map[string]struct{}),
+	}
 }
 
-func (m *Meta) DependBy(parent *Meta) {
-	if !lo.ContainsBy(m.DependsBy, func(item *Meta) bool {
-		return item.ID() == parent.ID()
-	}) {
+func (m *Meta) ID() string {
+	return fmt.Sprintf("%s.(%s)@%s", m.Name, m.Type, m.Address)
+}
+
+func (m *Meta) dependBy(parent *Meta) {
+	if _, ok := m.dependBySet[parent.ID()]; !ok {
 		m.DependsBy = append(m.DependsBy, parent)
+		m.dependBySet[parent.ID()] = struct{}{}
 	}
 }
 
 func (m *Meta) AllDependencies() []*Node {
 	return append(m.Dependencies, m.CustomizedField...)
-}
-
-func StringEscape(s string) string {
-	return fmt.Sprintf("\"%s\"", s)
 }

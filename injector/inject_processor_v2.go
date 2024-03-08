@@ -30,6 +30,7 @@ func Default() Injector {
 	ij.addInjectors([]InjectProcessor{
 		new(specifyInjector),
 		new(unSpecifyPtrInjector),
+		new(unSpecifyPtrSliceInjector),
 		new(unSpecifyInterfaceInjector),
 		new(unSpecifyInterfaceSliceInjector),
 		new(customizedPtrInjector),
@@ -70,16 +71,16 @@ func (s *injector) injectDependency(r registry.Registry, metaID string, d *meta.
 		return item.Filter(d)
 	})
 	if !find {
-		return fmt.Errorf(diErrOutput, "nil", metaID, d.Id(), "injection condition not found")
+		return fmt.Errorf(diErrOutput, "nil", metaID, d.ID(), "inject condition not found")
 	}
 	defer func() {
 		if err := recover(); err != nil {
-			syslog.Panicf(diErrOutput, inj.RuleName(), metaID, d.Id(), err)
+			syslog.Panicf(diErrOutput, inj.RuleName(), metaID, d.ID(), err)
 		}
 	}()
 	err := inj.Inject(r, d)
 	if err != nil {
-		return fmt.Errorf(diErrOutput, inj.RuleName(), metaID, d.Id(), err)
+		return fmt.Errorf(diErrOutput, inj.RuleName(), metaID, d.ID(), err)
 	}
 	return nil
 }

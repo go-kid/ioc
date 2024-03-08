@@ -41,7 +41,7 @@ func (d *ViperBinder) Get(path string) any {
 
 func (d *ViperBinder) PropInject(properties []*meta.Node) error {
 	for _, prop := range properties {
-		syslog.Tracef("viper binder start bind config %s, prefix: %s", prop.Id(), prop.TagVal)
+		syslog.Tracef("viper binder start bind config %s, prefix: %s", prop.ID(), prop.TagVal)
 		var fieldType = prop.Type
 		var isPtrType = false
 		if fieldType.Kind() == reflect.Ptr {
@@ -51,7 +51,7 @@ func (d *ViperBinder) PropInject(properties []*meta.Node) error {
 		var val = reflect.New(fieldType)
 		err := d.unmarshall(prop.TagVal, val.Interface())
 		if err != nil {
-			return fmt.Errorf("viper binder bind config %s, prefix: %s error: %v", prop.Id(), prop.TagVal, err)
+			return fmt.Errorf("viper binder bind config %s, prefix: %s error: %v", prop.ID(), prop.TagVal, err)
 		}
 		if isPtrType {
 			prop.Value.Set(val)

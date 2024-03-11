@@ -25,12 +25,12 @@ type StateComponent struct {
 
 type InitializeComponent struct {
 	StateComponent
-	Child *InitializeComponent `wire:"Child"`
+	InitHandler func() error
 }
 
 func (i *InitializeComponent) Init() error {
-	i.State = 1 + i.Child.State
-	return nil
+	//i.State = 1 + i.Child.State
+	return i.InitHandler()
 }
 
 type CloserComponent struct {
@@ -44,24 +44,39 @@ func (c *CloserComponent) Close() error {
 
 func TestComponentLifecycle(t *testing.T) {
 	t.Run("TestInitialize", func(t *testing.T) {
+		type ChildComp struct {
+			InitializeComponent
+		}
+		type ParentComp struct {
+			InitializeComponent
+			Child *ChildComp `wire:"Child"`
+		}
 		var (
-			p = &InitializeComponent{
-				StateComponent: StateComponent{
-					NamingComponent: NamingComponent{"Parent"},
-				},
-			}
-			c = &InitializeComponent{
-				StateComponent: StateComponent{
-					NamingComponent: NamingComponent{"Child"},
-				},
-			}
+			p = &ParentComp{
+				InitializeComponent: InitializeComponent{
+					StateComponent: StateComponent{
+						NamingComponent: NamingComponent{"Parent"},
+					},
+				}}
+			c = &ChildComp{
+				InitializeComponent: InitializeComponent{
+					StateComponent: StateComponent{
+						NamingComponent: NamingComponent{"Child"},
+					},
+				}}
 		)
-
+		p.InitHandler = func() error {
+			p.State = 1 + p.Child.State
+			return nil
+		}
+		c.InitHandler = func() error {
+			c.State++
+			return nil
+		}
 		ioc.RunTest(t, app.SetComponents(p, c))
 		assert.Equal(t, 2, p.State)
 		assert.Equal(t, 1, p.Child.State)
 		assert.Equal(t, 1, c.State)
-		assert.Equal(t, 1, c.Child.State)
 	})
 	t.Run("TestClose", func(t *testing.T) {
 		var comps []any

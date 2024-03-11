@@ -33,8 +33,7 @@ func (c *customizedPtrInjector) Inject(r registry.Registry, d *meta.Node) error 
 	if len(metas) < 1 {
 		return fmt.Errorf("no instance found for customized tag [%s] with type: %s", d.Tag, d.Type)
 	}
-	d.Inject(metas[0])
-	return nil
+	return d.Inject(metas[0])
 }
 
 type customizedInterfaceInjector struct {
@@ -57,8 +56,7 @@ func (c *customizedInterfaceInjector) Inject(r registry.Registry, d *meta.Node) 
 	if len(metas) < 1 {
 		return fmt.Errorf("none instance found for customized tag [%s] implement the interface: %s", d.Tag, d.Type)
 	}
-	d.Inject(metas[0])
-	return nil
+	return d.Inject(metas[0])
 }
 
 type customizedInterfaceSliceInjector struct {
@@ -81,6 +79,5 @@ func (s *customizedInterfaceSliceInjector) Inject(r registry.Registry, d *meta.N
 	if len(metas) < 1 {
 		return fmt.Errorf("none instance found for customized tag [%s] implement the interface: %s", d.Tag, d.Type)
 	}
-	d.Inject(metas...)
-	return nil
+	return d.Inject(metas...)
 }

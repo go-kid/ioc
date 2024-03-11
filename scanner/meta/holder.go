@@ -1,8 +1,7 @@
 package meta
 
 import (
-	"github.com/samber/lo"
-	"strings"
+	"fmt"
 )
 
 type Holder struct {
@@ -30,17 +29,7 @@ func NewEmbedHolder(base *Base, holder *Holder) *Holder {
 
 func (s *Holder) ID() string {
 	if s.IsEmbed {
-		var ids []string
-		_ = s.Walk(func(source *Holder) error {
-			if source.IsEmbed {
-				ids = append(ids, source.Type.Name())
-			} else {
-				ids = append(ids, source.Meta.ID())
-			}
-			return nil
-		})
-		ids = lo.Reverse(ids)
-		return strings.Join(ids, ".")
+		return fmt.Sprintf("%s.%s", s.Holder.ID(), s.Type.Name())
 	}
 	return s.Meta.ID()
 }

@@ -38,23 +38,33 @@ func (n *Node) Name() string {
 	return GetComponentName(reflectx.New(n.Type))
 }
 
-func (n *Node) Inject(m ...*Meta) {
+func (n *Node) Inject(m ...*Meta) error {
 	if len(m) < 1 {
-		return
+		return nil
 	}
+	var value reflect.Value
 	switch n.Type.Kind() {
 	case reflect.Slice:
-		values := lo.Map(m, func(item *Meta, _ int) reflect.Value {
-			return item.Value
+		values := lo.FilterMap(m, func(item *Meta, _ int) (reflect.Value, bool) {
+			if m[0].ID() == n.Holder.Meta.ID() {
+				return reflect.Value{}, false
+			}
+			return item.Value, true
 		})
-		n.Value.Set(reflect.Append(n.Value, values...))
+		value = reflect.Append(n.Value, values...)
 	default:
-		n.Value.Set(m[0].Value)
+		if m[0].ID() == n.Holder.Meta.ID() {
+			return fmt.Errorf("self inject is not allowed: %s", m[0].ID())
+		}
+		value = m[0].Value
 	}
+	n.Value.Set(value)
+
 	for _, inject := range m {
 		inject.dependBy(n.Holder.Meta)
 	}
 	n.Injects = m
+	return nil
 }
 
 func GetComponentName(t any) string {

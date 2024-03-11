@@ -44,8 +44,7 @@ func (b *specifyInjector) Inject(r registry.Registry, d *meta.Node) error {
 	if dm == nil {
 		return fmt.Errorf("none instance found for specify name: %s", d.TagVal)
 	}
-	d.Inject(dm)
-	return nil
+	return d.Inject(dm)
 }
 
 /*
@@ -86,8 +85,7 @@ func (b *unSpecifyPtrInjector) Inject(r registry.Registry, d *meta.Node) error {
 		syslog.Warnf("injector %s find multiple instances for %s, randomly select %s", b.RuleName(),
 			d.ID(), dm.ID())
 	}
-	d.Inject(dm)
-	return nil
+	return d.Inject(dm)
 }
 
 /*
@@ -117,8 +115,7 @@ func (s *unSpecifyPtrSliceInjector) Inject(r registry.Registry, d *meta.Node) er
 	if len(metas) == 0 {
 		return fmt.Errorf("none instance found implement the Pointer: %s", d.Type.String())
 	}
-	d.Inject(metas...)
-	return nil
+	return d.Inject(metas...)
 }
 
 /*
@@ -160,8 +157,7 @@ func (i *unSpecifyInterfaceInjector) Inject(r registry.Registry, d *meta.Node) e
 		syslog.Warnf("injector %s find multiple instances for %s, randomly select %s", i.RuleName(),
 			d.ID(), dm.ID())
 	}
-	d.Inject(dm)
-	return nil
+	return d.Inject(dm)
 }
 
 /*
@@ -191,6 +187,5 @@ func (s *unSpecifyInterfaceSliceInjector) Inject(r registry.Registry, d *meta.No
 	if len(metas) == 0 {
 		return fmt.Errorf("none instance found implement the interface: %s", d.Type.String())
 	}
-	d.Inject(metas...)
-	return nil
+	return d.Inject(metas...)
 }

@@ -5,17 +5,33 @@ import (
 	"strings"
 )
 
-type Source struct {
+type Holder struct {
 	*Base
 	Meta    *Meta
 	IsEmbed bool
-	Source  *Source
+	Holder  *Holder
 }
 
-func (s *Source) ID() string {
+func NewHolder(m *Meta) *Holder {
+	return &Holder{
+		Base: m.Base,
+		Meta: m,
+	}
+}
+
+func NewEmbedHolder(base *Base, holder *Holder) *Holder {
+	return &Holder{
+		Base:    base,
+		Meta:    holder.Meta,
+		IsEmbed: true,
+		Holder:  holder,
+	}
+}
+
+func (s *Holder) ID() string {
 	if s.IsEmbed {
 		var ids []string
-		_ = s.Walk(func(source *Source) error {
+		_ = s.Walk(func(source *Holder) error {
 			if source.IsEmbed {
 				ids = append(ids, source.Type.Name())
 			} else {
@@ -25,12 +41,11 @@ func (s *Source) ID() string {
 		})
 		ids = lo.Reverse(ids)
 		return strings.Join(ids, ".")
-		//return s.Embeds.ID()
 	}
 	return s.Meta.ID()
 }
 
-func (s *Source) Walk(f func(source *Source) error) error {
+func (s *Holder) Walk(f func(source *Holder) error) error {
 	if s == nil {
 		return nil
 	}
@@ -40,7 +55,7 @@ func (s *Source) Walk(f func(source *Source) error) error {
 		if err != nil {
 			return nil
 		}
-		n = n.Source
+		n = n.Holder
 	}
 	return nil
 }

@@ -10,15 +10,25 @@ import (
 
 type Node struct {
 	*Base
-	Source  *Source
+	Holder  *Holder
 	Field   reflect.StructField
 	Tag     string
 	TagVal  string
 	Injects []*Meta
 }
 
+func NewNode(base *Base, holder *Holder, field reflect.StructField, tag, tagVal string) *Node {
+	return &Node{
+		Base:   base,
+		Holder: holder,
+		Field:  field,
+		Tag:    tag,
+		TagVal: tagVal,
+	}
+}
+
 func (n *Node) ID() string {
-	return fmt.Sprintf("%s.%s", n.Source.ID(), n.Field.Name)
+	return fmt.Sprintf("%s.%s", n.Holder.ID(), n.Field.Name)
 }
 
 func (n *Node) Name() string {
@@ -26,10 +36,6 @@ func (n *Node) Name() string {
 		return n.TagVal
 	}
 	return GetComponentName(reflectx.New(n.Type))
-}
-
-func (n *Node) Parent() *Meta {
-	return n.Source.Meta
 }
 
 func (n *Node) Inject(m ...*Meta) {
@@ -45,10 +51,10 @@ func (n *Node) Inject(m ...*Meta) {
 	default:
 		n.Value.Set(m[0].Value)
 	}
-	n.Injects = m
-	for _, inject := range n.Injects {
-		inject.dependBy(n.Parent())
+	for _, inject := range m {
+		inject.dependBy(n.Holder.Meta)
 	}
+	n.Injects = m
 }
 
 func GetComponentName(t any) string {

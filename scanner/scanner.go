@@ -9,15 +9,15 @@ import (
 )
 
 type scanner struct {
-	tags []string
+	policies []ScanPolicy
 }
 
 func Default() Scanner {
 	return &scanner{}
 }
 
-func (s *scanner) AddTags(tags []string) {
-	s.tags = append(s.tags, tags...)
+func (s *scanner) AddTags(policies []ScanPolicy) {
+	s.policies = append(s.policies, policies...)
 }
 
 func (s *scanner) ScanComponent(c any) *meta.Meta {
@@ -28,54 +28,39 @@ func (s *scanner) ScanComponent(c any) *meta.Meta {
 	return m
 }
 
-func (s *scanner) scanDependencies(source *meta.Meta) []*meta.Node {
-	return s.ScanNodes(&meta.Source{
-		Base: source.Base,
-		Meta: source,
-	}, meta.InjectTag)
+func (s *scanner) scanDependencies(m *meta.Meta) []*meta.Node {
+	return s.ScanNodes(meta.NewHolder(m), DefaultScanPolicy(defination.InjectTag, nil))
 }
 
-func (s *scanner) scanProperties(source *meta.Meta) []*meta.Node {
+func (s *scanner) scanProperties(m *meta.Meta) []*meta.Node {
+	return s.ScanNodes(meta.NewHolder(m), DefaultScanPolicy(defination.PropTag, configureHandler))
+}
+
+func configureHandler(_ reflect.StructField, value reflect.Value) (string, string, bool) {
 	var tag = "Configuration.Prefix"
-	configureHandler := func(field reflect.StructField, value reflect.Value) (string, string, bool) {
-		if configuration, ok := value.Interface().(defination.Configuration); ok {
-			return tag, configuration.Prefix(), true
-		}
-		return "", "", false
+	if configuration, ok := value.Interface().(defination.Configuration); ok {
+		return tag, configuration.Prefix(), true
 	}
-	return s.ScanNodes(&meta.Source{
-		Base: source.Base,
-		Meta: source,
-	}, meta.PropTag, configureHandler)
+	return "", "", false
 }
 
-func (s *scanner) scanCustomizedField(source *meta.Meta) []*meta.Node {
-	return lo.FlatMap(s.tags, func(tag string, _ int) []*meta.Node {
-		return s.ScanNodes(&meta.Source{
-			Base: source.Base,
-			Meta: source,
-		}, tag)
+func (s *scanner) scanCustomizedField(m *meta.Meta) []*meta.Node {
+	return lo.FlatMap(s.policies, func(sp ScanPolicy, _ int) []*meta.Node {
+		return s.ScanNodes(meta.NewHolder(m), sp)
 	})
 }
 
-type ExtTagHandler func(field reflect.StructField, value reflect.Value) (tag string, tagVal string, err bool)
-
-func (s *scanner) ScanNodes(source *meta.Source, tag string, handlers ...ExtTagHandler) []*meta.Node {
+func (s *scanner) ScanNodes(holder *meta.Holder, sp ScanPolicy) []*meta.Node {
 	var nodes []*meta.Node
-	_ = reflectx.ForEachFieldV2(source.Type, source.Value, false, func(field reflect.StructField, value reflect.Value) error {
+	_ = reflectx.ForEachFieldV2(holder.Type, holder.Value, false, func(field reflect.StructField, value reflect.Value) error {
 		var base = &meta.Base{
 			Type:  field.Type,
 			Value: value,
 		}
 		//if is embed struct, find inside
 		if field.Anonymous && field.Tag == "" && field.Type.Kind() == reflect.Struct {
-			var embedSource = &meta.Source{
-				Base:    base,
-				Meta:    source.Meta,
-				IsEmbed: true,
-				Source:  source,
-			}
-			nodes = append(nodes, s.ScanNodes(embedSource, tag, handlers...)...)
+			var embedSource = meta.NewEmbedHolder(base, holder)
+			nodes = append(nodes, s.ScanNodes(embedSource, sp)...)
 			return nil
 		}
 
@@ -83,29 +68,19 @@ func (s *scanner) ScanNodes(source *meta.Source, tag string, handlers ...ExtTagH
 			return nil
 		}
 
-		var newNodeFn = func(tag, tagVal string) *meta.Node {
-			return &meta.Node{
-				Base:   base,
-				Source: source,
-				Field:  field,
-				Tag:    tag,
-				TagVal: tagVal,
+		//find tag in struct field tag
+		if tag := sp.Tag(); tag != "" {
+			if tagVal, ok := field.Tag.Lookup(tag); ok {
+				nodes = append(nodes, meta.NewNode(base, holder, field, tag, tagVal))
+				return nil
 			}
 		}
 
-		//find tag in struct field tag
-		if tagVal, ok := field.Tag.Lookup(tag); ok {
-			nodes = append(nodes, newNodeFn(tag, tagVal))
-			return nil
-		}
-
-		//use first success extra tag handler
-		if len(handlers) > 0 {
-			for _, handler := range handlers {
-				if tag, tagVal, ok := handler(field, value); ok {
-					nodes = append(nodes, newNodeFn(tag, tagVal))
-					return nil
-				}
+		//if not find in tag, use extract tag handler
+		if handler := sp.ExtHandler(); handler != nil {
+			if tag, tagVal, ok := handler(field, value); ok {
+				nodes = append(nodes, meta.NewNode(base, holder, field, tag, tagVal))
+				return nil
 			}
 		}
 		return nil

@@ -5,11 +5,6 @@ import (
 	"reflect"
 )
 
-const (
-	InjectTag = "wire"
-	PropTag   = "prop"
-)
-
 type Base struct {
 	Type  reflect.Type
 	Value reflect.Value

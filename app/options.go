@@ -8,6 +8,7 @@ import (
 	"github.com/go-kid/ioc/scanner"
 	"github.com/go-kid/ioc/scanner/meta"
 	"github.com/go-kid/ioc/syslog"
+	"github.com/samber/lo"
 )
 
 type SettingOption func(s *App)
@@ -83,8 +84,14 @@ func SetScanner(sc scanner.Scanner) SettingOption {
 }
 
 func SetScanTags(tags ...string) SettingOption {
+	return SetScanPolicies(lo.Map(tags, func(item string, _ int) scanner.ScanPolicy {
+		return scanner.DefaultScanPolicy(item, nil)
+	})...)
+}
+
+func SetScanPolicies(policies ...scanner.ScanPolicy) SettingOption {
 	return func(s *App) {
-		s.Scanner.AddTags(tags)
+		s.Scanner.AddTags(policies)
 	}
 }
 

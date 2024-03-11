@@ -35,7 +35,7 @@ func (b *specifyInjector) RuleName() string {
 }
 
 func (b *specifyInjector) Filter(d *meta.Node) bool {
-	return d.Tag == meta.InjectTag && d.TagVal != "" && //ruleTagNotEmpty
+	return d.Tag == defination.InjectTag && d.TagVal != "" && //ruleTagNotEmpty
 		(d.Type.Kind() == reflect.Ptr || d.Type.Kind() == reflect.Interface)
 }
 
@@ -66,7 +66,7 @@ func (b *unSpecifyPtrInjector) RuleName() string {
 }
 
 func (b *unSpecifyPtrInjector) Filter(d *meta.Node) bool {
-	return d.Tag == meta.InjectTag && d.TagVal == "" && //ruleEmptyTag
+	return d.Tag == defination.InjectTag && d.TagVal == "" && //ruleEmptyTag
 		d.Type.Kind() == reflect.Ptr //rulePointer
 }
 
@@ -108,7 +108,7 @@ func (s *unSpecifyPtrSliceInjector) RuleName() string {
 }
 
 func (s *unSpecifyPtrSliceInjector) Filter(d *meta.Node) bool {
-	return d.Tag == meta.InjectTag && d.TagVal == "" && //ruleEmptyTag
+	return d.Tag == defination.InjectTag && d.TagVal == "" && //ruleEmptyTag
 		d.Type.Kind() == reflect.Slice && d.Type.Elem().Kind() == reflect.Pointer //ruleSlicePtr
 }
 
@@ -140,7 +140,7 @@ func (i *unSpecifyInterfaceInjector) RuleName() string {
 }
 
 func (i *unSpecifyInterfaceInjector) Filter(d *meta.Node) bool {
-	return d.Tag == meta.InjectTag && d.TagVal == "" && //ruleEmptyTag
+	return d.Tag == defination.InjectTag && d.TagVal == "" && //ruleEmptyTag
 		d.Type.Kind() == reflect.Interface //ruleInterface
 }
 
@@ -182,7 +182,7 @@ func (s *unSpecifyInterfaceSliceInjector) RuleName() string {
 }
 
 func (s *unSpecifyInterfaceSliceInjector) Filter(d *meta.Node) bool {
-	return d.Tag == meta.InjectTag && d.TagVal == "" && //ruleEmptyTag
+	return d.Tag == defination.InjectTag && d.TagVal == "" && //ruleEmptyTag
 		d.Type.Kind() == reflect.Slice && d.Type.Elem().Kind() == reflect.Interface //ruleSliceInterface
 }
 

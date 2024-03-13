@@ -2,10 +2,9 @@ package meta
 
 import (
 	"fmt"
-	"github.com/go-kid/ioc/defination"
-	"github.com/go-kid/ioc/util/reflectx"
-	"github.com/samber/lo"
+	"github.com/go-kid/ioc/syslog"
 	"reflect"
+	"strings"
 )
 
 type Node struct {
@@ -28,55 +27,47 @@ func NewNode(base *Base, holder *Holder, field reflect.StructField, tag, tagVal 
 }
 
 func (n *Node) ID() string {
-	return fmt.Sprintf("%s.%s", n.Holder.ID(), n.Field.Name)
+	return fmt.Sprintf("%s.Field(%s)", n.Holder.ID(), n.Field.Name)
 }
 
-func (n *Node) Name() string {
-	if n.TagVal != "" {
-		return n.TagVal
-	}
-	return GetComponentName(reflectx.New(n.Type))
-}
-
-func (n *Node) Inject(m ...*Meta) error {
-	if len(m) < 1 {
+func (n *Node) Inject(metas ...*Meta) error {
+	if len(metas) < 1 {
 		return nil
+	} else {
+		var filteredMetas = make([]*Meta, 0, len(metas))
+		for _, m := range metas {
+			if m.ID() != n.Holder.Meta.ID() {
+				filteredMetas = append(filteredMetas, m)
+			}
+		}
+		if len(filteredMetas) == 0 {
+			var embedSb = strings.Builder{}
+			_ = n.Holder.Walk(func(source *Holder) error {
+				embedSb.WriteString("\n depended on " + source.ID())
+				return nil
+			})
+			return fmt.Errorf("field %s %s: self inject not allowed", n.ID(), embedSb.String())
+		}
+		metas = filteredMetas
 	}
-	var value reflect.Value
+
 	switch n.Type.Kind() {
 	case reflect.Slice:
-		values := lo.FilterMap(m, func(item *Meta, _ int) (reflect.Value, bool) {
-			if m[0].ID() == n.Holder.Meta.ID() {
-				return reflect.Value{}, false
-			}
-			return item.Value, true
-		})
-		value = reflect.Append(n.Value, values...)
-	default:
-		if m[0].ID() == n.Holder.Meta.ID() {
-			return fmt.Errorf("self inject is not allowed: %s", m[0].ID())
+		n.Value.Set(reflect.MakeSlice(n.Type, len(metas), len(metas)))
+		for i, m := range metas {
+			n.Value.Index(i).Set(m.Value)
 		}
-		value = m[0].Value
-	}
-	n.Value.Set(value)
-
-	for _, inject := range m {
-		inject.dependBy(n.Holder.Meta)
-	}
-	n.Injects = m
-	return nil
-}
-
-func GetComponentName(t any) string {
-	var c any
-	switch t.(type) {
-	case reflect.Value:
-		c = t.(reflect.Value).Interface()
 	default:
-		c = t
+		if len(metas) > 1 {
+			syslog.Warnf("inject multiple instances to single receiver %s, randomly select %s",
+				n.ID(), metas[0].ID())
+		}
+		n.Value.Set(metas[0].Value)
 	}
-	if n, ok := c.(defination.NamingComponent); ok && n.Naming() != "" {
-		return n.Naming()
+
+	for _, inject := range metas {
+		inject.dependOn(n.Holder.Meta)
 	}
-	return reflectx.Id(c)
+	n.Injects = metas
+	return nil
 }

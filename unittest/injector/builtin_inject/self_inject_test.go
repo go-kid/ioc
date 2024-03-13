@@ -3,6 +3,7 @@ package builtin_inject
 import (
 	"github.com/go-kid/ioc/app"
 	"github.com/go-kid/ioc/registry"
+	"github.com/go-kid/ioc/syslog"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -12,6 +13,7 @@ type ISelfInject interface {
 }
 
 type implSelfInject struct {
+	SpecifyNameComponent
 }
 
 func (i *implSelfInject) action() {
@@ -23,8 +25,31 @@ func TestSelfInject(t *testing.T) {
 			implSelfInject
 			InterfaceSelf ISelfInject `wire:""`
 		}
-		st := &T{}
-		err := RunTest(app.SetComponents(st))
+		type T2 struct {
+			T
+		}
+		type T3 struct {
+			T2
+		}
+		st := &T3{}
+		err := RunTest(app.SetComponents(st), app.LogLevel(syslog.LvTrace))
+		syslog.Error(err)
+		assert.Error(t, err)
+	})
+	t.Run("SelfInjectByNamingInterface", func(t *testing.T) {
+		type T struct {
+			implSelfInject
+			InterfaceSelf ISelfInject `wire:"t1"`
+		}
+		type T2 struct {
+			T
+		}
+		type T3 struct {
+			T2
+		}
+		st := &T3{T2: T2{T: T{implSelfInject: implSelfInject{SpecifyNameComponent{Component{Name: "t1"}}}}}}
+		err := RunTest(app.SetComponents(st), app.LogLevel(syslog.LvTrace))
+		syslog.Error(err)
 		assert.Error(t, err)
 	})
 	t.Run("SelfInjectByInterfaceSlice", func(t *testing.T) {
@@ -32,10 +57,16 @@ func TestSelfInject(t *testing.T) {
 			implSelfInject
 			SliceSelf []ISelfInject `wire:""`
 		}
-		st := &T{}
+		type T2 struct {
+			T
+		}
+		type T3 struct {
+			T2
+		}
+		st := &T3{}
 		err := RunTest(app.SetComponents(st))
-		assert.NoError(t, err)
-		assert.Equal(t, 0, len(st.SliceSelf))
+		syslog.Error(err)
+		assert.Error(t, err)
 	})
 	t.Run("SelfInjectByPtr", func(t *testing.T) {
 		type T struct {
@@ -53,8 +84,7 @@ func TestSelfInject(t *testing.T) {
 		}
 		st := &T{}
 		err := RunTest(app.SetComponents(st))
-		assert.NoError(t, err)
-		assert.Equal(t, 0, len(st.SliceSelf))
+		assert.Error(t, err)
 	})
 }
 

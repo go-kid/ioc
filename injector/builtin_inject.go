@@ -5,7 +5,6 @@ import (
 	"github.com/go-kid/ioc/defination"
 	"github.com/go-kid/ioc/registry"
 	"github.com/go-kid/ioc/scanner/meta"
-	"github.com/go-kid/ioc/syslog"
 	"reflect"
 )
 
@@ -74,18 +73,20 @@ func (b *unSpecifyPtrInjector) Inject(r registry.Registry, d *meta.Node) error {
 	if len(metas) < 1 {
 		return fmt.Errorf("none instance found for the pointer type: %s", d.Type.String())
 	}
-	var dm = metas[0]
+	return d.Inject(noneNamingOrDefault(metas)...)
+}
+
+func noneNamingOrDefault(metas []*meta.Meta) []*meta.Meta {
+	var results = make([]*meta.Meta, 0, len(metas))
 	for _, m := range metas {
-		if _, ok := m.Raw.(defination.NamingComponent); !ok {
-			dm = m
-			break
+		if !m.IsAlias {
+			results = append(results, m)
 		}
 	}
-	if len(metas) > 1 {
-		syslog.Warnf("injector %s find multiple instances for %s, randomly select %s", b.RuleName(),
-			d.ID(), dm.ID())
+	if len(results) != 0 {
+		return results
 	}
-	return d.Inject(dm)
+	return metas
 }
 
 /*
@@ -146,18 +147,7 @@ func (i *unSpecifyInterfaceInjector) Inject(r registry.Registry, d *meta.Node) e
 	if len(metas) < 1 {
 		return fmt.Errorf("none instance found implement the interface: %s", d.Type.String())
 	}
-	var dm = metas[0]
-	for _, m := range metas {
-		if _, ok := m.Raw.(defination.NamingComponent); !ok {
-			dm = m
-			break
-		}
-	}
-	if len(metas) > 1 {
-		syslog.Warnf("injector %s find multiple instances for %s, randomly select %s", i.RuleName(),
-			d.ID(), dm.ID())
-	}
-	return d.Inject(dm)
+	return d.Inject(noneNamingOrDefault(metas)...)
 }
 
 /*

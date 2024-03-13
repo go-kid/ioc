@@ -29,7 +29,7 @@ func NewEmbedHolder(base *Base, holder *Holder) *Holder {
 
 func (s *Holder) ID() string {
 	if s.IsEmbed {
-		return fmt.Sprintf("%s.%s", s.Holder.ID(), s.Type.Name())
+		return fmt.Sprintf("%s.Embed(%s)", s.Holder.ID(), s.Type.Name())
 	}
 	return s.Meta.ID()
 }

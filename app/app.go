@@ -157,9 +157,6 @@ func (s *App) wire() error {
 	//Reduce recursion depth
 	syslog.Trace("sorting components")
 	sort.Slice(components, func(i, j int) bool {
-		if len(components[i].DependsBy) != len(components[j].DependsBy) {
-			return len(components[i].DependsBy) > len(components[j].DependsBy)
-		}
 		return len(components[i].AllDependencies()) < len(components[j].AllDependencies())
 	})
 	for _, m := range components {
@@ -217,10 +214,24 @@ func (s *App) Close() {
 
 func defaultPostInitFunc(r registry.Registry) factory.MetaFunc {
 	postMetas := r.GetComponents(registry.Interface(new(defination.ComponentPostProcessor)))
-	postProcessors := make([]defination.ComponentPostProcessor, 0, len(postMetas))
-	for _, pm := range postMetas {
-		postProcessors = append(postProcessors, pm.Raw.(defination.ComponentPostProcessor))
+	if len(postMetas) == 0 {
+		return func(m *meta.Meta) error {
+			// init
+			if ic, ok := m.Raw.(defination.InitializeComponent); ok {
+				syslog.Tracef("component %s is InitializeComponent, start do init", m.ID())
+				err := ic.Init()
+				if err != nil {
+					return fmt.Errorf("component %s inited failed: %s", m.ID(), err)
+				}
+			}
+			return nil
+		}
+	}
+
+	postProcessors := make([]defination.ComponentPostProcessor, len(postMetas))
+	for i, pm := range postMetas {
 		syslog.Tracef("collecting post processors %s", pm.ID())
+		postProcessors[i] = pm.Raw.(defination.ComponentPostProcessor)
 		r.RemoveComponents(pm.Name)
 	}
 	return func(m *meta.Meta) error {

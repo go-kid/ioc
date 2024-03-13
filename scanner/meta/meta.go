@@ -2,6 +2,10 @@ package meta
 
 import (
 	"fmt"
+	"github.com/go-kid/ioc/defination"
+	"github.com/go-kid/ioc/util/fas"
+	"github.com/go-kid/ioc/util/reflectx"
+	"github.com/modern-go/concurrent"
 	"reflect"
 )
 
@@ -19,12 +23,15 @@ func NewBase(c any) *Base {
 
 type Meta struct {
 	*Base
+	typeId  string
+	fullId  string
 	Name    string
-	Address string
+	IsAlias bool
+	Address uintptr
 	Raw     interface{}
 
-	dependBySet map[string]struct{}
-	DependsBy   []*Meta
+	dependedOnSet *concurrent.Map
+	DependedOn    []*Meta
 
 	Dependencies    []*Node
 	Properties      []*Node
@@ -32,26 +39,65 @@ type Meta struct {
 }
 
 func NewMeta(c any) *Meta {
-	return &Meta{
-		Base:        NewBase(c),
-		Name:        GetComponentName(c),
-		Address:     fmt.Sprintf("%p", c),
-		Raw:         c,
-		dependBySet: make(map[string]struct{}),
+	base := NewBase(c)
+	address := base.Value.Pointer()
+	typeId, alias := GetComponentName(c)
+	var (
+		isAlias = alias != ""
+		name    = fas.TernaryOp(isAlias, alias, typeId)
+		fullId  string
+	)
+	if isAlias {
+		fullId = fmt.Sprintf("%s(alias='%s')(0x%x)", typeId, name, address)
+	} else {
+		fullId = fmt.Sprintf("%s(0x%x)", name, address)
 	}
+	m := &Meta{
+		Base:          base,
+		typeId:        typeId,
+		fullId:        fullId,
+		Name:          name,
+		IsAlias:       isAlias,
+		Address:       address,
+		Raw:           c,
+		dependedOnSet: concurrent.NewMap(),
+	}
+	return m
 }
 
 func (m *Meta) ID() string {
-	return fmt.Sprintf("%s.(%s)@%s", m.Name, m.Type, m.Address)
+	return m.fullId
 }
 
-func (m *Meta) dependBy(parent *Meta) {
-	if _, ok := m.dependBySet[parent.ID()]; !ok {
-		m.DependsBy = append(m.DependsBy, parent)
-		m.dependBySet[parent.ID()] = struct{}{}
-	}
+func (m *Meta) TypeID() string {
+	return m.typeId
+}
+
+func (m *Meta) dependOn(parent *Meta) {
+	m.dependedOnSet.LoadOrStore(parent.ID(), struct{}{})
+	//if _, ok := m.dependedOnSet[parent.ID()]; !ok {
+	//	m.DependedOn = append(m.DependedOn, parent)
+	//	m.dependedOnSet[parent.ID()] = struct{}{}
+	//}
 }
 
 func (m *Meta) AllDependencies() []*Node {
 	return append(m.Dependencies, m.CustomizedField...)
+}
+
+func GetComponentName(t any) (id, alias string) {
+	var c any
+	switch t.(type) {
+	case reflect.Value:
+		c = t.(reflect.Value).Interface()
+	case reflect.Type:
+		c = reflect.New(t.(reflect.Type)).Interface()
+	default:
+		c = t
+	}
+	id = reflectx.Id(c)
+	if n, ok := c.(defination.NamingComponent); ok {
+		alias = n.Naming()
+	}
+	return
 }

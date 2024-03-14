@@ -29,11 +29,11 @@ func (s *scanner) AddScanPolicies(policies ...ScanPolicy) {
 
 func (s *scanner) ScanComponent(c any) *meta.Meta {
 	m := meta.NewMeta(c)
-	s.scanNodes(meta.NewHolder(m), s.policies)
+	s.scanNodes(meta.NewHolder(m))
 	return m
 }
 
-func (s *scanner) scanNodes(holder *meta.Holder, sps []ScanPolicy) {
+func (s *scanner) scanNodes(holder *meta.Holder) {
 	_ = reflectx.ForEachFieldV2(holder.Type, holder.Value, false, func(field reflect.StructField, value reflect.Value) error {
 		var base = &meta.Base{
 			Type:  field.Type,
@@ -41,7 +41,7 @@ func (s *scanner) scanNodes(holder *meta.Holder, sps []ScanPolicy) {
 		}
 		//if is embed struct, find inside
 		if field.Anonymous && field.Tag == "" && field.Type.Kind() == reflect.Struct {
-			s.scanNodes(meta.NewEmbedHolder(base, holder), sps)
+			s.scanNodes(meta.NewEmbedHolder(base, holder))
 			return nil
 		}
 
@@ -49,7 +49,7 @@ func (s *scanner) scanNodes(holder *meta.Holder, sps []ScanPolicy) {
 			return nil
 		}
 
-		for _, sp := range sps {
+		for _, sp := range s.policies {
 			nt := sp.Group()
 			//find tag in struct field tag
 			if tag := sp.Tag(); tag != "" {

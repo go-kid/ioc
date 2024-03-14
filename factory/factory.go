@@ -22,36 +22,36 @@ func (f *defaultFactory) SetIfNilPostInitFunc(fn MetaFunc) {
 	}
 }
 
-func (f *defaultFactory) Initialize(r registry.Registry, i injector.Injector, m *meta.Meta) error {
-	syslog.Tracef("factory start initialize component %s", m.ID())
-	if r.IsComponentInited(m.Name) {
-		syslog.Tracef("component %s is already init, skip initialize", m.ID())
-		return nil
-	}
+func (f *defaultFactory) Initialize(r registry.Registry, i injector.Injector, metas ...*meta.Meta) error {
+	for _, m := range metas {
+		syslog.Tracef("factory start initialize component %s", m.ID())
+		if r.IsComponentInited(m.Name) {
+			syslog.Tracef("component %s is already init, skip initialize", m.ID())
+			continue
+		}
+		r.ComponentInited(m.Name)
 
-	syslog.Tracef("factory inject dependencies %s", m.ID())
-	err := i.DependencyInject(r, m.ID(), m.AllDependencies())
-	if err != nil {
-		return fmt.Errorf("factory inject dependencies failed: %v", err)
-	}
-
-	r.ComponentInited(m.Name)
-
-	for _, dependency := range m.AllDependencies() {
-		for _, dm := range dependency.Injects {
-			//dm.DependBy(m)
-			err := f.Initialize(r, i, dm)
+		if nodes := m.GetComponentNodes(); len(nodes) > 0 {
+			syslog.Tracef("factory start inject dependencies %s", m.ID())
+			err := i.DependencyInject(r, m.ID(), nodes)
 			if err != nil {
-				return err
+				return fmt.Errorf("factory inject dependencies failed: %v", err)
+			}
+
+			for _, node := range nodes {
+				err = f.Initialize(r, i, node.Injects...)
+				if err != nil {
+					return err
+				}
 			}
 		}
-	}
 
-	err = f.postInitFunc(m)
-	if err != nil {
-		return fmt.Errorf("factory do post init function %s failed: %v", m.ID(), err)
-	}
+		err := f.postInitFunc(m)
+		if err != nil {
+			return fmt.Errorf("factory initialize component %s failed: %v", m.ID(), err)
+		}
 
-	syslog.Tracef("factory initialized component %s", m.ID())
+		syslog.Tracef("factory initialized component %s", m.ID())
+	}
 	return nil
 }

@@ -3,7 +3,6 @@ package embed_inject
 import (
 	"github.com/go-kid/ioc"
 	"github.com/go-kid/ioc/app"
-	"github.com/go-kid/ioc/syslog"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -35,7 +34,7 @@ func TestEmbedComponent(t *testing.T) {
 	}
 	var tApp = &tComp{}
 	ioc.RunTest(t,
-		app.LogLevel(syslog.LvTrace),
+		app.LogTrace,
 		app.SetComponents(
 			&Component{"TestComponent"},
 			&Component{"TestComponent2"},

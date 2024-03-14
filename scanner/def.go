@@ -6,14 +6,14 @@ import (
 )
 
 type Scanner interface {
-	AddTags(policies []ScanPolicy)
+	AddScanPolicies(policies ...ScanPolicy)
 	ScanComponent(c any) *meta.Meta
-	ScanNodes(source *meta.Holder, policy ScanPolicy) []*meta.Node
 }
 
 type ScanPolicy interface {
+	Group() meta.NodeType
 	Tag() string
 	ExtHandler() ExtTagHandler
 }
 
-type ExtTagHandler func(field reflect.StructField, value reflect.Value) (tag string, tagVal string, err bool)
+type ExtTagHandler func(field reflect.StructField, value reflect.Value) (tag string, tagVal string, ok bool)

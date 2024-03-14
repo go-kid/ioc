@@ -9,6 +9,13 @@ import (
 	"reflect"
 )
 
+type NodeType int
+
+const (
+	NodeTypeConfiguration NodeType = iota
+	NodeTypeComponent
+)
+
 type Base struct {
 	Type  reflect.Type
 	Value reflect.Value
@@ -33,9 +40,7 @@ type Meta struct {
 	dependedOnSet *concurrent.Map
 	DependedOn    []*Meta
 
-	Dependencies    []*Node
-	Properties      []*Node
-	CustomizedField []*Node
+	nodeGroup map[NodeType][]*Node
 }
 
 func NewMeta(c any) *Meta {
@@ -61,6 +66,7 @@ func NewMeta(c any) *Meta {
 		Address:       address,
 		Raw:           c,
 		dependedOnSet: concurrent.NewMap(),
+		nodeGroup:     make(map[NodeType][]*Node),
 	}
 	return m
 }
@@ -75,14 +81,22 @@ func (m *Meta) TypeID() string {
 
 func (m *Meta) dependOn(parent *Meta) {
 	m.dependedOnSet.LoadOrStore(parent.ID(), struct{}{})
-	//if _, ok := m.dependedOnSet[parent.ID()]; !ok {
-	//	m.DependedOn = append(m.DependedOn, parent)
-	//	m.dependedOnSet[parent.ID()] = struct{}{}
-	//}
 }
 
-func (m *Meta) AllDependencies() []*Node {
-	return append(m.Dependencies, m.CustomizedField...)
+func (m *Meta) SetNodes(t NodeType, nodes ...*Node) {
+	m.nodeGroup[t] = append(m.nodeGroup[t], nodes...)
+}
+
+func (m *Meta) GetNodes(t NodeType) []*Node {
+	return m.nodeGroup[t]
+}
+
+func (m *Meta) GetComponentNodes() []*Node {
+	return m.GetNodes(NodeTypeComponent)
+}
+
+func (m *Meta) GetConfigurationNodes() []*Node {
+	return m.GetNodes(NodeTypeConfiguration)
 }
 
 func GetComponentName(t any) (id, alias string) {

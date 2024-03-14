@@ -10,5 +10,5 @@ type MetaFunc func(m *meta.Meta) error
 
 type Factory interface {
 	SetIfNilPostInitFunc(fn MetaFunc)
-	Initialize(r registry.Registry, i injector.Injector, m *meta.Meta) error
+	Initialize(r registry.Registry, i injector.Injector, metas ...*meta.Meta) error
 }

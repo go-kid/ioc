@@ -3,7 +3,6 @@ package binder
 import (
 	"bytes"
 	"fmt"
-	"github.com/go-kid/ioc/configure"
 	"text/template"
 )
 
@@ -11,9 +10,9 @@ type ExpressionBinder struct {
 	*ViperBinder
 }
 
-func NewExpressionBinder(configType string) configure.Binder {
+func NewExpressionBinder(configType string) *ExpressionBinder {
 	return &ExpressionBinder{
-		NewViperBinder(configType).(*ViperBinder),
+		NewViperBinder(configType),
 	}
 }
 

@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-const expressionYaml = `
+var expressionYaml = []byte(`
 App:
   Name: expression
   Env: dev
@@ -17,7 +17,7 @@ App:
 Http:
   address: api.{{.app.env}}.xxx.com
 Host: "{{.app.name}}.{{.app.name}}-{{.app.env}}.svc.cluster{{.app.port}}"
-`
+`)
 
 type expressionTestApp struct {
 	C *expressionConfig `prop:""`
@@ -38,9 +38,8 @@ type expressionConfig struct {
 func TestExpressionBinder(t *testing.T) {
 	var a = &expressionTestApp{}
 	ioc.RunTest(t,
-		app.SetConfigLoader(loader.NewRawLoader()),
+		app.SetConfigLoader(loader.NewRawLoader(expressionYaml)),
 		app.SetConfigBinder(binder.NewExpressionBinder("yaml")),
-		app.SetConfig(expressionYaml),
 		app.SetComponents(a))
 	assert.Equal(t, "api.dev.xxx.com", a.C.Http.Address)
 	assert.Equal(t, "expression.expression-dev.svc.cluster:8080", a.C.Host)

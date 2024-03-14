@@ -2,13 +2,12 @@ package app
 
 import (
 	"github.com/go-kid/ioc/configure"
+	"github.com/go-kid/ioc/configure/loader"
 	"github.com/go-kid/ioc/factory"
 	"github.com/go-kid/ioc/injector"
 	"github.com/go-kid/ioc/registry"
 	"github.com/go-kid/ioc/scanner"
-	"github.com/go-kid/ioc/scanner/meta"
 	"github.com/go-kid/ioc/syslog"
-	"github.com/samber/lo"
 )
 
 type SettingOption func(s *App)
@@ -35,7 +34,7 @@ func SetComponents(c ...interface{}) SettingOption {
 
 func SetConfig(cfg string) SettingOption {
 	return func(s *App) {
-		s.configPath = cfg
+		s.Configure.AddLoaders(loader.NewFileLoader(cfg))
 	}
 }
 
@@ -47,19 +46,19 @@ func SetFactory(factory factory.Factory) SettingOption {
 
 func SetConfigLoader(loaders ...configure.Loader) SettingOption {
 	return func(s *App) {
-		s.configLoaders = loaders
+		s.Configure.SetLoaders(loaders...)
 	}
 }
 
-func AppendConfigLoader(loaders ...configure.Loader) SettingOption {
+func AddConfigLoader(loaders ...configure.Loader) SettingOption {
 	return func(s *App) {
-		s.configLoaders = append(s.configLoaders, loaders...)
+		s.Configure.SetLoaders(loaders...)
 	}
 }
 
 func SetConfigBinder(binder configure.Binder) SettingOption {
 	return func(s *App) {
-		s.Binder = binder
+		s.Configure.SetBinder(binder)
 	}
 }
 
@@ -71,9 +70,7 @@ func DisableApplicationRunner() SettingOption {
 
 func DisableComponentInitialization() SettingOption {
 	return func(s *App) {
-		s.Factory.SetIfNilPostInitFunc(func(m *meta.Meta) error {
-			return nil
-		})
+		s.enableComponentInit = false
 	}
 }
 
@@ -83,15 +80,9 @@ func SetScanner(sc scanner.Scanner) SettingOption {
 	}
 }
 
-func SetScanTags(tags ...string) SettingOption {
-	return SetScanPolicies(lo.Map(tags, func(item string, _ int) scanner.ScanPolicy {
-		return scanner.DefaultScanPolicy(item, nil)
-	})...)
-}
-
-func SetScanPolicies(policies ...scanner.ScanPolicy) SettingOption {
+func AddScanPolicies(policies ...scanner.ScanPolicy) SettingOption {
 	return func(s *App) {
-		s.Scanner.AddTags(policies)
+		s.Scanner.AddScanPolicies(policies...)
 	}
 }
 
@@ -112,3 +103,9 @@ func SetLogger(l syslog.Logger) SettingOption {
 		syslog.SetLogger(l)
 	}
 }
+
+var (
+	LogTrace = func(s *App) { syslog.Level(syslog.LvTrace) }
+	LogWarn  = func(s *App) { syslog.Level(syslog.LvWarn) }
+	LogError = func(s *App) { syslog.Level(syslog.LvError) }
+)

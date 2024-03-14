@@ -76,8 +76,8 @@ func (r *registry) scanAndCache(sc scanner.Scanner, c any) {
 		syslog.Tracef("registry scan component %s", m.ID())
 	}
 	if a, ok := r.metaMaps.Load(m.Name); ok {
-		if a.(*meta.Meta).ID() != m.ID() {
-			syslog.Panicf("register duplicated component %s", m.ID())
+		if ca := a.(*meta.Meta); ca.ID() != m.ID() {
+			syslog.Panicf("register duplicated component, cached: %s, new register: %s", ca.ID(), m.ID())
 		}
 		return
 	}

@@ -8,13 +8,6 @@ import (
 	"github.com/go-kid/ioc/syslog"
 )
 
-type MetaFunc func(m *meta.Meta) error
-
-type Factory interface {
-	SetIfNilPostInitFunc(fn MetaFunc)
-	Initialize(r registry.Registry, i injector.Injector, m *meta.Meta) error
-}
-
 type defaultFactory struct {
 	postInitFunc MetaFunc
 }

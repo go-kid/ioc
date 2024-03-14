@@ -15,7 +15,9 @@ import (
 	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/reflectx"
 	"github.com/samber/lo"
+	"regexp"
 	"sort"
+	"strings"
 	"sync"
 )
 
@@ -85,8 +87,7 @@ func (s *App) Run() error {
 	if err := s.initConfig(); err != nil {
 		return fmt.Errorf("init config failed: %v", err)
 	}
-	syslog.Info("configuration ready")
-	/* configuration ready */
+	syslog.Info("populate finished, components properties ready")
 
 	/* set default init behavior */
 	s.Factory.SetIfNilPostInitFunc(defaultPostInitFunc(s.Registry))
@@ -98,7 +99,7 @@ func (s *App) Run() error {
 	if err := s.wire(); err != nil {
 		return fmt.Errorf("wire dependencies failed: %v", err)
 	}
-	syslog.Info("dependencies injection finished, components ready")
+	syslog.Info("injection finished, components dependencies ready")
 	/* dependency injection ready */
 
 	/* begin call runners */
@@ -117,39 +118,72 @@ func (s *App) initConfig() error {
 		return nil
 	}
 	syslog.Tracef("using config path %s init configs...", s.configPath)
-
-	for i, l := range s.configLoaders {
-		syslog.Tracef("config loaders start loading config %s ...[%d/%d]", reflectx.Id(l), i+1, len(s.configLoaders))
-		config, err := l.LoadConfig(s.configPath)
-		if err != nil {
-			return fmt.Errorf("config loader load config failed: %v", err)
-		}
-		syslog.Tracef("config loader loading finished ...[%d/%d]", i+1, len(s.configLoaders))
-		err = s.Binder.SetConfig(config)
-		if err != nil {
-			return fmt.Errorf("config binder set config failed: %v", err)
-		}
+	err := loadingConfigure(s.configPath, s.configLoaders, s.Binder)
+	if err != nil {
+		return fmt.Errorf("loading configure: %v", err)
 	}
+	syslog.Info("loading configure finished")
 
 	metas := s.GetComponents()
 	for _, m := range metas {
-		err := s.Binder.PropInject(m.Properties)
+		err = parseExpressionTags(s.Binder, m)
 		if err != nil {
-			return fmt.Errorf("binder inject prop failed: %v", err)
+			return fmt.Errorf("parse expression tags: %v", err)
+		}
+		err = s.Binder.PropInject(m.Properties)
+		if err != nil {
+			return fmt.Errorf("populate properties: %v", err)
 		}
 	}
 	return nil
 }
 
-func getComponentPostProcessors(r registry.Registry) []defination.ComponentPostProcessor {
-	postMetas := r.GetComponents(registry.Interface(new(defination.ComponentPostProcessor)))
-	postProcessors := make([]defination.ComponentPostProcessor, 0, len(postMetas))
-	for _, pm := range postMetas {
-		postProcessors = append(postProcessors, pm.Raw.(defination.ComponentPostProcessor))
-		syslog.Tracef("collecting post processors %s", pm.ID())
-		r.RemoveComponents(pm.Name)
+func loadingConfigure(configPath string, configLoaders []configure.Loader, configBinder configure.Binder) error {
+	sumLoaders := len(configLoaders)
+	for i, l := range configLoaders {
+		syslog.Tracef("config loaders start loading config %s ...[%d/%d]", reflectx.Id(l), i+1, sumLoaders)
+		config, err := l.LoadConfig(configPath)
+		if err != nil {
+			return fmt.Errorf("config loader load config failed: %v", err)
+		}
+		syslog.Tracef("config loader loading finished ...[%d/%d]", i+1, sumLoaders)
+		err = configBinder.SetConfig(config)
+		if err != nil {
+			return fmt.Errorf("config binder set config failed: %v", err)
+		}
 	}
-	return postProcessors
+	return nil
+}
+
+func parseExpressionTags(configBinder configure.Binder, m *meta.Meta) error {
+	for _, prop := range m.Properties {
+		rawTagVal := prop.TagVal
+		expParsed := false
+		r := regexp.MustCompile("\\$\\{[\\d\\w]+(\\.[\\d\\w]+)*(:[\\d\\w]*)?\\}")
+		prop.TagVal = r.ReplaceAllStringFunc(prop.TagVal, func(s string) string {
+			expParsed = true
+			exp := s[2 : len(s)-1]
+			spExp := strings.SplitN(exp, ":", 2)
+			exp = spExp[0]
+			expVal := configBinder.Get(exp)
+			if expVal == nil {
+				if len(spExp) == 2 {
+					return spExp[1]
+				}
+				syslog.Fatalf("config path '%s' used by expression tag value is missing", exp)
+			}
+			switch expVal.(type) {
+			case string:
+				return expVal.(string)
+			default:
+				return fmt.Sprintf("%v", expVal)
+			}
+		})
+		if expParsed {
+			syslog.Tracef("parse expression tag value '%s' -> '%s'", rawTagVal, prop.TagVal)
+		}
+	}
+	return nil
 }
 
 func (s *App) wire() error {

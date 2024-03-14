@@ -46,5 +46,8 @@ func (args ArgsLoader) LoadConfig() ([]byte, error) {
 		}
 		p.Set(propPair[0], typeVal)
 	}
+	if len(p) == 0 {
+		return nil, nil
+	}
 	return yaml.Marshal(p.Expand())
 }

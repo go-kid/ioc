@@ -78,12 +78,12 @@ func main() {
 		&LI{name: "LI3"},
 		&Obj3{},
 	}
-	for i := 10; i < 100; i++ {
+	for i := 10; i < 1000; i++ {
 		comps = append(comps, &LI{name: "LI" + strconv.Itoa(i)})
 		comps = append(comps, &Obj3{Obj2{Obj1{Obj{name: "Obj" + strconv.Itoa(i)}}}})
 	}
 	fmt.Println("start")
-	err := Analyst(100, "cpu", func() error {
+	err := Analyst(1, "cpu", func() error {
 		_, err := ioc.Run(
 			app.LogError,
 			app.SetRegistry(registry.NewRegistry()),

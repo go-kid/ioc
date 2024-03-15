@@ -7,7 +7,7 @@ import (
 	"github.com/go-kid/ioc/util/fas"
 	"github.com/go-kid/ioc/util/list"
 	"github.com/go-kid/ioc/util/reflectx"
-	"github.com/modern-go/concurrent"
+	"github.com/go-kid/ioc/util/sync2"
 	"sync"
 )
 
@@ -28,13 +28,13 @@ type Registry interface {
 
 type registry struct {
 	components       []any
-	metaMaps         *concurrent.Map
+	metaMaps         *sync2.Map[string, *meta.Meta]
 	initedComponents list.Set
 }
 
 func NewRegistry() Registry {
 	return &registry{
-		metaMaps:         concurrent.NewMap(),
+		metaMaps:         sync2.New[string, *meta.Meta](),
 		initedComponents: list.NewConcurrentSets(),
 	}
 }
@@ -76,8 +76,8 @@ func (r *registry) scanAndCache(sc scanner.Scanner, c any) {
 		syslog.Tracef("registry scan component %s", m.ID())
 	}
 	if a, ok := r.metaMaps.Load(m.Name); ok {
-		if ca := a.(*meta.Meta); ca.ID() != m.ID() {
-			syslog.Panicf("register duplicated component, cached: %s, new register: %s", ca.ID(), m.ID())
+		if a.ID() != m.ID() {
+			syslog.Panicf("register duplicated component, cached: %s, new register: %s", a.ID(), m.ID())
 		}
 		return
 	}
@@ -87,8 +87,7 @@ func (r *registry) scanAndCache(sc scanner.Scanner, c any) {
 
 func (r *registry) GetComponents(opts ...Option) []*meta.Meta {
 	var metas = make([]*meta.Meta, 0)
-	r.metaMaps.Range(func(k, v any) bool {
-		m := v.(*meta.Meta)
+	r.metaMaps.Range(func(k string, m *meta.Meta) bool {
 		if accept(m, opts...) {
 			metas = append(metas, m)
 		}
@@ -99,7 +98,7 @@ func (r *registry) GetComponents(opts ...Option) []*meta.Meta {
 
 func (r *registry) GetComponentByName(name string) *meta.Meta {
 	if c, ok := r.metaMaps.Load(name); ok {
-		return c.(*meta.Meta)
+		return c
 	}
 	return nil
 }

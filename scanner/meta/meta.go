@@ -5,7 +5,7 @@ import (
 	"github.com/go-kid/ioc/defination"
 	"github.com/go-kid/ioc/util/fas"
 	"github.com/go-kid/ioc/util/reflectx"
-	"github.com/modern-go/concurrent"
+	"github.com/go-kid/ioc/util/sync2"
 	"reflect"
 )
 
@@ -37,7 +37,7 @@ type Meta struct {
 	Address uintptr
 	Raw     interface{}
 
-	dependedOnSet *concurrent.Map
+	dependedOnSet *sync2.Map[string, struct{}]
 	DependedOn    []*Meta
 
 	nodeGroup map[NodeType][]*Node
@@ -65,7 +65,7 @@ func NewMeta(c any) *Meta {
 		IsAlias:       isAlias,
 		Address:       address,
 		Raw:           c,
-		dependedOnSet: concurrent.NewMap(),
+		dependedOnSet: sync2.New[string, struct{}](),
 		nodeGroup:     make(map[NodeType][]*Node),
 	}
 	return m

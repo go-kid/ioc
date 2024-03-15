@@ -1,7 +1,6 @@
 package injector
 
 import (
-	"fmt"
 	"github.com/go-kid/ioc/defination"
 	"github.com/go-kid/ioc/registry"
 	"github.com/go-kid/ioc/scanner/meta"
@@ -40,9 +39,6 @@ func (b *specifyInjector) Filter(d *meta.Node) bool {
 
 func (b *specifyInjector) Inject(r registry.Registry, d *meta.Node) error {
 	dm := r.GetComponentByName(d.TagVal)
-	if dm == nil {
-		return fmt.Errorf("none instance found for specify name: %s", d.TagVal)
-	}
 	return d.Inject(dm)
 }
 
@@ -70,23 +66,7 @@ func (b *unSpecifyPtrInjector) Filter(d *meta.Node) bool {
 
 func (b *unSpecifyPtrInjector) Inject(r registry.Registry, d *meta.Node) error {
 	metas := r.GetComponents(registry.Type(d.Type))
-	if len(metas) < 1 {
-		return fmt.Errorf("none instance found for the pointer type: %s", d.Type.String())
-	}
-	return d.Inject(noneNamingOrDefault(metas)...)
-}
-
-func noneNamingOrDefault(metas []*meta.Meta) []*meta.Meta {
-	var results = make([]*meta.Meta, 0, len(metas))
-	for _, m := range metas {
-		if !m.IsAlias {
-			results = append(results, m)
-		}
-	}
-	if len(results) != 0 {
-		return results
-	}
-	return metas
+	return d.Inject(metas...)
 }
 
 /*
@@ -113,9 +93,6 @@ func (s *unSpecifyPtrSliceInjector) Filter(d *meta.Node) bool {
 
 func (s *unSpecifyPtrSliceInjector) Inject(r registry.Registry, d *meta.Node) error {
 	metas := r.GetComponents(registry.Type(d.Type.Elem()))
-	if len(metas) == 0 {
-		return fmt.Errorf("none instance found implement the Pointer: %s", d.Type.String())
-	}
 	return d.Inject(metas...)
 }
 
@@ -144,10 +121,7 @@ func (i *unSpecifyInterfaceInjector) Filter(d *meta.Node) bool {
 
 func (i *unSpecifyInterfaceInjector) Inject(r registry.Registry, d *meta.Node) error {
 	metas := r.GetComponents(registry.InterfaceType(d.Type))
-	if len(metas) < 1 {
-		return fmt.Errorf("none instance found implement the interface: %s", d.Type.String())
-	}
-	return d.Inject(noneNamingOrDefault(metas)...)
+	return d.Inject(metas...)
 }
 
 /*
@@ -174,8 +148,5 @@ func (s *unSpecifyInterfaceSliceInjector) Filter(d *meta.Node) bool {
 
 func (s *unSpecifyInterfaceSliceInjector) Inject(r registry.Registry, d *meta.Node) error {
 	metas := r.GetComponents(registry.InterfaceType(d.Type.Elem()))
-	if len(metas) == 0 {
-		return fmt.Errorf("none instance found implement the interface: %s", d.Type.String())
-	}
 	return d.Inject(metas...)
 }

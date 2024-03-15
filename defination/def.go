@@ -25,3 +25,11 @@ type ComponentPostProcessor interface {
 type CloserComponent interface {
 	Close() error
 }
+
+type WireQualifier interface {
+	Qualifier()
+}
+
+type WirePrimary interface {
+	Primary()
+}

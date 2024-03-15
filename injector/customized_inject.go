@@ -1,7 +1,6 @@
 package injector
 
 import (
-	"fmt"
 	"github.com/go-kid/ioc/registry"
 	"github.com/go-kid/ioc/scanner/meta"
 	"reflect"
@@ -30,10 +29,7 @@ func (c *customizedPtrInjector) Filter(d *meta.Node) bool {
 
 func (c *customizedPtrInjector) Inject(r registry.Registry, d *meta.Node) error {
 	metas := r.GetComponents(registry.FuncNameAndResult(d.Tag, d.TagVal), registry.Type(d.Type))
-	if len(metas) < 1 {
-		return fmt.Errorf("no instance found for customized tag [%s] with type: %s", d.Tag, d.Type)
-	}
-	return d.Inject(metas[0])
+	return d.Inject(metas...)
 }
 
 type customizedInterfaceInjector struct {
@@ -53,10 +49,7 @@ func (c *customizedInterfaceInjector) Filter(d *meta.Node) bool {
 
 func (c *customizedInterfaceInjector) Inject(r registry.Registry, d *meta.Node) error {
 	metas := r.GetComponents(registry.FuncNameAndResult(d.Tag, d.TagVal), registry.InterfaceType(d.Type))
-	if len(metas) < 1 {
-		return fmt.Errorf("none instance found for customized tag [%s] implement the interface: %s", d.Tag, d.Type)
-	}
-	return d.Inject(metas[0])
+	return d.Inject(metas...)
 }
 
 type customizedInterfaceSliceInjector struct {
@@ -76,8 +69,5 @@ func (s *customizedInterfaceSliceInjector) Filter(d *meta.Node) bool {
 
 func (s *customizedInterfaceSliceInjector) Inject(r registry.Registry, d *meta.Node) error {
 	metas := r.GetComponents(registry.FuncNameAndResult(d.Tag, d.TagVal), registry.InterfaceType(d.Type.Elem()))
-	if len(metas) < 1 {
-		return fmt.Errorf("none instance found for customized tag [%s] implement the interface: %s", d.Tag, d.Type)
-	}
 	return d.Inject(metas...)
 }

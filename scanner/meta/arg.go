@@ -23,7 +23,7 @@ func (m TagArg) Parse(tag string) TagArg {
 	for _, exp := range exps {
 		spIdx := strings.Index(exp, "=")
 		if spIdx == -1 {
-			m[ArgType(exp)] = nil
+			m[ArgType(exp)] = []string{""}
 			continue
 		}
 		m[ArgType(exp[:spIdx])] = strings.Split(exp[spIdx+1:], " ")

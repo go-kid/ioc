@@ -32,10 +32,10 @@ func NewNode(base *Base, holder *Holder, field reflect.StructField, tag, tagVal 
 
 func defaultNodeArgs() TagArg {
 	return TagArg{
-		ArgRequired:  {"true"},
-		ArgQualifier: nil,
+		ArgRequired: {"true"},
 	}
 }
+
 func (n *Node) ID() string {
 	return fmt.Sprintf("%s.Field(%s)", n.Holder.ID(), n.Field.Name)
 }
@@ -46,33 +46,55 @@ var (
 )
 
 func (n *Node) Inject(metas ...*Meta) error {
-	required := n.args.Has(ArgRequired, "true")
+	var (
+		isRequired                 = n.args.Has(ArgRequired, "true")
+		qualifierName, isQualifier = n.args.Find(ArgQualifier)
+	)
 	if len(metas) == 0 {
-		if required {
+		if isRequired {
 			return fmt.Errorf("%s inject null components", n.ID())
 		}
 		return nil
 	}
-	//filter self-inject
-	var filteredMetas = make([]*Meta, 0, len(metas))
-	for _, m := range metas {
-		if m.ID() != n.Holder.Meta.ID() {
-			filteredMetas = append(filteredMetas, m)
+
+	//remove self-inject
+	{
+		var filteredMetas = make([]*Meta, 0, len(metas))
+		for _, m := range metas {
+			if m.ID() != n.Holder.Meta.ID() {
+				filteredMetas = append(filteredMetas, m)
+			}
 		}
-	}
-	if len(filteredMetas) == 0 {
-		if required {
-			var embedSb = strings.Builder{}
-			_ = n.Holder.Walk(func(source *Holder) error {
-				embedSb.WriteString("\n depended on " + source.ID())
-				return nil
-			})
-			return fmt.Errorf("field %s %s: self inject not allowed", n.ID(), embedSb.String())
+		if len(filteredMetas) == 0 {
+			if isRequired {
+				var embedSb = strings.Builder{}
+				_ = n.Holder.Walk(func(source *Holder) error {
+					embedSb.WriteString("\n depended on " + source.ID())
+					return nil
+				})
+				return fmt.Errorf("field %s %s: self inject not allowed", n.ID(), embedSb.String())
+			}
+			return nil
 		}
-		return nil
+		metas = filteredMetas
 	}
 
-	metas = filteredMetas
+	//filter qualifier
+	if isQualifier {
+		var filteredMetas = make([]*Meta, 0, len(metas))
+		for _, m := range metas {
+			if qualifier, ok := m.Raw.(defination.WireQualifier); ok && qualifier.Qualifier() == qualifierName[0] {
+				filteredMetas = append(filteredMetas, m)
+			}
+		}
+		if len(filteredMetas) == 0 {
+			if isRequired {
+				return fmt.Errorf("field %s: no component found for qualifier %s", n.ID(), qualifierName[0])
+			}
+			return nil
+		}
+		metas = filteredMetas
+	}
 
 	switch n.Type.Kind() {
 	case reflect.Slice:
@@ -83,17 +105,13 @@ func (n *Node) Inject(metas ...*Meta) error {
 	default:
 		var candidate = metas[0]
 		if len(metas) > 1 {
-			_, isQualifier := n.args.Find(ArgQualifier)
 			for _, m := range metas {
-				if !m.IsAlias {
-					candidate = m
-				}
 				if reflectx.IsTypeImplement(m.Type, primaryInterface) {
 					candidate = m
-				}
-				if isQualifier && reflectx.IsTypeImplement(m.Type, qualifierInterface) {
-					candidate = m
 					break
+				}
+				if !m.IsAlias {
+					candidate = m
 				}
 			}
 		}

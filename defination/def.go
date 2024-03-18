@@ -27,7 +27,7 @@ type CloserComponent interface {
 }
 
 type WireQualifier interface {
-	Qualifier()
+	Qualifier() string
 }
 
 type WirePrimary interface {

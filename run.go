@@ -6,5 +6,8 @@ import (
 
 func Run(ops ...SettingOption) (*App, error) {
 	s := NewApp(ops...)
-	return s, s.Run()
+	if err := s.Run(); err != nil {
+		return nil, err
+	}
+	return s, nil
 }

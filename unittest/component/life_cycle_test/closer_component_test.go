@@ -29,7 +29,6 @@ type InitializeComponent struct {
 }
 
 func (i *InitializeComponent) Init() error {
-	//i.State = 1 + i.Child.State
 	return i.InitHandler()
 }
 
@@ -40,6 +39,20 @@ type CloserComponent struct {
 func (c *CloserComponent) Close() error {
 	c.State = 2
 	return nil
+}
+
+type RunnerComponent struct {
+	StateComponent
+	order int
+	run   func() error
+}
+
+func (r *RunnerComponent) Order() int {
+	return r.order
+}
+
+func (r *RunnerComponent) Run() error {
+	return r.run()
 }
 
 func TestComponentLifecycle(t *testing.T) {
@@ -77,6 +90,24 @@ func TestComponentLifecycle(t *testing.T) {
 		assert.Equal(t, 2, p.State)
 		assert.Equal(t, 1, p.Child.State)
 		assert.Equal(t, 1, c.State)
+	})
+	t.Run("TestRunner", func(t *testing.T) {
+		var runners []any
+		for i := 0; i < 10; i++ {
+			runner := &RunnerComponent{
+				StateComponent: StateComponent{NamingComponent: NamingComponent{"runner_" + strconv.Itoa(i)}},
+				order:          1,
+			}
+			runner.run = func() error {
+				runner.State++
+				return nil
+			}
+			runners = append(runners, runner)
+		}
+		ioc.RunTest(t, app.SetComponents(runners...))
+		for _, runner := range runners {
+			assert.Equal(t, 1, runner.(*RunnerComponent).State)
+		}
 	})
 	t.Run("TestClose", func(t *testing.T) {
 		var comps []any

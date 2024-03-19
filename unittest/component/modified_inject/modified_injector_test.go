@@ -4,6 +4,7 @@ import (
 	"github.com/go-kid/ioc"
 	"github.com/go-kid/ioc/app"
 	"github.com/go-kid/ioc/registry"
+	"github.com/go-kid/ioc/scanner"
 	"github.com/go-kid/ioc/scanner/meta"
 	"github.com/stretchr/testify/assert"
 	"reflect"
@@ -42,7 +43,7 @@ func TestModifiedInjector(t *testing.T) {
 		Mul func(i int64) int64 `mul:"2"`
 	}{}
 	ioc.RunTest(t,
-		app.SetScanTags("mul"),
+		app.AddScanPolicies(scanner.NewComponentScanPolicy("mul", nil)),
 		app.AddCustomizedInjectors(new(MyInjector)),
 		app.SetComponents(tApp))
 	mul := tApp.Mul(2)

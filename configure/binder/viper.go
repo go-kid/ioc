@@ -3,7 +3,6 @@ package binder
 import (
 	"bytes"
 	"fmt"
-	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/scanner/meta"
 	"github.com/go-kid/ioc/syslog"
 	"github.com/spf13/viper"
@@ -15,7 +14,7 @@ type ViperBinder struct {
 	Viper      *viper.Viper
 }
 
-func NewViperBinder(configType string) configure.Binder {
+func NewViperBinder(configType string) *ViperBinder {
 	if configType == "" {
 		configType = "yaml"
 	}
@@ -37,6 +36,10 @@ func (d *ViperBinder) SetConfig(c []byte) error {
 
 func (d *ViperBinder) Get(path string) any {
 	return d.Viper.Get(path)
+}
+
+func (d *ViperBinder) Set(path string, val any) {
+	d.Viper.Set(path, val)
 }
 
 func (d *ViperBinder) PropInject(properties []*meta.Node) error {

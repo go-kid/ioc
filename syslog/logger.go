@@ -101,7 +101,7 @@ func (l *logger) Panic(v ...any) {
 }
 
 func (l *logger) Panicf(format string, v ...any) {
-	if LvPanic > l.lv {
+	if LvPanic >= l.lv {
 		l.logger.Panicf(l.levelPre[LvPanic]+" "+format, v...)
 	}
 }

@@ -2,7 +2,8 @@ package meta
 
 import (
 	"fmt"
-	"github.com/go-kid/ioc/syslog"
+	"github.com/go-kid/ioc/defination"
+	"github.com/go-kid/ioc/util/reflectx"
 	"reflect"
 	"strings"
 )
@@ -14,15 +15,25 @@ type Node struct {
 	Tag     string
 	TagVal  string
 	Injects []*Meta
+	args    TagArg
 }
 
 func NewNode(base *Base, holder *Holder, field reflect.StructField, tag, tagVal string) *Node {
+	parsedTagVal, arg := defaultNodeArgs().Parse(tagVal)
 	return &Node{
-		Base:   base,
-		Holder: holder,
-		Field:  field,
-		Tag:    tag,
-		TagVal: tagVal,
+		Base:    base,
+		Holder:  holder,
+		Field:   field,
+		Tag:     tag,
+		TagVal:  parsedTagVal,
+		Injects: nil,
+		args:    arg,
+	}
+}
+
+func defaultNodeArgs() TagArg {
+	return TagArg{
+		ArgRequired: {"true"},
 	}
 }
 
@@ -30,26 +41,25 @@ func (n *Node) ID() string {
 	return fmt.Sprintf("%s.Field(%s)", n.Holder.ID(), n.Field.Name)
 }
 
-func (n *Node) Inject(metas ...*Meta) error {
-	if len(metas) < 1 {
-		return nil
-	} else {
-		var filteredMetas = make([]*Meta, 0, len(metas))
-		for _, m := range metas {
-			if m.ID() != n.Holder.Meta.ID() {
-				filteredMetas = append(filteredMetas, m)
+var (
+	primaryInterface = new(defination.WirePrimary)
+)
+
+func (n *Node) Inject(metas []*Meta) error {
+	var (
+		isRequired = n.args.Has(ArgRequired, "true")
+	)
+	filtered, err := n.injectFilter(metas)
+	if err != nil {
+		if len(filtered) == 0 {
+			if isRequired {
+				return err
 			}
+			return nil
 		}
-		if len(filteredMetas) == 0 {
-			var embedSb = strings.Builder{}
-			_ = n.Holder.Walk(func(source *Holder) error {
-				embedSb.WriteString("\n depended on " + source.ID())
-				return nil
-			})
-			return fmt.Errorf("field %s %s: self inject not allowed", n.ID(), embedSb.String())
-		}
-		metas = filteredMetas
+		return err
 	}
+	metas = filtered
 
 	switch n.Type.Kind() {
 	case reflect.Slice:
@@ -58,11 +68,22 @@ func (n *Node) Inject(metas ...*Meta) error {
 			n.Value.Index(i).Set(m.Value)
 		}
 	default:
+		var candidate = metas[0]
 		if len(metas) > 1 {
-			syslog.Warnf("inject multiple instances to single receiver %s, randomly select %s",
-				n.ID(), metas[0].ID())
+			for _, m := range metas {
+				//Primary interface first
+				if reflectx.IsTypeImplement(m.Type, primaryInterface) {
+					candidate = m
+					break
+				}
+				//non naming component is preferred in multiple candidates
+				if !m.IsAlias {
+					candidate = m
+				}
+			}
 		}
-		n.Value.Set(metas[0].Value)
+		n.Value.Set(candidate.Value)
+		metas = []*Meta{candidate}
 	}
 
 	for _, inject := range metas {
@@ -70,4 +91,52 @@ func (n *Node) Inject(metas ...*Meta) error {
 	}
 	n.Injects = metas
 	return nil
+}
+
+func (n *Node) injectFilter(metas []*Meta) ([]*Meta, error) {
+	//remove nil meta
+	result := filter(metas, func(m *Meta) bool {
+		return m != nil
+	})
+	if len(result) == 0 {
+		return nil, fmt.Errorf("%s not found available components", n.ID())
+	}
+	//remove self-inject
+	result = filter(result, func(m *Meta) bool {
+		return m.ID() != n.Holder.Meta.ID()
+	})
+	if len(result) == 0 {
+		var embedSb = strings.Builder{}
+		_ = n.Holder.Walk(func(source *Holder) error {
+			embedSb.WriteString("\n depended on " + source.ID())
+			return nil
+		})
+		return nil, fmt.Errorf("field %s %s: self inject not allowed", n.ID(), embedSb.String())
+	}
+	//filter qualifier
+	qualifierName, isQualifier := n.args.Find(ArgQualifier)
+	if isQualifier {
+		result = filter(result, func(m *Meta) bool {
+			qualifier, ok := m.Raw.(defination.WireQualifier)
+			return ok && n.args.Has(ArgQualifier, qualifier.Qualifier())
+		})
+		if len(result) == 0 {
+			return nil, fmt.Errorf("field %s: no component found for qualifier %s", n.ID(), qualifierName)
+		}
+	}
+	return result, nil
+}
+
+func filter(metas []*Meta, f func(m *Meta) bool) []*Meta {
+	var result = make([]*Meta, 0, len(metas))
+	for _, m := range metas {
+		if f(m) {
+			result = append(result, m)
+		}
+	}
+	return result
+}
+
+func (n *Node) Args() TagArg {
+	return n.args
 }

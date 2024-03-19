@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/go-kid/ioc/configure"
-	"github.com/go-kid/ioc/configure/binder"
-	"github.com/go-kid/ioc/configure/loader"
 	"github.com/go-kid/ioc/defination"
 	"github.com/go-kid/ioc/factory"
 	"github.com/go-kid/ioc/injector"
@@ -20,25 +18,23 @@ import (
 )
 
 type App struct {
-	configLoaders []configure.Loader
-	configure.Binder
+	configure.Configure
 	injector.Injector
 	registry.Registry
 	factory.Factory
 	scanner.Scanner
-	configPath              string
+	enableComponentInit     bool
 	enableApplicationRunner bool
 }
 
 func NewApp(ops ...SettingOption) *App {
 	var s = &App{
-		configLoaders:           []configure.Loader{&loader.FileLoader{}}, //default use file loader
-		Binder:                  binder.NewViperBinder("yaml"),            //default use viper binder and 'yaml' config type
+		Configure:               configure.Default(),
 		Injector:                injector.Default(),
 		Registry:                registry.GlobalRegistry(),
 		Factory:                 factory.Default(),
 		Scanner:                 scanner.Default(),
-		configPath:              "",
+		enableComponentInit:     true,
 		enableApplicationRunner: true,
 	}
 	Options(ops...)(s)
@@ -50,13 +46,8 @@ func NewApp(ops ...SettingOption) *App {
 }
 
 func (s *App) validate() error {
-	if s.configPath != "" {
-		if len(s.configLoaders) == 0 {
-			return errors.New("missing config loader")
-		}
-		if s.Binder == nil {
-			return errors.New("missing config binder")
-		}
+	if s.Configure == nil {
+		return errors.New("missing configure")
 	}
 	if s.Injector == nil {
 		return errors.New("missing injector")
@@ -74,6 +65,15 @@ func (s *App) validate() error {
 }
 
 func (s *App) Run() error {
+	if err := s.run(); err != nil {
+		defer s.Close()
+		syslog.Errorf("framework run failed: %v", err)
+		return err
+	}
+	return nil
+}
+
+func (s *App) run() error {
 	/* begin scan component to meta */
 	syslog.Info("start scanning registered component...")
 	s.Registry.Scan(s.Scanner)
@@ -85,11 +85,10 @@ func (s *App) Run() error {
 	if err := s.initConfig(); err != nil {
 		return fmt.Errorf("init config failed: %v", err)
 	}
-	syslog.Info("configuration ready")
-	/* configuration ready */
+	syslog.Info("populate finished, components properties ready")
 
 	/* set default init behavior */
-	s.Factory.SetIfNilPostInitFunc(defaultPostInitFunc(s.Registry))
+	s.Factory.SetIfNilPostInitFunc(s.defaultPostInitFunc())
 	syslog.Info("factory ready")
 	/* factory ready */
 
@@ -98,7 +97,7 @@ func (s *App) Run() error {
 	if err := s.wire(); err != nil {
 		return fmt.Errorf("wire dependencies failed: %v", err)
 	}
-	syslog.Info("dependencies injection finished, components ready")
+	syslog.Info("injection finished, components dependencies ready")
 	/* dependency injection ready */
 
 	/* begin call runners */
@@ -112,58 +111,23 @@ func (s *App) Run() error {
 }
 
 func (s *App) initConfig() error {
-	if s.configPath == "" {
-		syslog.Trace("config path is empty, skip init configs")
-		return nil
-	}
-	syslog.Tracef("using config path %s init configs...", s.configPath)
-
-	for i, l := range s.configLoaders {
-		syslog.Tracef("config loaders start loading config %s ...[%d/%d]", reflectx.Id(l), i+1, len(s.configLoaders))
-		config, err := l.LoadConfig(s.configPath)
-		if err != nil {
-			return fmt.Errorf("config loader load config failed: %v", err)
-		}
-		syslog.Tracef("config loader loading finished ...[%d/%d]", i+1, len(s.configLoaders))
-		err = s.Binder.SetConfig(config)
-		if err != nil {
-			return fmt.Errorf("config binder set config failed: %v", err)
-		}
-	}
-
 	metas := s.GetComponents()
-	for _, m := range metas {
-		err := s.Binder.PropInject(m.Properties)
-		if err != nil {
-			return fmt.Errorf("binder inject prop failed: %v", err)
-		}
+	err := s.Configure.Initialize(metas...)
+	if err != nil {
+		return fmt.Errorf("initialize configure failed: %v", err)
+	}
+	err = s.Configure.Populate(metas...)
+	if err != nil {
+		return fmt.Errorf("populate configure failed: %v", err)
 	}
 	return nil
 }
 
-func getComponentPostProcessors(r registry.Registry) []defination.ComponentPostProcessor {
-	postMetas := r.GetComponents(registry.Interface(new(defination.ComponentPostProcessor)))
-	postProcessors := make([]defination.ComponentPostProcessor, 0, len(postMetas))
-	for _, pm := range postMetas {
-		postProcessors = append(postProcessors, pm.Raw.(defination.ComponentPostProcessor))
-		syslog.Tracef("collecting post processors %s", pm.ID())
-		r.RemoveComponents(pm.Name)
-	}
-	return postProcessors
-}
-
 func (s *App) wire() error {
-	components := s.GetComponents()
-	//Reduce recursion depth
-	syslog.Trace("sorting components")
-	sort.Slice(components, func(i, j int) bool {
-		return len(components[i].AllDependencies()) < len(components[j].AllDependencies())
-	})
-	for _, m := range components {
-		err := s.Initialize(s.Registry, s.Injector, m)
-		if err != nil {
-			return fmt.Errorf("initialize component failed: %v", err)
-		}
+	components := s.Registry.GetComponents()
+	err := s.Factory.Initialize(s.Registry, s.Injector, components...)
+	if err != nil {
+		return fmt.Errorf("initialize component failed: %v", err)
 	}
 	return nil
 }
@@ -212,8 +176,13 @@ func (s *App) Close() {
 	wg.Wait()
 }
 
-func defaultPostInitFunc(r registry.Registry) factory.MetaFunc {
-	postMetas := r.GetComponents(registry.Interface(new(defination.ComponentPostProcessor)))
+func (s *App) defaultPostInitFunc() factory.MetaFunc {
+	if !s.enableComponentInit {
+		return func(m *meta.Meta) error {
+			return nil
+		}
+	}
+	postMetas := s.Registry.GetComponents(registry.Interface(new(defination.ComponentPostProcessor)))
 	if len(postMetas) == 0 {
 		return func(m *meta.Meta) error {
 			// init
@@ -232,7 +201,7 @@ func defaultPostInitFunc(r registry.Registry) factory.MetaFunc {
 	for i, pm := range postMetas {
 		syslog.Tracef("collecting post processors %s", pm.ID())
 		postProcessors[i] = pm.Raw.(defination.ComponentPostProcessor)
-		r.RemoveComponents(pm.Name)
+		s.Registry.RemoveComponents(pm.Name)
 	}
 	return func(m *meta.Meta) error {
 		// before process

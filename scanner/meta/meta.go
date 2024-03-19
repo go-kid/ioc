@@ -5,8 +5,15 @@ import (
 	"github.com/go-kid/ioc/defination"
 	"github.com/go-kid/ioc/util/fas"
 	"github.com/go-kid/ioc/util/reflectx"
-	"github.com/modern-go/concurrent"
+	"github.com/go-kid/ioc/util/sync2"
 	"reflect"
+)
+
+type NodeType int
+
+const (
+	NodeTypeConfiguration NodeType = iota
+	NodeTypeComponent
 )
 
 type Base struct {
@@ -30,12 +37,10 @@ type Meta struct {
 	Address uintptr
 	Raw     interface{}
 
-	dependedOnSet *concurrent.Map
+	dependedOnSet *sync2.Map[string, struct{}]
 	DependedOn    []*Meta
 
-	Dependencies    []*Node
-	Properties      []*Node
-	CustomizedField []*Node
+	nodeGroup map[NodeType][]*Node
 }
 
 func NewMeta(c any) *Meta {
@@ -60,7 +65,8 @@ func NewMeta(c any) *Meta {
 		IsAlias:       isAlias,
 		Address:       address,
 		Raw:           c,
-		dependedOnSet: concurrent.NewMap(),
+		dependedOnSet: sync2.New[string, struct{}](),
+		nodeGroup:     make(map[NodeType][]*Node),
 	}
 	return m
 }
@@ -75,14 +81,22 @@ func (m *Meta) TypeID() string {
 
 func (m *Meta) dependOn(parent *Meta) {
 	m.dependedOnSet.LoadOrStore(parent.ID(), struct{}{})
-	//if _, ok := m.dependedOnSet[parent.ID()]; !ok {
-	//	m.DependedOn = append(m.DependedOn, parent)
-	//	m.dependedOnSet[parent.ID()] = struct{}{}
-	//}
 }
 
-func (m *Meta) AllDependencies() []*Node {
-	return append(m.Dependencies, m.CustomizedField...)
+func (m *Meta) SetNodes(t NodeType, nodes ...*Node) {
+	m.nodeGroup[t] = append(m.nodeGroup[t], nodes...)
+}
+
+func (m *Meta) GetNodes(t NodeType) []*Node {
+	return m.nodeGroup[t]
+}
+
+func (m *Meta) GetComponentNodes() []*Node {
+	return m.GetNodes(NodeTypeComponent)
+}
+
+func (m *Meta) GetConfigurationNodes() []*Node {
+	return m.GetNodes(NodeTypeConfiguration)
 }
 
 func GetComponentName(t any) (id, alias string) {

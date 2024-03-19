@@ -1,13 +1,11 @@
 package loader
 
-import "github.com/go-kid/ioc/configure"
+type RawLoader []byte
 
-type RawLoader struct{}
-
-func NewRawLoader() configure.Loader {
-	return &RawLoader{}
+func NewRawLoader(raw []byte) RawLoader {
+	return RawLoader(raw)
 }
 
-func (r *RawLoader) LoadConfig(u string) ([]byte, error) {
-	return []byte(u), nil
+func (r RawLoader) LoadConfig() ([]byte, error) {
+	return r, nil
 }

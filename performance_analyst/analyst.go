@@ -1,14 +1,15 @@
 package main
 
 import (
+	"fmt"
 	"github.com/go-kid/ioc"
 	"github.com/go-kid/ioc/app"
 	"github.com/go-kid/ioc/registry"
-	"github.com/go-kid/ioc/syslog"
 	"log"
 	"os"
 	"os/exec"
 	"runtime/pprof"
+	"strconv"
 )
 
 type A struct {
@@ -29,6 +30,7 @@ type iObj interface {
 }
 
 type Obj struct {
+	name  string
 	LI    *LI   `wire:""`
 	ILI   iLI   `wire:""`
 	List  []*LI `wire:""`
@@ -36,6 +38,10 @@ type Obj struct {
 }
 
 func (o *Obj) Field() {}
+
+func (o *Obj) Naming() string {
+	return o.name
+}
 
 type Obj1 struct {
 	Obj
@@ -70,14 +76,16 @@ func main() {
 		&LI{name: "LI1"},
 		&LI{name: "LI2"},
 		&LI{name: "LI3"},
+		&Obj3{},
 	}
-	for i := 0; i < 1000; i++ {
-		comps = append(comps, &LI{})
-		comps = append(comps, &Obj3{})
+	for i := 10; i < 1000; i++ {
+		comps = append(comps, &LI{name: "LI" + strconv.Itoa(i)})
+		comps = append(comps, &Obj3{Obj2{Obj1{Obj{name: "Obj" + strconv.Itoa(i)}}}})
 	}
-	err := Analyst(1000, "mem", func() error {
+	fmt.Println("start")
+	err := Analyst(1, "cpu", func() error {
 		_, err := ioc.Run(
-			app.LogLevel(syslog.LvPanic),
+			app.LogError,
 			app.SetRegistry(registry.NewRegistry()),
 			app.SetComponents(comps...),
 		)

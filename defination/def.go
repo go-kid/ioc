@@ -8,8 +8,12 @@ type NamingComponent interface {
 	Naming() string
 }
 
-type ApplicationRunner interface {
+type Ordered interface {
 	Order() int
+}
+
+type ApplicationRunner interface {
+	Ordered
 	Run() error
 }
 
@@ -24,4 +28,12 @@ type ComponentPostProcessor interface {
 
 type CloserComponent interface {
 	Close() error
+}
+
+type WireQualifier interface {
+	Qualifier() string
+}
+
+type WirePrimary interface {
+	Primary()
 }

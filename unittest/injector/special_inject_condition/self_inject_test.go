@@ -1,4 +1,4 @@
-package builtin_inject
+package special_inject_condition
 
 import (
 	"github.com/go-kid/ioc/app"
@@ -6,6 +6,18 @@ import (
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
+
+type Component struct {
+	Name string
+}
+
+type SpecifyNameComponent struct {
+	Component
+}
+
+func (s *SpecifyNameComponent) Naming() string {
+	return s.Name
+}
 
 type ISelfInject interface {
 	action()

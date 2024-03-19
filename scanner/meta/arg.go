@@ -14,10 +14,10 @@ const (
 	ArgQualifier ArgType = "qualifier"
 )
 
-func (m TagArg) Parse(tag string) TagArg {
+func (m TagArg) Parse(tag string) (string, TagArg) {
 	idx := strings.Index(tag, ",")
 	if idx == -1 {
-		return m
+		return tag, m
 	}
 	exps := strings.Split(tag[idx+1:], ",")
 	for _, exp := range exps {
@@ -28,7 +28,7 @@ func (m TagArg) Parse(tag string) TagArg {
 		}
 		m[ArgType(exp[:spIdx])] = strings.Split(exp[spIdx+1:], " ")
 	}
-	return m
+	return tag[:idx], m
 }
 
 func (m TagArg) Find(argType ArgType) ([]string, bool) {

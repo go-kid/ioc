@@ -19,14 +19,15 @@ type Node struct {
 }
 
 func NewNode(base *Base, holder *Holder, field reflect.StructField, tag, tagVal string) *Node {
+	parsedTagVal, arg := defaultNodeArgs().Parse(tagVal)
 	return &Node{
 		Base:    base,
 		Holder:  holder,
 		Field:   field,
 		Tag:     tag,
-		TagVal:  tagVal,
+		TagVal:  parsedTagVal,
 		Injects: nil,
-		args:    defaultNodeArgs().Parse(tagVal),
+		args:    arg,
 	}
 }
 
@@ -41,60 +42,24 @@ func (n *Node) ID() string {
 }
 
 var (
-	qualifierInterface = new(defination.WireQualifier)
-	primaryInterface   = new(defination.WirePrimary)
+	primaryInterface = new(defination.WirePrimary)
 )
 
-func (n *Node) Inject(metas ...*Meta) error {
+func (n *Node) Inject(metas []*Meta) error {
 	var (
-		isRequired                 = n.args.Has(ArgRequired, "true")
-		qualifierName, isQualifier = n.args.Find(ArgQualifier)
+		isRequired = n.args.Has(ArgRequired, "true")
 	)
-	if len(metas) == 0 {
-		if isRequired {
-			return fmt.Errorf("%s inject null components", n.ID())
-		}
-		return nil
-	}
-
-	//remove self-inject
-	{
-		var filteredMetas = make([]*Meta, 0, len(metas))
-		for _, m := range metas {
-			if m.ID() != n.Holder.Meta.ID() {
-				filteredMetas = append(filteredMetas, m)
-			}
-		}
-		if len(filteredMetas) == 0 {
+	filtered, err := n.injectFilter(metas)
+	if err != nil {
+		if len(filtered) == 0 {
 			if isRequired {
-				var embedSb = strings.Builder{}
-				_ = n.Holder.Walk(func(source *Holder) error {
-					embedSb.WriteString("\n depended on " + source.ID())
-					return nil
-				})
-				return fmt.Errorf("field %s %s: self inject not allowed", n.ID(), embedSb.String())
+				return err
 			}
 			return nil
 		}
-		metas = filteredMetas
+		return err
 	}
-
-	//filter qualifier
-	if isQualifier {
-		var filteredMetas = make([]*Meta, 0, len(metas))
-		for _, m := range metas {
-			if qualifier, ok := m.Raw.(defination.WireQualifier); ok && qualifier.Qualifier() == qualifierName[0] {
-				filteredMetas = append(filteredMetas, m)
-			}
-		}
-		if len(filteredMetas) == 0 {
-			if isRequired {
-				return fmt.Errorf("field %s: no component found for qualifier %s", n.ID(), qualifierName[0])
-			}
-			return nil
-		}
-		metas = filteredMetas
-	}
+	metas = filtered
 
 	switch n.Type.Kind() {
 	case reflect.Slice:
@@ -106,10 +71,12 @@ func (n *Node) Inject(metas ...*Meta) error {
 		var candidate = metas[0]
 		if len(metas) > 1 {
 			for _, m := range metas {
+				//Primary interface first
 				if reflectx.IsTypeImplement(m.Type, primaryInterface) {
 					candidate = m
 					break
 				}
+				//non naming component is preferred in multiple candidates
 				if !m.IsAlias {
 					candidate = m
 				}
@@ -124,6 +91,50 @@ func (n *Node) Inject(metas ...*Meta) error {
 	}
 	n.Injects = metas
 	return nil
+}
+
+func (n *Node) injectFilter(metas []*Meta) ([]*Meta, error) {
+	//remove nil meta
+	result := filter(metas, func(m *Meta) bool {
+		return m != nil
+	})
+	if len(result) == 0 {
+		return nil, fmt.Errorf("%s not found available components", n.ID())
+	}
+	//remove self-inject
+	result = filter(result, func(m *Meta) bool {
+		return m.ID() != n.Holder.Meta.ID()
+	})
+	if len(result) == 0 {
+		var embedSb = strings.Builder{}
+		_ = n.Holder.Walk(func(source *Holder) error {
+			embedSb.WriteString("\n depended on " + source.ID())
+			return nil
+		})
+		return nil, fmt.Errorf("field %s %s: self inject not allowed", n.ID(), embedSb.String())
+	}
+	//filter qualifier
+	qualifierName, isQualifier := n.args.Find(ArgQualifier)
+	if isQualifier {
+		result = filter(result, func(m *Meta) bool {
+			qualifier, ok := m.Raw.(defination.WireQualifier)
+			return ok && n.args.Has(ArgQualifier, qualifier.Qualifier())
+		})
+		if len(result) == 0 {
+			return nil, fmt.Errorf("field %s: no component found for qualifier %s", n.ID(), qualifierName)
+		}
+	}
+	return result, nil
+}
+
+func filter(metas []*Meta, f func(m *Meta) bool) []*Meta {
+	var result = make([]*Meta, 0, len(metas))
+	for _, m := range metas {
+		if f(m) {
+			result = append(result, m)
+		}
+	}
+	return result
 }
 
 func (n *Node) Args() TagArg {

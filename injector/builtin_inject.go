@@ -39,7 +39,7 @@ func (b *specifyInjector) Filter(d *meta.Node) bool {
 
 func (b *specifyInjector) Inject(r registry.Registry, d *meta.Node) error {
 	dm := r.GetComponentByName(d.TagVal)
-	return d.Inject(dm)
+	return d.Inject([]*meta.Meta{dm})
 }
 
 /*
@@ -66,7 +66,7 @@ func (b *unSpecifyPtrInjector) Filter(d *meta.Node) bool {
 
 func (b *unSpecifyPtrInjector) Inject(r registry.Registry, d *meta.Node) error {
 	metas := r.GetComponents(registry.Type(d.Type))
-	return d.Inject(metas...)
+	return d.Inject(metas)
 }
 
 /*
@@ -93,7 +93,7 @@ func (s *unSpecifyPtrSliceInjector) Filter(d *meta.Node) bool {
 
 func (s *unSpecifyPtrSliceInjector) Inject(r registry.Registry, d *meta.Node) error {
 	metas := r.GetComponents(registry.Type(d.Type.Elem()))
-	return d.Inject(metas...)
+	return d.Inject(metas)
 }
 
 /*
@@ -121,7 +121,7 @@ func (i *unSpecifyInterfaceInjector) Filter(d *meta.Node) bool {
 
 func (i *unSpecifyInterfaceInjector) Inject(r registry.Registry, d *meta.Node) error {
 	metas := r.GetComponents(registry.InterfaceType(d.Type))
-	return d.Inject(metas...)
+	return d.Inject(metas)
 }
 
 /*
@@ -148,5 +148,5 @@ func (s *unSpecifyInterfaceSliceInjector) Filter(d *meta.Node) bool {
 
 func (s *unSpecifyInterfaceSliceInjector) Inject(r registry.Registry, d *meta.Node) error {
 	metas := r.GetComponents(registry.InterfaceType(d.Type.Elem()))
-	return d.Inject(metas...)
+	return d.Inject(metas)
 }

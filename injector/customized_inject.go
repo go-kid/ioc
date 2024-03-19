@@ -29,7 +29,7 @@ func (c *customizedPtrInjector) Filter(d *meta.Node) bool {
 
 func (c *customizedPtrInjector) Inject(r registry.Registry, d *meta.Node) error {
 	metas := r.GetComponents(registry.FuncNameAndResult(d.Tag, d.TagVal), registry.Type(d.Type))
-	return d.Inject(metas...)
+	return d.Inject(metas)
 }
 
 type customizedInterfaceInjector struct {
@@ -49,7 +49,7 @@ func (c *customizedInterfaceInjector) Filter(d *meta.Node) bool {
 
 func (c *customizedInterfaceInjector) Inject(r registry.Registry, d *meta.Node) error {
 	metas := r.GetComponents(registry.FuncNameAndResult(d.Tag, d.TagVal), registry.InterfaceType(d.Type))
-	return d.Inject(metas...)
+	return d.Inject(metas)
 }
 
 type customizedInterfaceSliceInjector struct {
@@ -69,5 +69,5 @@ func (s *customizedInterfaceSliceInjector) Filter(d *meta.Node) bool {
 
 func (s *customizedInterfaceSliceInjector) Inject(r registry.Registry, d *meta.Node) error {
 	metas := r.GetComponents(registry.FuncNameAndResult(d.Tag, d.TagVal), registry.InterfaceType(d.Type.Elem()))
-	return d.Inject(metas...)
+	return d.Inject(metas)
 }

@@ -8,8 +8,12 @@ type NamingComponent interface {
 	Naming() string
 }
 
-type ApplicationRunner interface {
+type Ordered interface {
 	Order() int
+}
+
+type ApplicationRunner interface {
+	Ordered
 	Run() error
 }
 

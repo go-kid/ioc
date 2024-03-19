@@ -57,13 +57,22 @@ func (c *configure) Initialize(metas ...*meta.Meta) error {
 	if !loaded {
 		return nil
 	}
-
 	for _, m := range metas {
-		err = c.parseExpressionTags(m)
+		err := c.executeTagExpressions(m.GetConfigurationNodes())
 		if err != nil {
-			return fmt.Errorf("parse expression tags: %v", err)
+			return fmt.Errorf("execute configuration %s tag expression: %v", m.ID(), err)
 		}
-		err = c.Binder.PropInject(m.GetConfigurationNodes())
+		err = c.executeTagExpressions(m.GetComponentNodes())
+		if err != nil {
+			return fmt.Errorf("execute component %s tag expression: %v", m.ID(), err)
+		}
+	}
+	return nil
+}
+
+func (c *configure) Populate(metas ...*meta.Meta) error {
+	for _, m := range metas {
+		err := c.Binder.PropInject(m.GetConfigurationNodes())
 		if err != nil {
 			return fmt.Errorf("populate properties: %v", err)
 		}
@@ -94,8 +103,8 @@ func (c *configure) loadingConfigure() (loaded bool, err error) {
 	return loaded, nil
 }
 
-func (c *configure) parseExpressionTags(m *meta.Meta) error {
-	for _, prop := range m.GetConfigurationNodes() {
+func (c *configure) executeTagExpressions(props []*meta.Node) error {
+	for _, prop := range props {
 		rawTagVal := prop.TagVal
 		expParsed := false
 		prop.TagVal = c.expReg.ReplaceAllStringFunc(prop.TagVal, func(s string) string {
@@ -118,7 +127,7 @@ func (c *configure) parseExpressionTags(m *meta.Meta) error {
 			}
 		})
 		if expParsed {
-			syslog.Tracef("parse expression tag value '%s' -> '%s'", rawTagVal, prop.TagVal)
+			syslog.Tracef("execute tag expression '%s' -> '%s'", rawTagVal, prop.TagVal)
 		}
 	}
 	return nil

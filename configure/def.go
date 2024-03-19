@@ -21,4 +21,5 @@ type Configure interface {
 	SetLoaders(loaders ...Loader)
 	SetBinder(binder Binder)
 	Initialize(metas ...*meta.Meta) error
+	Populate(metas ...*meta.Meta) error
 }

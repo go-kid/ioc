@@ -116,6 +116,10 @@ func (s *App) initConfig() error {
 	if err != nil {
 		return fmt.Errorf("initialize configure failed: %v", err)
 	}
+	err = s.Configure.Populate(metas...)
+	if err != nil {
+		return fmt.Errorf("populate configure failed: %v", err)
+	}
 	return nil
 }
 

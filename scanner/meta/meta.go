@@ -9,11 +9,11 @@ import (
 	"reflect"
 )
 
-type NodeType int
+type NodeType string
 
 const (
-	NodeTypeConfiguration NodeType = iota
-	NodeTypeComponent
+	NodeTypeConfiguration NodeType = "configuration"
+	NodeTypeComponent     NodeType = "component"
 )
 
 type Base struct {

@@ -20,7 +20,7 @@ type configure struct {
 
 func NewConfigure() Configure {
 	return &configure{
-		expReg: regexp.MustCompile("\\$\\{[\\d\\w]+(\\.[\\d\\w]+)*(:[\\d\\w]*)?\\}"),
+		expReg: regexp.MustCompile("\\$\\{[\\d\\w]+(\\.[\\d\\w]+)*(:[\\d\\w]+(\\.[\\d\\w]+)*)?\\}"),
 	}
 }
 

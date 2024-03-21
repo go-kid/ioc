@@ -9,13 +9,15 @@ import (
 	"github.com/go-kid/ioc/util/reflectx"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 )
 
 type configure struct {
 	Binder
-	loaders []Loader
-	expReg  *regexp.Regexp
+	loaders            []Loader
+	populateProcessors []PopulateProcessor
+	expReg             *regexp.Regexp
 }
 
 func NewConfigure() Configure {
@@ -28,6 +30,10 @@ func Default() Configure {
 	c := NewConfigure()
 	c.SetLoaders(loader.NewArgsLoader(os.Args))
 	c.SetBinder(binder.NewViperBinder("yaml"))
+	c.AddPopulateProcessors(
+		new(propPopulation),
+		new(valuePopulation),
+	)
 	return c
 }
 
@@ -39,68 +45,69 @@ func (c *configure) SetLoaders(loaders ...Loader) {
 	c.loaders = loaders
 }
 
+func (c *configure) AddPopulateProcessors(processors ...PopulateProcessor) {
+	c.populateProcessors = append(c.populateProcessors, processors...)
+	sort.Slice(c.populateProcessors, func(i, j int) bool {
+		return c.populateProcessors[i].Order() < c.populateProcessors[j].Order()
+	})
+}
+
 func (c *configure) SetBinder(binder Binder) {
 	c.Binder = binder
 }
 
-func (c *configure) Initialize(metas ...*meta.Meta) error {
+func (c *configure) Initialize() error {
 	if len(c.loaders) == 0 {
 		syslog.Trace("not found config loaders, skip init configs")
 		return nil
 	}
 	syslog.Info("start loading configs...")
-	loaded, err := c.loadingConfigure()
+	err := c.loadConfigure()
 	if err != nil {
 		return fmt.Errorf("loading configure: %v", err)
 	}
 	syslog.Info("loading configure finished")
-	if !loaded {
-		return nil
-	}
-	for _, m := range metas {
-		err := c.executeTagExpressions(m.GetConfigurationNodes())
-		if err != nil {
-			return fmt.Errorf("execute configuration %s tag expression: %v", m.ID(), err)
-		}
-		err = c.executeTagExpressions(m.GetComponentNodes())
-		if err != nil {
-			return fmt.Errorf("execute component %s tag expression: %v", m.ID(), err)
-		}
-	}
 	return nil
 }
 
-func (c *configure) Populate(metas ...*meta.Meta) error {
-	for _, m := range metas {
-		err := c.Binder.PropInject(m.GetConfigurationNodes())
-		if err != nil {
-			return fmt.Errorf("populate properties: %v", err)
-		}
-	}
-	return nil
-}
-
-func (c *configure) loadingConfigure() (loaded bool, err error) {
+func (c *configure) loadConfigure() error {
 	sumLoaders := len(c.loaders)
 	for i, l := range c.loaders {
 		syslog.Tracef("config loaders start loading config %s ...[%d/%d]", reflectx.Id(l), i+1, sumLoaders)
-		var config []byte
-		config, err = l.LoadConfig()
+		config, err := l.LoadConfig()
 		if err != nil {
-			err = fmt.Errorf("config loader load config failed: %v", err)
-			return
+			return fmt.Errorf("config loader load config failed: %v", err)
 		}
 		if len(config) != 0 {
 			err = c.Binder.SetConfig(config)
 			if err != nil {
-				err = fmt.Errorf("config binder set config failed: %v", err)
-				return
+				return fmt.Errorf("config binder set config failed: %v", err)
 			}
-			loaded = true
 		}
 		syslog.Tracef("config loader loading finished ...[%d/%d]", i+1, sumLoaders)
 	}
-	return loaded, nil
+	return nil
+}
+
+func (c *configure) PopulateProperties(metas ...*meta.Meta) error {
+	for _, m := range metas {
+		err := c.executeTagExpressions(m.GetAllNodes())
+		if err != nil {
+			return fmt.Errorf("execute tag expression %s: %v", m.ID(), err)
+		}
+		for _, node := range m.GetConfigurationNodes() {
+			for _, processor := range c.populateProcessors {
+				if processor.Filter(node) {
+					syslog.Tracef("populate property %s.Value(%s)", node.ID(), node.TagVal)
+					err := processor.Populate(c.Binder, node)
+					if err != nil {
+						return fmt.Errorf("populate config properties %s.Value(%s) error: %v", node.ID(), node.TagVal, err)
+					}
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (c *configure) executeTagExpressions(props []*meta.Node) error {

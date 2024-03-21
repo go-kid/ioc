@@ -6,7 +6,6 @@ import (
 	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/defination"
 	"github.com/go-kid/ioc/factory"
-	"github.com/go-kid/ioc/injector"
 	"github.com/go-kid/ioc/registry"
 	"github.com/go-kid/ioc/scanner"
 	"github.com/go-kid/ioc/scanner/meta"
@@ -19,7 +18,6 @@ import (
 
 type App struct {
 	configure.Configure
-	injector.Injector
 	registry.Registry
 	factory.Factory
 	scanner.Scanner
@@ -30,7 +28,6 @@ type App struct {
 func NewApp(ops ...SettingOption) *App {
 	var s = &App{
 		Configure:               configure.Default(),
-		Injector:                injector.Default(),
 		Registry:                registry.GlobalRegistry(),
 		Factory:                 factory.Default(),
 		Scanner:                 scanner.Default(),
@@ -48,9 +45,6 @@ func NewApp(ops ...SettingOption) *App {
 func (s *App) validate() error {
 	if s.Configure == nil {
 		return errors.New("missing configure")
-	}
-	if s.Injector == nil {
-		return errors.New("missing injector")
 	}
 	if s.Registry == nil {
 		return errors.New("missing registry")
@@ -82,13 +76,16 @@ func (s *App) run() error {
 
 	/* begin load and bind configuration */
 	syslog.Info("start init config...")
-	if err := s.initConfig(); err != nil {
+	if err := s.initConfiguration(); err != nil {
 		return fmt.Errorf("init config failed: %v", err)
 	}
 	syslog.Info("populate finished, components properties ready")
 
 	/* set default init behavior */
-	s.Factory.SetIfNilPostInitFunc(s.defaultPostInitFunc())
+	err := s.initFactory()
+	if err != nil {
+		return fmt.Errorf("init factory failed: %v", err)
+	}
 	syslog.Info("factory ready")
 	/* factory ready */
 
@@ -110,22 +107,33 @@ func (s *App) run() error {
 	return nil
 }
 
-func (s *App) initConfig() error {
-	metas := s.GetComponents()
-	err := s.Configure.Initialize(metas...)
+func (s *App) initConfiguration() error {
+	err := s.Configure.Initialize()
 	if err != nil {
 		return fmt.Errorf("initialize configure failed: %v", err)
 	}
-	err = s.Configure.Populate(metas...)
+	syslog.Trace("start populating properties...")
+	err = s.Configure.PopulateProperties(s.Registry.GetComponents()...)
 	if err != nil {
-		return fmt.Errorf("populate configure failed: %v", err)
+		return fmt.Errorf("populate components properties: %v", err)
+	}
+	syslog.Info("populate properties finished")
+	return nil
+}
+
+func (s *App) initFactory() error {
+	s.Factory.SetRegistry(s.Registry)
+	s.Factory.SetConfigure(s.Configure)
+	err := s.Factory.PrepareSpecialComponents()
+	if err != nil {
+		return fmt.Errorf("prepare special components error: %v", err)
 	}
 	return nil
 }
 
 func (s *App) wire() error {
 	components := s.Registry.GetComponents()
-	err := s.Factory.Initialize(s.Registry, s.Injector, components...)
+	err := s.Factory.Initialize(components...)
 	if err != nil {
 		return fmt.Errorf("initialize component failed: %v", err)
 	}
@@ -174,59 +182,4 @@ func (s *App) Close() {
 		}(m)
 	}
 	wg.Wait()
-}
-
-func (s *App) defaultPostInitFunc() factory.MetaFunc {
-	if !s.enableComponentInit {
-		return func(m *meta.Meta) error {
-			return nil
-		}
-	}
-	postMetas := s.Registry.GetComponents(registry.Interface(new(defination.ComponentPostProcessor)))
-	if len(postMetas) == 0 {
-		return func(m *meta.Meta) error {
-			// init
-			if ic, ok := m.Raw.(defination.InitializeComponent); ok {
-				syslog.Tracef("component %s is InitializeComponent, start do init", m.ID())
-				err := ic.Init()
-				if err != nil {
-					return fmt.Errorf("component %s inited failed: %s", m.ID(), err)
-				}
-			}
-			return nil
-		}
-	}
-
-	postProcessors := make([]defination.ComponentPostProcessor, len(postMetas))
-	for i, pm := range postMetas {
-		syslog.Tracef("collecting post processors %s", pm.ID())
-		postProcessors[i] = pm.Raw.(defination.ComponentPostProcessor)
-		s.Registry.RemoveComponents(pm.Name)
-	}
-	return func(m *meta.Meta) error {
-		// before process
-		for _, processor := range postProcessors {
-			err := processor.PostProcessBeforeInitialization(m.Raw)
-			if err != nil {
-				return fmt.Errorf("post processor: %T process before %s init error: %v", processor, m.ID(), err)
-			}
-		}
-		// init
-		if ic, ok := m.Raw.(defination.InitializeComponent); ok {
-			syslog.Tracef("component %s is InitializeComponent, start do init", m.ID())
-			err := ic.Init()
-			if err != nil {
-				return fmt.Errorf("component %s inited failed: %s", m.ID(), err)
-			}
-		}
-
-		// after process
-		for _, processor := range postProcessors {
-			err := processor.PostProcessAfterInitialization(m.Raw)
-			if err != nil {
-				return fmt.Errorf("post processor: %T process after %s init error: %v", processor, m.ID(), err)
-			}
-		}
-		return nil
-	}
 }

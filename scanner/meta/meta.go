@@ -99,6 +99,14 @@ func (m *Meta) GetConfigurationNodes() []*Node {
 	return m.GetNodes(NodeTypeConfiguration)
 }
 
+func (m *Meta) GetAllNodes() []*Node {
+	var nodes []*Node
+	for _, groupNodes := range m.nodeGroup {
+		nodes = append(nodes, groupNodes...)
+	}
+	return nodes
+}
+
 func GetComponentName(t any) (id, alias string) {
 	var c any
 	switch t.(type) {

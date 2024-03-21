@@ -38,7 +38,7 @@ func defaultNodeArgs() TagArg {
 }
 
 func (n *Node) ID() string {
-	return fmt.Sprintf("%s.Field(%s)", n.Holder.ID(), n.Field.Name)
+	return fmt.Sprintf("%s.Field(%s).Tag(%s)", n.Holder.ID(), n.Field.Name, n.Tag)
 }
 
 var (
@@ -139,4 +139,23 @@ func filter(metas []*Meta, f func(m *Meta) bool) []*Meta {
 
 func (n *Node) Args() TagArg {
 	return n.args
+}
+
+func (n *Node) SetArg(t ArgType, val []string) {
+	n.args[t] = val
+}
+func (n *Node) AppendArg(t ArgType, val []string) {
+	n.args[t] = append(n.args[t], val...)
+}
+
+func (n *Node) SetArgs(a TagArg) {
+	for argType, val := range a {
+		n.SetArg(argType, val)
+	}
+}
+
+func (n *Node) AppendArgs(a TagArg) {
+	for argType, val := range a {
+		n.AppendArg(argType, val)
+	}
 }

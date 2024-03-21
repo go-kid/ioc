@@ -12,14 +12,21 @@ type Binder interface {
 	SetConfig(c []byte) error
 	Get(path string) any
 	Set(path string, val any)
-	PropInject(properties []*meta.Node) error
+	Unmarshall(key string, a any) error
 }
 
 type Configure interface {
 	Binder
 	AddLoaders(loaders ...Loader)
 	SetLoaders(loaders ...Loader)
+	AddPopulateProcessors(processors ...PopulateProcessor)
 	SetBinder(binder Binder)
-	Initialize(metas ...*meta.Meta) error
-	Populate(metas ...*meta.Meta) error
+	Initialize() error
+	PopulateProperties(metas ...*meta.Meta) error
+}
+
+type PopulateProcessor interface {
+	Order() int
+	Filter(d *meta.Node) bool
+	Populate(r Binder, d *meta.Node) error
 }

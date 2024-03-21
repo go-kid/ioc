@@ -4,7 +4,6 @@ import (
 	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/configure/loader"
 	"github.com/go-kid/ioc/factory"
-	"github.com/go-kid/ioc/injector"
 	"github.com/go-kid/ioc/registry"
 	"github.com/go-kid/ioc/scanner"
 	"github.com/go-kid/ioc/syslog"
@@ -86,9 +85,15 @@ func AddScanPolicies(policies ...scanner.ScanPolicy) SettingOption {
 	}
 }
 
-func AddCustomizedInjectors(injectors ...injector.InjectProcessor) SettingOption {
+func AddPopulateProcessors(processors ...configure.PopulateProcessor) SettingOption {
 	return func(s *App) {
-		s.Injector.AddCustomizedInjectors(injectors...)
+		s.Configure.AddPopulateProcessors(processors...)
+	}
+}
+
+func AddInjectionRules(rules ...factory.InjectionRule) SettingOption {
+	return func(s *App) {
+		s.Factory.AddInjectionRules(rules...)
 	}
 }
 

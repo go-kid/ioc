@@ -23,19 +23,20 @@ func (m *MyInjector) RuleName() string {
 	return "My_Injector"
 }
 
-func (m *MyInjector) Filter(d *meta.Node) bool {
+func (m *MyInjector) Condition(d *meta.Node) bool {
 	return d.Tag == "mul"
 }
 
-func (m *MyInjector) Inject(_ registry.Registry, d *meta.Node) error {
+func (m *MyInjector) Candidates(_ registry.Registry, d *meta.Node) ([]*meta.Meta, error) {
 	n, err := strconv.ParseInt(d.TagVal, 10, 64)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	d.Value.Set(reflect.ValueOf(func(i int64) int64 {
 		return n * i
 	}))
-	return nil
+	d.SetArg(meta.ArgRequired, []string{"false"})
+	return nil, nil
 }
 
 func TestModifiedInjector(t *testing.T) {
@@ -44,7 +45,7 @@ func TestModifiedInjector(t *testing.T) {
 	}{}
 	ioc.RunTest(t,
 		app.AddScanPolicies(scanner.NewComponentScanPolicy("mul", nil)),
-		app.AddCustomizedInjectors(new(MyInjector)),
+		app.AddInjectionRules(new(MyInjector)),
 		app.SetComponents(tApp))
 	mul := tApp.Mul(2)
 	assert.Equal(t, int64(4), mul)

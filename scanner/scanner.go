@@ -1,6 +1,7 @@
 package scanner
 
 import (
+	"github.com/go-kid/ioc/defination"
 	"github.com/go-kid/ioc/scanner/meta"
 	"github.com/go-kid/ioc/util/reflectx"
 	"reflect"
@@ -18,8 +19,11 @@ func NewScanner(policies ...ScanPolicy) Scanner {
 
 func Default() Scanner {
 	return NewScanner(
-		new(scanConfigurationPolicy),
-		new(scanComponentPolicy),
+		//configuration policy
+		NewConfigurationScanPolicy(defination.PropTag, propHandler),
+		NewConfigurationScanPolicy(defination.ValueTag, nil),
+		//component policy
+		NewComponentScanPolicy(defination.InjectTag, nil),
 	)
 }
 

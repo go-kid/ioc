@@ -38,3 +38,7 @@ func (e *ExpressionBinder) SetConfig(c []byte) error {
 	}
 	return e.ViperBinder.SetConfig(buffer.Bytes())
 }
+
+func (e *ExpressionBinder) Set(path string, val any) {
+	//todo: fill tpl logic
+}

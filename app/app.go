@@ -60,7 +60,6 @@ func (s *App) validate() error {
 
 func (s *App) Run() error {
 	if err := s.run(); err != nil {
-		defer s.Close()
 		syslog.Errorf("framework run failed: %v", err)
 		return err
 	}
@@ -113,7 +112,7 @@ func (s *App) initConfiguration() error {
 		return fmt.Errorf("initialize configure failed: %v", err)
 	}
 	syslog.Trace("start populating properties...")
-	err = s.Configure.PopulateProperties(s.Registry.GetComponents()...)
+	err = s.Configure.PopulateProperties(s.getStarters()...)
 	if err != nil {
 		return fmt.Errorf("populate components properties: %v", err)
 	}
@@ -132,7 +131,7 @@ func (s *App) initFactory() error {
 }
 
 func (s *App) wire() error {
-	components := s.Registry.GetComponents()
+	components := s.getStarters()
 	err := s.Factory.Initialize(components...)
 	if err != nil {
 		return fmt.Errorf("initialize component failed: %v", err)
@@ -140,11 +139,20 @@ func (s *App) wire() error {
 	return nil
 }
 
+func (s *App) getStarters() []*meta.Meta {
+	//return s.Registry.GetComponents(registry.Interface(new(defination.ApplicationStarter)))
+	return s.Registry.GetComponents()
+}
+
 func (s *App) callRunners() error {
 	if !s.enableApplicationRunner {
 		return nil
 	}
 	metas := s.GetComponents(registry.Interface(new(defination.ApplicationRunner)))
+	//err := s.Factory.Initialize(metas...)
+	//if err != nil {
+	//	return fmt.Errorf("initialize application runners failed: %v", err)
+	//}
 	var runners = lo.Map(metas, func(item *meta.Meta, _ int) defination.ApplicationRunner {
 		return item.Raw.(defination.ApplicationRunner)
 	})

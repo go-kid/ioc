@@ -7,13 +7,14 @@ import (
 	"github.com/go-kid/ioc/registry"
 	"github.com/go-kid/ioc/scanner/meta"
 	"github.com/go-kid/ioc/syslog"
+	"github.com/go-kid/ioc/util/reflectx"
 	"github.com/samber/lo"
-	"regexp"
+	"reflect"
 	"sort"
+	"strings"
 )
 
 type defaultFactory struct {
-	expReg         *regexp.Regexp
 	registry       registry.Registry
 	configure      configure.Configure
 	injectionRules []InjectionRule
@@ -21,9 +22,7 @@ type defaultFactory struct {
 }
 
 func Default() Factory {
-	f := &defaultFactory{
-		expReg: regexp.MustCompile("\\#\\{[\\d\\w]+(\\.[\\d\\w]+)*(:[\\d\\w]*)?\\}"),
-	}
+	f := &defaultFactory{}
 	f.AddInjectionRules(
 		new(specifyInjector),
 		new(unSpecifyPtrInjector),
@@ -85,22 +84,21 @@ func (f *defaultFactory) initialize(m *meta.Meta) error {
 	}
 	f.registry.ComponentInited(m.Name)
 
-	if nodes := m.GetComponentNodes(); len(nodes) > 0 {
-		syslog.Tracef("start inject dependencies %s", m.ID())
-		for _, node := range nodes {
-			err := f.injectDependency(m.ID(), node)
+	syslog.Tracef("start inject dependencies %s", m.ID())
+	for _, node := range m.GetComponentNodes() {
+		dependencies, err := f.getDependencies(m.ID(), node)
+		if err != nil {
+			return fmt.Errorf("get dependencies failed: %v", err)
+		}
+		for _, dependency := range dependencies {
+			err := f.initialize(dependency)
 			if err != nil {
-				return fmt.Errorf("inject dependencies failed: %v", err)
+				return err
 			}
 		}
-
-		for _, node := range nodes {
-			for _, sub := range node.Injects {
-				err := f.initialize(sub)
-				if err != nil {
-					return err
-				}
-			}
+		err = node.Inject(dependencies)
+		if err != nil {
+			return fmt.Errorf("inject dependencies failed: %v", err)
 		}
 	}
 
@@ -145,12 +143,12 @@ const diErrOutput = "DI report error by processor: %s\n" +
 	"caused field: %s\n" +
 	"caused by: %v\n"
 
-func (f *defaultFactory) injectDependency(metaID string, d *meta.Node) error {
+func (f *defaultFactory) getDependencies(metaID string, d *meta.Node) ([]*meta.Meta, error) {
 	inj, find := lo.Find(f.injectionRules, func(item InjectionRule) bool {
 		return item.Condition(d)
 	})
 	if !find {
-		return fmt.Errorf(diErrOutput, "nil", metaID, d.ID(), "inject condition not found")
+		return nil, fmt.Errorf(diErrOutput, "nil", metaID, d.ID(), "inject condition not found")
 	}
 	defer func() {
 		if err := recover(); err != nil {
@@ -159,11 +157,87 @@ func (f *defaultFactory) injectDependency(metaID string, d *meta.Node) error {
 	}()
 	candidates, err := inj.Candidates(f.registry, d)
 	if err != nil {
-		return fmt.Errorf(diErrOutput, inj.RuleName(), metaID, d.ID(), err)
+		return nil, fmt.Errorf(diErrOutput, inj.RuleName(), metaID, d.ID(), err)
 	}
-	err = d.Inject(candidates)
+	//err = d.Inject(candidates)
+	//if err != nil {
+	//	return fmt.Errorf(diErrOutput, inj.RuleName(), metaID, d.ID(), err)
+	//}
+	candidates, err = filterDependencies(d, candidates)
 	if err != nil {
-		return fmt.Errorf(diErrOutput, inj.RuleName(), metaID, d.ID(), err)
+		if len(candidates) == 0 {
+			if d.Args().Has(meta.ArgRequired, "true") {
+				return nil, fmt.Errorf(diErrOutput, inj.RuleName(), metaID, d.ID(), err)
+			}
+			return nil, nil
+		}
+		return nil, fmt.Errorf(diErrOutput, inj.RuleName(), metaID, d.ID(), err)
 	}
-	return nil
+	return candidates, nil
+}
+
+var (
+	primaryInterface = new(defination.WirePrimary)
+)
+
+func filterDependencies(n *meta.Node, metas []*meta.Meta) ([]*meta.Meta, error) {
+	//remove nil meta
+	result := filter(metas, func(m *meta.Meta) bool {
+		return m != nil
+	})
+	if len(result) == 0 {
+		return nil, fmt.Errorf("%s not found available components", n.ID())
+	}
+	//remove self-inject
+	result = filter(result, func(m *meta.Meta) bool {
+		return m.ID() != n.Holder.Meta.ID()
+	})
+	if len(result) == 0 {
+		var embedSb = strings.Builder{}
+		_ = n.Holder.Walk(func(source *meta.Holder) error {
+			embedSb.WriteString("\n depended on " + source.ID())
+			return nil
+		})
+		return nil, fmt.Errorf("field %s %s: self inject not allowed", n.ID(), embedSb.String())
+	}
+	//filter qualifier
+	qualifierName, isQualifier := n.Args().Find(meta.ArgQualifier)
+	if isQualifier {
+		result = filter(result, func(m *meta.Meta) bool {
+			qualifier, ok := m.Raw.(defination.WireQualifier)
+			return ok && n.Args().Has(meta.ArgQualifier, qualifier.Qualifier())
+		})
+		if len(result) == 0 {
+			return nil, fmt.Errorf("field %s: no component found for qualifier %s", n.ID(), qualifierName)
+		}
+	}
+
+	//filter primary for single type
+	if len(result) > 1 && n.Type.Kind() != reflect.Slice && n.Type.Kind() != reflect.Array {
+		var candidate = result[0]
+
+		for _, m := range result {
+			//Primary interface first
+			if reflectx.IsTypeImplement(m.Type, primaryInterface) {
+				candidate = m
+				break
+			}
+			//non naming component is preferred in multiple candidates
+			if !m.IsAlias {
+				candidate = m
+			}
+		}
+		result = []*meta.Meta{candidate}
+	}
+	return result, nil
+}
+
+func filter(metas []*meta.Meta, f func(m *meta.Meta) bool) []*meta.Meta {
+	var result = make([]*meta.Meta, 0, len(metas))
+	for _, m := range metas {
+		if f(m) {
+			result = append(result, m)
+		}
+	}
+	return result
 }

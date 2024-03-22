@@ -22,8 +22,8 @@ type Configuration interface {
 }
 
 type ComponentPostProcessor interface {
-	PostProcessBeforeInitialization(component interface{}) error
-	PostProcessAfterInitialization(component interface{}) error
+	PostProcessBeforeInitialization(component interface{}, componentName string) error
+	PostProcessAfterInitialization(component interface{}, componentName string) error
 }
 
 type CloserComponent interface {

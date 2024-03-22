@@ -112,12 +112,9 @@ func (f *defaultFactory) initialize(m *meta.Meta) error {
 }
 
 func (f *defaultFactory) doInitialize(m *meta.Meta) error {
-	// before process
-	for _, processor := range f.postProcessors {
-		err := processor.PostProcessBeforeInitialization(m.Raw)
-		if err != nil {
-			return fmt.Errorf("post processor: %T process before %s init error: %v", processor, m.ID(), err)
-		}
+	err := f.applyPostProcessBeforeInitialization(m)
+	if err != nil {
+		return err
 	}
 	// init
 	if ic, ok := m.Raw.(defination.InitializeComponent); ok {
@@ -127,10 +124,26 @@ func (f *defaultFactory) doInitialize(m *meta.Meta) error {
 			return fmt.Errorf("component %s inited failed: %s", m.ID(), err)
 		}
 	}
+	err = f.applyPostProcessAfterInitialization(m)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
-	// after process
+func (f *defaultFactory) applyPostProcessBeforeInitialization(m *meta.Meta) error {
 	for _, processor := range f.postProcessors {
-		err := processor.PostProcessAfterInitialization(m.Raw)
+		err := processor.PostProcessBeforeInitialization(m.Raw, m.Name)
+		if err != nil {
+			return fmt.Errorf("post processor: %T process before %s init error: %v", processor, m.ID(), err)
+		}
+	}
+	return nil
+}
+
+func (f *defaultFactory) applyPostProcessAfterInitialization(m *meta.Meta) error {
+	for _, processor := range f.postProcessors {
+		err := processor.PostProcessAfterInitialization(m.Raw, m.Name)
 		if err != nil {
 			return fmt.Errorf("post processor: %T process after %s init error: %v", processor, m.ID(), err)
 		}

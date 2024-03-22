@@ -35,6 +35,7 @@ func NewApp(ops ...SettingOption) *App {
 		enableApplicationRunner: true,
 	}
 	Options(ops...)(s)
+	SetComponents(s)
 	err := s.validate()
 	if err != nil {
 		syslog.Fatal(err)

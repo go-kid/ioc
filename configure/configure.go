@@ -8,22 +8,17 @@ import (
 	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/reflectx"
 	"os"
-	"regexp"
 	"sort"
-	"strings"
 )
 
 type configure struct {
 	Binder
 	loaders            []Loader
 	populateProcessors []PopulateProcessor
-	expReg             *regexp.Regexp
 }
 
 func NewConfigure() Configure {
-	return &configure{
-		expReg: regexp.MustCompile("\\$\\{\\w+(\\.\\w+)*(:[^{}]*)?}"),
-	}
+	return &configure{}
 }
 
 func Default() Configure {
@@ -31,6 +26,7 @@ func Default() Configure {
 	c.SetLoaders(loader.NewArgsLoader(os.Args))
 	c.SetBinder(binder.NewViperBinder("yaml"))
 	c.AddPopulateProcessors(
+		new(executeExpressionPopulation),
 		new(propPopulation),
 		new(valuePopulation),
 	)
@@ -91,10 +87,6 @@ func (c *configure) loadConfigure() error {
 
 func (c *configure) PopulateProperties(metas ...*meta.Meta) error {
 	for _, m := range metas {
-		err := c.executeTagExpressions(m.GetAllNodes())
-		if err != nil {
-			return fmt.Errorf("execute tag expression %s: %v", m.ID(), err)
-		}
 		for _, node := range m.GetConfigurationNodes() {
 			for _, processor := range c.populateProcessors {
 				if processor.Filter(node) {
@@ -105,36 +97,6 @@ func (c *configure) PopulateProperties(metas ...*meta.Meta) error {
 					}
 				}
 			}
-		}
-	}
-	return nil
-}
-
-func (c *configure) executeTagExpressions(props []*meta.Node) error {
-	for _, prop := range props {
-		rawTagVal := prop.TagVal
-		expParsed := false
-		prop.TagVal = c.expReg.ReplaceAllStringFunc(prop.TagVal, func(s string) string {
-			expParsed = true
-			exp := s[2 : len(s)-1]
-			spExp := strings.SplitN(exp, ":", 2)
-			exp = spExp[0]
-			expVal := c.Binder.Get(exp)
-			if expVal == nil {
-				if len(spExp) == 2 {
-					return spExp[1]
-				}
-				syslog.Fatalf("config path '%s' used by expression tag value is missing", exp)
-			}
-			switch expVal.(type) {
-			case string:
-				return expVal.(string)
-			default:
-				return fmt.Sprintf("%v", expVal)
-			}
-		})
-		if expParsed {
-			syslog.Tracef("execute tag expression '%s' -> '%s'", rawTagVal, prop.TagVal)
 		}
 	}
 	return nil

@@ -94,3 +94,40 @@ a:
 		assert.Equal(t, []string{"foo", "bar"}, iocApp.Get("b.a"))
 	})
 }
+
+func TestConfigureTagExpression(t *testing.T) {
+	var config = []byte(`
+env: dev
+test:
+  dev:
+    host: https://api.dev.go-kid.org
+  local:
+    host: http://localhost:8080
+`)
+	t.Run("NormalExpression", func(t *testing.T) {
+		type T struct {
+			Host string `prop:"test.${env}.host"`
+		}
+		t2 := &T{}
+		ioc.RunTest(t,
+			app.LogTrace,
+			app.SetConfigLoader(loader.NewRawLoader(config)),
+			app.SetComponents(t2),
+		)
+		assert.Equal(t, "https://api.dev.go-kid.org", t2.Host)
+	})
+	t.Run("NormalExpressionWithDefault", func(t *testing.T) {
+		type T struct {
+			Host  string `prop:"test.${env:local}.host"`
+			Host2 string `prop:"test.${env2:local}.host"`
+		}
+		t2 := &T{}
+		ioc.RunTest(t,
+			app.LogTrace,
+			app.SetConfigLoader(loader.NewRawLoader(config)),
+			app.SetComponents(t2),
+		)
+		assert.Equal(t, "https://api.dev.go-kid.org", t2.Host)
+		assert.Equal(t, "http://localhost:8080", t2.Host2)
+	})
+}

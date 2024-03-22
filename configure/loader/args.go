@@ -2,9 +2,9 @@ package loader
 
 import (
 	"github.com/go-kid/ioc/util/properties"
+	"github.com/go-kid/ioc/util/strconv2"
 	"gopkg.in/yaml.v3"
 	"regexp"
-	"strconv"
 	"strings"
 )
 
@@ -17,8 +17,6 @@ func NewArgsLoader(args []string) ArgsLoader {
 func (args ArgsLoader) LoadConfig() ([]byte, error) {
 	p := properties.New()
 	reg := regexp.MustCompile("^-{2}\\S+=\\S*")
-	intReg := regexp.MustCompile("^\\d+$")
-	floatReg := regexp.MustCompile("^\\d+\\.\\d+$")
 	for _, arg := range args {
 		prop := reg.FindString(arg)
 		if prop == "" {
@@ -29,20 +27,9 @@ func (args ArgsLoader) LoadConfig() ([]byte, error) {
 		if len(propPair) == 2 {
 			val = propPair[1]
 		}
-
-		var typeVal any
-		if val == "" {
-			typeVal = ""
-		} else if val == "true" {
-			typeVal = true
-		} else if val == "false" {
-			typeVal = false
-		} else if intReg.MatchString(val) {
-			typeVal, _ = strconv.ParseUint(val, 10, 64)
-		} else if floatReg.MatchString(val) {
-			typeVal, _ = strconv.ParseFloat(val, 64)
-		} else {
-			typeVal = val
+		typeVal, err := strconv2.ParseAny(val)
+		if err != nil {
+			return nil, err
 		}
 		p.Set(propPair[0], typeVal)
 	}

@@ -8,6 +8,7 @@ import (
 	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/reflectx"
 	"github.com/go-kid/ioc/util/strconv2"
+	"github.com/go-playground/validator/v10"
 	"reflect"
 	"regexp"
 	"strings"
@@ -19,6 +20,10 @@ const (
 	OrderExecuteExpressionPopulation
 	OrderPropPopulation
 	OrderValuePopulation
+)
+
+const (
+	ArgValidate meta.ArgType = "validate"
 )
 
 type executeExpressionPopulation struct {
@@ -106,14 +111,19 @@ func (p *propPopulation) Populate(r Binder, prop *meta.Node) error {
 		}
 		return nil
 	}
-	return reflectx.SetValue(prop.Value, func(a any) error {
+	err := reflectx.SetValue(prop.Value, func(a any) error {
 		return r.Unmarshall(prop.TagVal, a)
 	})
+	if err != nil {
+		return fmt.Errorf("population 'prop' value %s to %s failed: %v", prop.TagVal, prop.Type.String(), err)
+	}
+	return validate(prop)
 }
 
 type valuePopulation struct {
-	once sync.Once
-	hm   reflectx.Interceptor
+	once     sync.Once
+	validate *validator.Validate
+	hm       reflectx.Interceptor
 }
 
 func (v *valuePopulation) Order() int {
@@ -137,6 +147,7 @@ func (v *valuePopulation) Populate(r Binder, prop *meta.Node) error {
 			reflect.Struct:    jsonUnmarshalHandler,
 			reflect.Interface: jsonUnmarshalHandler,
 		}
+		v.validate = validator.New(validator.WithRequiredStructEnabled())
 	})
 	if prop.TagVal == "" {
 		if prop.Args().Has(meta.ArgRequired, "true") {
@@ -144,5 +155,31 @@ func (v *valuePopulation) Populate(r Binder, prop *meta.Node) error {
 		}
 		return nil
 	}
-	return reflectx.SetAnyValueFromString(prop.Type, prop.Value, prop.TagVal, v.hm)
+	err := reflectx.SetAnyValueFromString(prop.Type, prop.Value, prop.TagVal, v.hm)
+	if err != nil {
+		return fmt.Errorf("population 'value' value %s to %s failed: %v", prop.TagVal, prop.Type.String(), err)
+	}
+	return validate(prop)
+}
+
+var v = validator.New(validator.WithRequiredStructEnabled())
+
+func validate(prop *meta.Node) error {
+	if ts, ok := prop.Args().Find(ArgValidate); ok {
+		var p = prop.Type
+		if p.Kind() == reflect.Pointer {
+			p = p.Elem()
+		}
+		if p.Kind() == reflect.Struct {
+			return v.Struct(prop.Value.Interface())
+		} else {
+			for _, t := range ts {
+				err := v.Var(prop.Value.Interface(), t)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }

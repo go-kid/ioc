@@ -1,7 +1,10 @@
 package defination
 
 const (
+	//components tag
 	InjectTag = "wire"
-	PropTag   = "prop"
-	ValueTag  = "value"
+
+	//configuration tag
+	PropTag  = "prop"
+	ValueTag = "value"
 )

@@ -31,6 +31,9 @@ func (d *ViperBinder) SetConfig(c []byte) error {
 }
 
 func (d *ViperBinder) Get(path string) any {
+	if path == "" {
+		return d.Viper.AllSettings()
+	}
 	return d.Viper.Get(path)
 }
 

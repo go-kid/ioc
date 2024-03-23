@@ -39,7 +39,9 @@ func (e *executeExpressionPopulation) Filter(d *meta.Node) bool {
 
 func (e *executeExpressionPopulation) Populate(r Binder, prop *meta.Node) error {
 	rawTagVal := prop.TagVal
-	prop.TagVal = e.expReg.ReplaceAllStringFunc(prop.TagVal, func(s string) string {
+
+	matches := e.expReg.FindAllString(prop.TagVal, -1)
+	for _, s := range matches {
 		exp := s[2 : len(s)-1]
 		//split expression key and default value
 		spExp := strings.SplitN(exp, ":", 2)
@@ -47,21 +49,26 @@ func (e *executeExpressionPopulation) Populate(r Binder, prop *meta.Node) error 
 		expVal := r.Get(exp)
 		if expVal == nil {
 			if len(spExp) != 2 {
-				syslog.Fatalf("config path '%s' used by expression tag value is missing", exp)
+				return fmt.Errorf("config path '%s' used by expression tag value is missing", exp)
 			}
 			//parse tag default value
-			var err error
-			expVal, err = strconv2.ParseAny(spExp[1])
-			if err != nil {
-				syslog.Fatalf("parse expression tag default value error: %v", spExp[1], err)
+			if defaultVal := spExp[1]; defaultVal == "" {
+				prop.TagVal = strings.Replace(prop.TagVal, s, "", 1)
+				continue
+			} else {
+				var err error
+				expVal, err = strconv2.ParseAny(defaultVal)
+				if err != nil {
+					return fmt.Errorf("parse expression tag default value %s error: %v", defaultVal, err)
+				}
 			}
 		}
 		val, err := marshalTagVal(expVal)
 		if err != nil {
-			syslog.Fatalf("marshal expression tag value %v error: %v", expVal, err)
+			return fmt.Errorf("marshal expression tag value %v error: %v", expVal, err)
 		}
-		return val
-	})
+		prop.TagVal = strings.Replace(prop.TagVal, s, val, 1)
+	}
 	syslog.Tracef("execute tag expression '%s' -> '%s'", rawTagVal, prop.TagVal)
 	return nil
 }
@@ -93,6 +100,12 @@ func (p *propPopulation) Filter(d *meta.Node) bool {
 }
 
 func (p *propPopulation) Populate(r Binder, prop *meta.Node) error {
+	if r.Get(prop.TagVal) == nil {
+		if prop.Args().Has(meta.ArgRequired, "true") {
+			return fmt.Errorf("properties is required")
+		}
+		return nil
+	}
 	return reflectx.SetValue(prop.Value, func(a any) error {
 		return r.Unmarshall(prop.TagVal, a)
 	})
@@ -126,6 +139,9 @@ func (v *valuePopulation) Populate(r Binder, prop *meta.Node) error {
 		}
 	})
 	if prop.TagVal == "" {
+		if prop.Args().Has(meta.ArgRequired, "true") {
+			return fmt.Errorf("properties is required")
+		}
 		return nil
 	}
 	return reflectx.SetAnyValueFromString(prop.Type, prop.Value, prop.TagVal, v.hm)

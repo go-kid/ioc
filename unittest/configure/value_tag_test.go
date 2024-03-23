@@ -1,9 +1,11 @@
 package configure
 
 import (
+	"fmt"
 	"github.com/go-kid/ioc"
 	"github.com/go-kid/ioc/app"
 	"github.com/go-kid/ioc/configure/loader"
+	"github.com/go-kid/ioc/registry"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -40,16 +42,14 @@ func TestValueTag(t *testing.T) {
 		})
 		t.Run("Map", func(t *testing.T) {
 			type T struct {
-				M   map[string]any `value:"{}"`
-				ME  map[string]any
-				ME2 map[string]any `value:""`
-				M2  map[string]any `value:"{\"foo\":\"bar\"}"`
+				M  map[string]any `value:"{}"`
+				ME map[string]any
+				M2 map[string]any `value:"{\"foo\":\"bar\"}"`
 			}
 			var tt = &T{}
 			ioc.RunTest(t, app.SetComponents(tt))
 			assert.NotNil(t, tt.M)
 			assert.Nil(t, tt.ME)
-			assert.Nil(t, tt.ME2)
 			assert.Equal(t, map[string]any{"foo": "bar"}, tt.M2)
 		})
 		t.Run("Struct", func(t *testing.T) {
@@ -183,5 +183,45 @@ test:
 		assert.Equal(t, map[string]any{
 			"a": "b",
 		}, t2.Parameters)
+	})
+	t.Run("MultipleExpression", func(t *testing.T) {
+		type T struct {
+			Host string `value:"https://${subdomain:api}.${domain:go-kid}.${suffix:org}"`
+		}
+		t2 := &T{}
+		ioc.RunTest(t,
+			app.LogTrace,
+			app.SetConfigLoader(loader.NewRawLoader(config)),
+			app.SetComponents(t2),
+		)
+		fmt.Println(t2.Host)
+	})
+	t.Run("DefaultZeroValue", func(t *testing.T) {
+		t.Run("Required", func(t *testing.T) {
+			type T struct {
+				S string `value:"${t:}${t2:}${t3:}"`
+			}
+			t2 := &T{}
+			err := app.NewApp(
+				app.SetRegistry(registry.NewRegistry()),
+				app.SetConfigLoader(loader.NewRawLoader(config)),
+				app.SetComponents(t2)).Run()
+			assert.Error(t, err)
+		})
+		t.Run("Optional", func(t *testing.T) {
+			type T struct {
+				S string  `value:"${t:}${t2:}${t3:},required=false"`
+				B bool    `value:"${t:},required=false"`
+				F float64 `value:"${t:},required=false"`
+				I int     `value:"${t:},required=false"`
+			}
+			t2 := &T{}
+			ioc.RunTest(t,
+				app.LogTrace,
+				app.SetConfigLoader(loader.NewRawLoader(config)),
+				app.SetComponents(t2),
+			)
+			fmt.Println(t2)
+		})
 	})
 }

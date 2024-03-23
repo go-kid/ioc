@@ -8,11 +8,11 @@ import (
 // ParseAnyMap "map[aes:map[iv:abc key:123] header:[X-Request-Id X-Cross-Origin X-Allowed-Method]]" ->
 //
 //	map[string]any{
-//	   "aes": map[string]any{
-//	     "iv": "abc",
-//	     "key": "123",
-//	   },
-//	   "header": []string{"X-Request-Id", "X-Cross-Origin", "X-Allowed-Method"},
+//	 "aes": map[string]any{
+//	   "iv":  "abc",
+//	   "key": int64(123),
+//	 },
+//	 "header": []any{"X-Request-Id", "X-Cross-Origin", "X-Allowed-Method"},
 //	}
 func ParseAnyMap(val string) (map[string]any, error) {
 	if isMap(val) {
@@ -62,7 +62,6 @@ func splitPart(val string) []string {
 	var q = false
 	for i < len(val) {
 		c := val[i]
-		//fmt.Println(i, string(c), last, pairs)
 		i++
 		if c == ':' {
 			q = true

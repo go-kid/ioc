@@ -1,7 +1,6 @@
 package strconv2
 
 import (
-	"fmt"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -18,7 +17,7 @@ func TestParseAnyMap(t *testing.T) {
 		{
 			name: "0",
 			args: args{
-				val: "map[b:[map[a:b] map[c:d]]]",
+				val: "map[b:[map[a:b],map[c:d]]]",
 			},
 			want: map[string]any{
 				"b": []any{
@@ -34,7 +33,7 @@ func TestParseAnyMap(t *testing.T) {
 		{
 			name: "1",
 			args: args{
-				val: "map[aes:map[iv:abc key:123] header:[X-Request-Id X-Cross-Origin X-Allowed-Method]]",
+				val: "map[aes:map[iv:abc key:123] header:[X-Request-Id,X-Cross-Origin,X-Allowed-Method]]",
 			},
 			want: map[string]any{
 				"aes": map[string]any{
@@ -47,7 +46,7 @@ func TestParseAnyMap(t *testing.T) {
 		{
 			name: "2",
 			args: args{
-				val: "map[a:map[b:map[c:[d e]]] b:[map[a:b] map[c:d]]]",
+				val: "map[a:map[b:map[c:[d,e]]] b:[map[a:b],map[c:d]]]",
 			},
 			want: map[string]any{
 				"a": map[string]any{
@@ -69,7 +68,6 @@ func TestParseAnyMap(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := ParseAnyMap(tt.args.val)
-			fmt.Println(got, err)
 			assert.NoError(t, err)
 			assert.Equalf(t, tt.want, got, "ParseAnyMap(%v)", tt.args.val)
 		})

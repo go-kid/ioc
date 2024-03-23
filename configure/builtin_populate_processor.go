@@ -1,6 +1,7 @@
 package configure
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/go-kid/ioc/defination"
 	"github.com/go-kid/ioc/scanner/meta"
@@ -40,24 +41,44 @@ func (e *executeExpressionPopulation) Populate(r Binder, prop *meta.Node) error 
 	rawTagVal := prop.TagVal
 	prop.TagVal = e.expReg.ReplaceAllStringFunc(prop.TagVal, func(s string) string {
 		exp := s[2 : len(s)-1]
+		//split expression key and default value
 		spExp := strings.SplitN(exp, ":", 2)
 		exp = spExp[0]
 		expVal := r.Get(exp)
 		if expVal == nil {
-			if len(spExp) == 2 {
-				return spExp[1]
+			if len(spExp) != 2 {
+				syslog.Fatalf("config path '%s' used by expression tag value is missing", exp)
 			}
-			syslog.Fatalf("config path '%s' used by expression tag value is missing", exp)
+			//parse tag default value
+			var err error
+			expVal, err = strconv2.ParseAny(spExp[1])
+			if err != nil {
+				syslog.Fatalf("parse expression tag default value error: %v", spExp[1], err)
+			}
 		}
-		switch expVal.(type) {
-		case string:
-			return expVal.(string)
-		default:
-			return fmt.Sprintf("%v", expVal)
+		val, err := marshalTagVal(expVal)
+		if err != nil {
+			syslog.Fatalf("marshal expression tag value %v error: %v", expVal, err)
 		}
+		return val
 	})
 	syslog.Tracef("execute tag expression '%s' -> '%s'", rawTagVal, prop.TagVal)
 	return nil
+}
+
+func marshalTagVal(expVal any) (string, error) {
+	switch expVal.(type) {
+	case string:
+		return expVal.(string), nil
+	case map[string]any, []any:
+		bytes, err := json.Marshal(expVal)
+		if err != nil {
+			return "", err
+		}
+		return string(bytes), nil
+	default:
+		return fmt.Sprintf("%v", expVal), nil
+	}
 }
 
 type propPopulation struct {
@@ -72,28 +93,14 @@ func (p *propPopulation) Filter(d *meta.Node) bool {
 }
 
 func (p *propPopulation) Populate(r Binder, prop *meta.Node) error {
-	//syslog.Tracef("viper binder start bind config %s, prefix: %s", prop.ID(), prop.TagVal)
-	var fieldType = prop.Type
-	var isPtrType = false
-	if fieldType.Kind() == reflect.Ptr {
-		fieldType = fieldType.Elem()
-		isPtrType = true
-	}
-	var val = reflect.New(fieldType)
-	err := r.Unmarshall(prop.TagVal, val.Interface())
-	if err != nil {
-		return fmt.Errorf("populate prop config %s.Value(%s) error: %v", prop.ID(), prop.TagVal, err)
-	}
-	if isPtrType {
-		prop.Value.Set(val)
-	} else {
-		prop.Value.Set(val.Elem())
-	}
-
-	return nil
+	return reflectx.SetValue(prop.Value, func(a any) error {
+		return r.Unmarshall(prop.TagVal, a)
+	})
 }
 
 type valuePopulation struct {
+	once sync.Once
+	hm   reflectx.Interceptor
 }
 
 func (v *valuePopulation) Order() int {
@@ -104,11 +111,22 @@ func (v *valuePopulation) Filter(d *meta.Node) bool {
 	return d.Tag == defination.ValueTag
 }
 
-func (v *valuePopulation) Populate(r Binder, d *meta.Node) error {
-	parseAny, err := strconv2.ParseAny(d.TagVal)
-	if err != nil {
-		return err
+func (v *valuePopulation) Populate(r Binder, prop *meta.Node) error {
+	v.once.Do(func() {
+		var jsonUnmarshalHandler = func(_ reflect.Type, v reflect.Value, s string) error {
+			return reflectx.SetValue(v, func(a any) error {
+				return json.Unmarshal([]byte(s), a)
+			})
+		}
+		v.hm = reflectx.Interceptor{
+			reflect.Map:       jsonUnmarshalHandler,
+			reflect.Slice:     jsonUnmarshalHandler,
+			reflect.Struct:    jsonUnmarshalHandler,
+			reflect.Interface: jsonUnmarshalHandler,
+		}
+	})
+	if prop.TagVal == "" {
+		return nil
 	}
-	fmt.Println(parseAny)
-	return reflectx.SetAnyValue(d.Type, d.Value, d.TagVal)
+	return reflectx.SetAnyValueFromString(prop.Type, prop.Value, prop.TagVal, v.hm)
 }

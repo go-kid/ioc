@@ -5,14 +5,14 @@ import (
 	"strings"
 )
 
-// ParseStringSlice exp: "[value1 value2 value3]" -> []string{"value1", "value2", "value3"}
+// ParseStringSlice exp: "[value1,value2,value3]" -> []string{"value1", "value2", "value3"}
 func ParseStringSlice(val string) ([]string, error) {
 	if isSlice(val) {
 		val = val[1 : len(val)-1]
 		if val == "" {
 			return []string{}, nil
 		}
-		return strings.Split(val, " "), nil
+		return strings.Split(val, ","), nil
 	}
 	return nil, fmt.Errorf("can not parse \"%s\" as slice, need [value1 value2 ...]", val)
 }

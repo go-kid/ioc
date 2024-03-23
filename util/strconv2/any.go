@@ -14,21 +14,22 @@ var (
 func ParseAny(val string) (any, error) {
 	var typeVal any
 	var err error
-	if val == "" {
+	switch true {
+	case val == "":
 		typeVal = ""
-	} else if val == "true" {
+	case val == "true":
 		typeVal = true
-	} else if val == "false" {
+	case val == "false":
 		typeVal = false
-	} else if intReg.MatchString(val) {
-		typeVal, _ = strconv.ParseInt(val, 10, 64)
-	} else if floatReg.MatchString(val) {
-		typeVal, _ = strconv.ParseFloat(val, 64)
-	} else if isMap(val) {
+	case intReg.MatchString(val):
+		typeVal, err = strconv.ParseInt(val, 10, 64)
+	case floatReg.MatchString(val):
+		typeVal, err = strconv.ParseFloat(val, 64)
+	case isMap(val):
 		typeVal, err = ParseAnyMap(val)
-	} else if isSlice(val) {
+	case isSlice(val):
 		typeVal, err = ParseAnySlice(val)
-	} else {
+	default:
 		typeVal = val
 	}
 	return typeVal, err
@@ -115,10 +116,10 @@ func Parse[T any](val string) (T, error) {
 			return tVal, err
 		}
 		return any(f).(T), nil
-	case string:
+	case string, any:
 		return any(val).(T), nil
 	default:
-		return tVal, fmt.Errorf("can not parse value %s", val)
+		return tVal, fmt.Errorf("not supported to parse value %s as %T", val, tVal)
 	}
 }
 

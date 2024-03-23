@@ -9,21 +9,117 @@ import (
 )
 
 func TestValueTag(t *testing.T) {
-	t.Run("TestSingleValue", func(t *testing.T) {
-		type T struct {
-			A string   `value:"foo"`
-			S []string `value:"[hello world foo bar]"`
-			B bool     `value:"true"`
-			I int      `value:"123"`
-			F float64  `value:"123.321"`
-		}
-		var tt = &T{}
-		ioc.RunTest(t, app.SetComponents(tt))
-		assert.Equal(t, "foo", tt.A)
-		assert.Equal(t, []string{"hello", "world", "foo", "bar"}, tt.S)
-		assert.True(t, tt.B)
-		assert.Equal(t, 123, tt.I)
-		assert.Equal(t, 123.321, tt.F)
+	t.Run("TestSimpleType", func(t *testing.T) {
+		t.Run("BaseType", func(t *testing.T) {
+			type T struct {
+				A string  `value:"foo"`
+				B bool    `value:"true"`
+				I int     `value:"123"`
+				F float64 `value:"123.321"`
+			}
+			var tt = &T{}
+			ioc.RunTest(t, app.SetComponents(tt))
+			assert.Equal(t, "foo", tt.A)
+			assert.True(t, tt.B)
+			assert.Equal(t, 123, tt.I)
+			assert.Equal(t, 123.321, tt.F)
+		})
+		t.Run("Slice", func(t *testing.T) {
+			type T struct {
+				S []string  `value:"[\"hello\",\"world\",\"foo\",\"bar\"]"`
+				I []int     `value:"[1,2,3]"`
+				B []bool    `value:"[true,false,false,true]"`
+				F []float64 `value:"[1.1,2.2,3]"`
+			}
+			var tt = &T{}
+			ioc.RunTest(t, app.SetComponents(tt))
+			assert.Equal(t, []string{"hello", "world", "foo", "bar"}, tt.S)
+			assert.Equal(t, []int{1, 2, 3}, tt.I)
+			assert.Equal(t, []bool{true, false, false, true}, tt.B)
+			assert.Equal(t, []float64{1.1, 2.2, 3}, tt.F)
+		})
+		t.Run("Map", func(t *testing.T) {
+			type T struct {
+				M   map[string]any `value:"{}"`
+				ME  map[string]any
+				ME2 map[string]any `value:""`
+				M2  map[string]any `value:"{\"foo\":\"bar\"}"`
+			}
+			var tt = &T{}
+			ioc.RunTest(t, app.SetComponents(tt))
+			assert.NotNil(t, tt.M)
+			assert.Nil(t, tt.ME)
+			assert.Nil(t, tt.ME2)
+			assert.Equal(t, map[string]any{"foo": "bar"}, tt.M2)
+		})
+		t.Run("Struct", func(t *testing.T) {
+			type S struct {
+				Foo string `json:"foo"`
+			}
+			type T struct {
+				M2 S `value:"{\"foo\":\"bar\"}"`
+			}
+			var tt = &T{}
+			ioc.RunTest(t, app.SetComponents(tt))
+			assert.Equal(t, S{Foo: "bar"}, tt.M2)
+		})
+	})
+	t.Run("TestComplexType", func(t *testing.T) {
+		t.Run("BasePointer", func(t *testing.T) {
+			type T struct {
+				Ap *string  `value:"foo"`
+				B  *bool    `value:"true"`
+				I  *int     `value:"123"`
+				F  *float64 `value:"123.321"`
+			}
+			var tt = &T{}
+			ioc.RunTest(t, app.SetComponents(tt))
+			var foo = "foo"
+			assert.Equal(t, &foo, tt.Ap)
+			var b = true
+			assert.Equal(t, &b, tt.B)
+			var i = 123
+			assert.Equal(t, &i, tt.I)
+			var f = 123.321
+			assert.Equal(t, &f, tt.F)
+		})
+		t.Run("SlicePointer", func(t *testing.T) {
+			type T struct {
+				S []*string  `value:"[\"hello\",\"world\",\"foo\",\"bar\"]"`
+				I []*int     `value:"[1,2,3]"`
+				B []*bool    `value:"[true,false,false,true]"`
+				F []*float64 `value:"[1.1,2.2,3]"`
+			}
+			var tt = &T{}
+			ioc.RunTest(t, app.SetComponents(tt))
+			var ss = []string{"hello", "world", "foo", "bar"}
+			for i, s := range ss {
+				assert.Equal(t, &s, tt.S[i])
+			}
+			var is = []int{1, 2, 3}
+			for i, s := range is {
+				assert.Equal(t, &s, tt.I[i])
+			}
+			var bs = []bool{true, false, false, true}
+			for i, s := range bs {
+				assert.Equal(t, &s, tt.B[i])
+			}
+			var fs = []float64{1.1, 2.2, 3}
+			for i, s := range fs {
+				assert.Equal(t, &s, tt.F[i])
+			}
+		})
+		t.Run("StructPointer", func(t *testing.T) {
+			type S struct {
+				Foo string `json:"foo"`
+			}
+			type T struct {
+				M2 *S `value:"{\"foo\":\"bar\"}"`
+			}
+			var tt = &T{}
+			ioc.RunTest(t, app.SetComponents(tt))
+			assert.Equal(t, &S{Foo: "bar"}, tt.M2)
+		})
 	})
 }
 
@@ -35,7 +131,10 @@ test:
     - 8080
     - 9090
   parameters:
-    header: [X-Request-Id X-Cross-Origin X-Allowed-Method]
+    header: 
+      - X-Request-Id
+      - X-Cross-Origin
+      - X-Allowed-Method
     aes:
       key: 123
       iv: abc
@@ -55,11 +154,21 @@ test:
 		)
 		assert.Equal(t, "https://api.dev.go-kid.org", t2.Host)
 		assert.Equal(t, []int{8080, 9090}, t2.Port)
+		assert.Equal(t, map[string]any{
+			"aes": map[string]any{
+				"iv":  "abc",
+				"key": float64(123),
+			},
+			"header": []any{"X-Request-Id", "X-Cross-Origin", "X-Allowed-Method"},
+		}, t2.Parameters)
+		assert.Equal(t, []string{"X-Request-Id", "X-Cross-Origin", "X-Allowed-Method"}, t2.Headers)
 	})
 	t.Run("NormalExpressionWithDefault", func(t *testing.T) {
 		type T struct {
-			Host string `value:"${test.host2:https://api.go-kid.org}"`
-			Port []int  `value:"${test.port2:[8888 9999]}"`
+			Host       string         `value:"${test.host2:https://api.go-kid.org}"`
+			Port       []int          `value:"${test.port2:[8888,9999]}"`
+			PortS      []string       `value:"${test.port2:[:8888,:9999]}"`
+			Parameters map[string]any `value:"${test.parameters2:map[a:b]}"`
 		}
 		t2 := &T{}
 		ioc.RunTest(t,
@@ -69,5 +178,10 @@ test:
 		)
 		assert.Equal(t, "https://api.go-kid.org", t2.Host)
 		assert.Equal(t, []int{8888, 9999}, t2.Port)
+		assert.Equal(t, []string{":8888", ":9999"}, t2.PortS)
+		assert.NotNil(t, t2.Parameters)
+		assert.Equal(t, map[string]any{
+			"a": "b",
+		}, t2.Parameters)
 	})
 }

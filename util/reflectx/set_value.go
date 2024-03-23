@@ -22,7 +22,17 @@ var bitSizeMap = map[reflect.Kind]int{
 	reflect.Float64: 64,
 }
 
-func SetAnyValue(t reflect.Type, value reflect.Value, val string) error {
+type (
+	SetValueHandler func(reflect.Type, reflect.Value, string) error
+	Interceptor     map[reflect.Kind]SetValueHandler
+)
+
+func SetAnyValueFromString(t reflect.Type, value reflect.Value, val string, itps ...Interceptor) error {
+	for _, hm := range itps {
+		if h, ok := hm[t.Kind()]; ok {
+			return h(t, value, val)
+		}
+	}
 	switch kind := t.Kind(); kind {
 	case reflect.Bool:
 		b, err := strconv.ParseBool(val)
@@ -55,18 +65,27 @@ func SetAnyValue(t reflect.Type, value reflect.Value, val string) error {
 		}
 		value.Set(reflect.MakeSlice(value.Type(), len(vals), len(vals)))
 		for i, v := range vals {
-			err := SetAnyValue(t.Elem(), value.Index(i), v)
+			err := SetAnyValueFromString(t.Elem(), value.Index(i), v, itps...)
 			if err != nil {
 				return err
 			}
 		}
 	case reflect.Pointer:
-		err := SetAnyValue(t.Elem(), value.Elem(), val)
+		if value.IsNil() {
+			value.Set(reflect.New(t.Elem()))
+		}
+		err := SetAnyValueFromString(t.Elem(), value.Elem(), val, itps...)
 		if err != nil {
 			return err
 		}
 	case reflect.String:
 		value.SetString(val)
+	case reflect.Interface:
+		a, err := strconv2.ParseAny(val)
+		if err != nil {
+			return err
+		}
+		value.Set(reflect.ValueOf(a))
 	case reflect.Map:
 		m, err := strconv2.ParseAnyMap(val)
 		if err != nil {
@@ -74,7 +93,27 @@ func SetAnyValue(t reflect.Type, value reflect.Value, val string) error {
 		}
 		value.Set(reflect.ValueOf(m))
 	default:
-		return fmt.Errorf("can not parse value %s", val)
+		return fmt.Errorf("not supported to set value %s as type %s", val, t.String())
+	}
+	return nil
+}
+
+func SetValue(value reflect.Value, setter func(a any) error) error {
+	var fieldType = value.Type()
+	var isPtrType = false
+	if fieldType.Kind() == reflect.Ptr {
+		fieldType = fieldType.Elem()
+		isPtrType = true
+	}
+	var val = reflect.New(fieldType)
+	err := setter(val.Interface())
+	if err != nil {
+		return err
+	}
+	if isPtrType {
+		value.Set(val)
+	} else {
+		value.Set(val.Elem())
 	}
 	return nil
 }

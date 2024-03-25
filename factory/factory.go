@@ -49,14 +49,16 @@ func Default() Factory {
 }
 
 func (f *defaultFactory) PrepareComponents() error {
-	f.registry.GetComponents()
-	cppMetas := f.registry.GetInternalComponents()
-	for _, cppMeta := range cppMetas {
-		switch cpp := cppMeta.Raw; cpp.(type) {
+	components := f.registry.Scan()
+	//cppMetas := f.registry.GetInternalComponents()
+	for _, m := range components {
+		switch cpp := m.Raw; cpp.(type) {
 		case defination.ComponentPostInitializingProcessor:
 			f.postInitializingProcessors = append(f.postInitializingProcessors, cpp.(defination.ComponentPostInitializingProcessor))
 		case defination.ComponentPostProcessor:
 			f.postProcessors = append(f.postProcessors, cpp.(defination.ComponentPostProcessor))
+		default:
+			f.metaMaps.Store(m.Name, m)
 		}
 	}
 	return nil

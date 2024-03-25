@@ -1,7 +1,7 @@
 package registry
 
 import (
-	"fmt"
+	"github.com/go-kid/ioc/component_defination"
 	"github.com/go-kid/ioc/scanner"
 	"github.com/go-kid/ioc/scanner/meta"
 	"github.com/go-kid/ioc/syslog"
@@ -69,6 +69,13 @@ func (r *registry) Register(cs ...any) {
 		if fas.IsNil(c) {
 			syslog.Panicf("register a nil value component %s", reflectx.Id(c))
 		}
+		name, _ := component_defination.GetComponentName(c)
+		if lc, loaded := r.componentsMap.Load(name); loaded {
+			if lc != c {
+				syslog.Panicf("register duplicated component %s", name)
+			}
+		}
+		r.componentsMap.Store(name, c)
 	}
 	//for _, c := range cs {
 	//r.scanAndCache(r.sc, c)
@@ -90,96 +97,96 @@ func (r *registry) Register(cs ...any) {
 //	syslog.Trace("registry scan finished")
 //}
 
-func (r *registry) scanAndCache(c any) {
-	var m *meta.Meta
-	switch c.(type) {
-	case *meta.Meta:
-		m = c.(*meta.Meta)
-		syslog.Tracef("registry scan raw meta %s", m.ID())
-	default:
-		m = r.sc.ScanComponent(c)
-		syslog.Tracef("registry scan component %s", m.ID())
-	}
-	if a, ok := r.componentsMap.Load(m.Name); ok {
-		if a.ID() != m.ID() {
-			syslog.Panicf("register duplicated component, cached: %s, new register: %s", a.ID(), m.ID())
-		}
-		return
-	}
-	r.metaMaps.Store(m.Name, m)
-	syslog.Tracef("registry cache component %s", m.ID())
-}
+//func (r *registry) scanAndCache(c any) {
+//	var m *meta.Meta
+//	switch c.(type) {
+//	case *meta.Meta:
+//		m = c.(*meta.Meta)
+//		syslog.Tracef("registry scan raw meta %s", m.ID())
+//	default:
+//		m = r.sc.ScanComponent(c)
+//		syslog.Tracef("registry scan component %s", m.ID())
+//	}
+//	if a, ok := r.componentsMap.Load(m.Name); ok {
+//		if a.ID() != m.ID() {
+//			syslog.Panicf("register duplicated component, cached: %s, new register: %s", a.ID(), m.ID())
+//		}
+//		return
+//	}
+//	r.metaMaps.Store(m.Name, m)
+//	syslog.Tracef("registry cache component %s", m.ID())
+//}
 
-func (r *registry) GetMetas(opts ...Option) []*meta.Meta {
-	var metas = make([]*meta.Meta, 0)
-	r.metaMaps.Range(func(k string, m *meta.Meta) bool {
-		if Accept(m, opts...) {
-			metas = append(metas, m)
-		}
-		return true
-	})
-	return metas
-}
-
-func (r *registry) GetMetaByName(name string) *meta.Meta {
-	if c, ok := r.metaMaps.Load(name); ok {
-		return c
-	}
-	return nil
-}
-
-func (r *registry) GetComponents(opts ...Option) []any {
-	var components = make([]any, 0)
-	r.singletonObjects.Range(func(k string, m *meta.Meta) bool {
-		if Accept(m, opts...) {
-			components = append(components, m.Raw)
-		}
-		return true
-	})
-	return components
-}
-
-func (r *registry) GetComponentByName(name string) any {
-	if c, ok := r.singletonObjects.Load(name); ok {
-		return c.Raw
-	}
-	return nil
-}
-
-func (r *registry) SetSingletonFactoryMethod(name string, method FactoryMethod) {
-	r.singletonFactories.Store(name, method)
-}
-
-func (r *registry) GetSingletonFactoryMethod(name string) (FactoryMethod, bool) {
-	return r.singletonFactories.Load(name)
-}
-
-func (r *registry) EarlyExportComponent(m *meta.Meta) {
-	r.earlySingletonObjects.Store(m.Name, m)
-	r.singletonFactories.Delete(m.Name)
-}
-
-func (r *registry) GetEarlyExportComponent(name string) (*meta.Meta, bool) {
-	return r.earlySingletonObjects.Load(name)
-}
-
-func (r *registry) RemoveComponents(name string) {
-	r.singletonObjects.Delete(name)
-	syslog.Tracef("registry remove component %s", name)
-}
-
-func (r *registry) IsComponentInited(name string) bool {
-	_, loaded := r.singletonObjects.Load(name)
-	return loaded
-}
-
-func (r *registry) ComponentInited(name string) error {
-	m, loaded := r.earlySingletonObjects.Load(name)
-	if !loaded {
-		return fmt.Errorf("component %s is not initiated", name)
-	}
-	r.singletonObjects.Store(name, m)
-	r.earlySingletonObjects.Delete(name)
-	//syslog.Tracef("registry update component %s to inited", name)
-	return nil
-}
+//func (r *registry) GetMetas(opts ...Option) []*meta.Meta {
+//	var metas = make([]*meta.Meta, 0)
+//	r.metaMaps.Range(func(k string, m *meta.Meta) bool {
+//		if Accept(m, opts...) {
+//			metas = append(metas, m)
+//		}
+//		return true
+//	})
+//	return metas
+//}
+//
+//func (r *registry) GetMetaByName(name string) *meta.Meta {
+//	if c, ok := r.metaMaps.Load(name); ok {
+//		return c
+//	}
+//	return nil
+//}
+//
+//func (r *registry) GetComponents(opts ...Option) []any {
+//	var components = make([]any, 0)
+//	r.singletonObjects.Range(func(k string, m *meta.Meta) bool {
+//		if Accept(m, opts...) {
+//			components = append(components, m.Raw)
+//		}
+//		return true
+//	})
+//	return components
+//}
+//
+//func (r *registry) GetComponentByName(name string) any {
+//	if c, ok := r.singletonObjects.Load(name); ok {
+//		return c.Raw
+//	}
+//	return nil
+//}
+//
+//func (r *registry) SetSingletonFactoryMethod(name string, method FactoryMethod) {
+//	r.singletonFactories.Store(name, method)
+//}
+//
+//func (r *registry) GetSingletonFactoryMethod(name string) (FactoryMethod, bool) {
+//	return r.singletonFactories.Load(name)
+//}
+//
+//func (r *registry) EarlyExportComponent(m *meta.Meta) {
+//	r.earlySingletonObjects.Store(m.Name, m)
+//	r.singletonFactories.Delete(m.Name)
+//}
+//
+//func (r *registry) GetEarlyExportComponent(name string) (*meta.Meta, bool) {
+//	return r.earlySingletonObjects.Load(name)
+//}
+//
+//func (r *registry) RemoveComponents(name string) {
+//	r.singletonObjects.Delete(name)
+//	syslog.Tracef("registry remove component %s", name)
+//}
+//
+//func (r *registry) IsComponentInited(name string) bool {
+//	_, loaded := r.singletonObjects.Load(name)
+//	return loaded
+//}
+//
+//func (r *registry) ComponentInited(name string) error {
+//	m, loaded := r.earlySingletonObjects.Load(name)
+//	if !loaded {
+//		return fmt.Errorf("component %s is not initiated", name)
+//	}
+//	r.singletonObjects.Store(name, m)
+//	r.earlySingletonObjects.Delete(name)
+//	//syslog.Tracef("registry update component %s to inited", name)
+//	return nil
+//}

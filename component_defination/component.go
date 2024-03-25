@@ -34,7 +34,7 @@ func GetComponentName(t any) (name string, isAlias bool) {
 func ComponentId(t any) string {
 	name, alias := getComponentNameWithAlias(t)
 	if alias != "" {
-		return fmt.Sprintf("%s(alias='%s')(0x%x)", name, alias, reflect.ValueOf(t).Pointer())
+		return fmt.Sprintf("%s(alias='%s')", name, alias)
 	} else {
 		return name
 	}

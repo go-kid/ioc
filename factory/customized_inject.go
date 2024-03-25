@@ -1,7 +1,6 @@
 package factory
 
 import (
-	"github.com/go-kid/ioc/registry"
 	"github.com/go-kid/ioc/scanner/meta"
 	"reflect"
 )
@@ -27,8 +26,8 @@ func (c *customizedPtrInjector) Condition(d *meta.Node) bool {
 	return d.Type.Kind() == reflect.Ptr
 }
 
-func (c *customizedPtrInjector) Candidates(r registry.BuildContainer, d *meta.Node) ([]*meta.Meta, error) {
-	metas := r.GetMetas(registry.FuncNameAndResult(d.Tag, d.TagVal), registry.Type(d.Type))
+func (c *customizedPtrInjector) Candidates(r BuildContainer, d *meta.Node) ([]*meta.Meta, error) {
+	metas := r.GetMetas(FuncNameAndResult(d.Tag, d.TagVal), Type(d.Type))
 	return metas, nil
 }
 
@@ -47,8 +46,8 @@ func (c *customizedInterfaceInjector) Condition(d *meta.Node) bool {
 	return d.Type.Kind() == reflect.Interface
 }
 
-func (c *customizedInterfaceInjector) Candidates(r registry.BuildContainer, d *meta.Node) ([]*meta.Meta, error) {
-	metas := r.GetMetas(registry.FuncNameAndResult(d.Tag, d.TagVal), registry.InterfaceType(d.Type))
+func (c *customizedInterfaceInjector) Candidates(r BuildContainer, d *meta.Node) ([]*meta.Meta, error) {
+	metas := r.GetMetas(FuncNameAndResult(d.Tag, d.TagVal), InterfaceType(d.Type))
 	return metas, nil
 }
 
@@ -67,7 +66,7 @@ func (s *customizedInterfaceSliceInjector) Condition(d *meta.Node) bool {
 	return d.Type.Kind() == reflect.Slice && d.Type.Elem().Kind() == reflect.Interface //ruleSliceInterface
 }
 
-func (s *customizedInterfaceSliceInjector) Candidates(r registry.BuildContainer, d *meta.Node) ([]*meta.Meta, error) {
-	metas := r.GetMetas(registry.FuncNameAndResult(d.Tag, d.TagVal), registry.InterfaceType(d.Type.Elem()))
+func (s *customizedInterfaceSliceInjector) Candidates(r BuildContainer, d *meta.Node) ([]*meta.Meta, error) {
+	metas := r.GetMetas(FuncNameAndResult(d.Tag, d.TagVal), InterfaceType(d.Type.Elem()))
 	return metas, nil
 }

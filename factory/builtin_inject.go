@@ -2,7 +2,6 @@ package factory
 
 import (
 	"github.com/go-kid/ioc/defination"
-	"github.com/go-kid/ioc/registry"
 	"github.com/go-kid/ioc/scanner/meta"
 	"reflect"
 )
@@ -37,7 +36,7 @@ func (b *specifyInjector) Condition(d *meta.Node) bool {
 		(d.Type.Kind() == reflect.Ptr || d.Type.Kind() == reflect.Interface)
 }
 
-func (b *specifyInjector) Candidates(r registry.BuildContainer, d *meta.Node) ([]*meta.Meta, error) {
+func (b *specifyInjector) Candidates(r BuildContainer, d *meta.Node) ([]*meta.Meta, error) {
 	dm := r.GetMetaByName(d.TagVal)
 	return []*meta.Meta{dm}, nil
 }
@@ -64,8 +63,8 @@ func (b *unSpecifyPtrInjector) Condition(d *meta.Node) bool {
 		d.Type.Kind() == reflect.Ptr //rulePointer
 }
 
-func (b *unSpecifyPtrInjector) Candidates(r registry.BuildContainer, d *meta.Node) ([]*meta.Meta, error) {
-	metas := r.GetMetas(registry.Type(d.Type))
+func (b *unSpecifyPtrInjector) Candidates(r BuildContainer, d *meta.Node) ([]*meta.Meta, error) {
+	metas := r.GetMetas(Type(d.Type))
 	return metas, nil
 }
 
@@ -91,8 +90,8 @@ func (s *unSpecifyPtrSliceInjector) Condition(d *meta.Node) bool {
 		d.Type.Kind() == reflect.Slice && d.Type.Elem().Kind() == reflect.Pointer //ruleSlicePtr
 }
 
-func (s *unSpecifyPtrSliceInjector) Candidates(r registry.BuildContainer, d *meta.Node) ([]*meta.Meta, error) {
-	metas := r.GetMetas(registry.Type(d.Type.Elem()))
+func (s *unSpecifyPtrSliceInjector) Candidates(r BuildContainer, d *meta.Node) ([]*meta.Meta, error) {
+	metas := r.GetMetas(Type(d.Type.Elem()))
 	return metas, nil
 }
 
@@ -119,8 +118,8 @@ func (i *unSpecifyInterfaceInjector) Condition(d *meta.Node) bool {
 		d.Type.Kind() == reflect.Interface //ruleInterface
 }
 
-func (i *unSpecifyInterfaceInjector) Candidates(r registry.BuildContainer, d *meta.Node) ([]*meta.Meta, error) {
-	metas := r.GetMetas(registry.InterfaceType(d.Type))
+func (i *unSpecifyInterfaceInjector) Candidates(r BuildContainer, d *meta.Node) ([]*meta.Meta, error) {
+	metas := r.GetMetas(InterfaceType(d.Type))
 	return metas, nil
 }
 
@@ -146,7 +145,7 @@ func (s *unSpecifyInterfaceSliceInjector) Condition(d *meta.Node) bool {
 		d.Type.Kind() == reflect.Slice && d.Type.Elem().Kind() == reflect.Interface //ruleSliceInterface
 }
 
-func (s *unSpecifyInterfaceSliceInjector) Candidates(r registry.BuildContainer, d *meta.Node) ([]*meta.Meta, error) {
-	metas := r.GetMetas(registry.InterfaceType(d.Type.Elem()))
+func (s *unSpecifyInterfaceSliceInjector) Candidates(r BuildContainer, d *meta.Node) ([]*meta.Meta, error) {
+	metas := r.GetMetas(InterfaceType(d.Type.Elem()))
 	return metas, nil
 }

@@ -1,12 +1,8 @@
 package registry
 
 import (
-	"github.com/go-kid/ioc/component_defination"
-	"github.com/go-kid/ioc/scanner"
-	"github.com/go-kid/ioc/scanner/meta"
+	"fmt"
 	"github.com/go-kid/ioc/syslog"
-	"github.com/go-kid/ioc/util/fas"
-	"github.com/go-kid/ioc/util/reflectx"
 	"github.com/go-kid/ioc/util/sync2"
 )
 
@@ -15,20 +11,19 @@ Registry
 Dependency Register and Dependency Lookup
 */
 
-type Registry interface {
-	SetScanner(sc scanner.Scanner)
-	Register(cs ...any)
-	Scan() []*meta.Meta
+type SingletonRegistry interface {
+	RegisterSingleton(name string, singleton any)
+	//Register(cs ...any)
+	GetSingleton(name string) (any, error)
+	ContainsSingleton(name string) bool
+	GetSingletonNames() []string
+	GetSingletonCount() int
 	//GetComponents(opts ...Option) []any
 	//GetComponentByName(name string) any
 	//RemoveComponents(name string)
 }
 
-type FactoryMethod func() (*meta.Meta, error)
-
 type registry struct {
-	sc            scanner.Scanner
-	components    []any
 	componentsMap *sync2.Map[string, any]
 	//metaMaps              *sync2.Map[string, *meta.Meta]
 	//singletonObjects      *sync2.Map[string, *meta.Meta]
@@ -37,17 +32,34 @@ type registry struct {
 	//initedComponents      list.Set
 }
 
-func (r *registry) Scan() []*meta.Meta {
-	var metas = make([]*meta.Meta, len(r.components))
-	for i, component := range r.components {
-		metas[i] = r.sc.ScanComponent(component)
+func (r *registry) GetSingleton(name string) (any, error) {
+	c, loaded := r.componentsMap.Load(name)
+	if loaded {
+		return c, nil
 	}
-	return metas
+	return nil, fmt.Errorf("singleton component %s not exist", name)
 }
 
-func NewRegistry() Registry {
+func (r *registry) ContainsSingleton(name string) bool {
+	_, contains := r.componentsMap.Load(name)
+	return contains
+}
+
+func (r *registry) GetSingletonNames() []string {
+	var names []string
+	r.componentsMap.Range(func(key string, _ any) (shouldContinue bool) {
+		names = append(names, key)
+		return true
+	})
+	return names
+}
+
+func (r *registry) GetSingletonCount() int {
+	return len(r.GetSingletonNames())
+}
+
+func NewRegistry() SingletonRegistry {
 	return &registry{
-		components:    []any{},
 		componentsMap: sync2.New[string, any](),
 		//metaMaps:              sync2.New[string, *meta.Meta](),
 		//singletonObjects:      sync2.New[string, *meta.Meta](),
@@ -57,31 +69,46 @@ func NewRegistry() Registry {
 	}
 }
 
-func (r *registry) SetScanner(sc scanner.Scanner) {
-	r.sc = sc
-}
-
-func (r *registry) Register(cs ...any) {
-	if len(cs) < 1 {
+func (r *registry) RegisterSingleton(name string, singleton any) {
+	if exist, loaded := r.componentsMap.Load(name); loaded {
+		if exist != singleton {
+			syslog.Panicf("register duplicated component %s", name)
+		}
 		return
 	}
-	for _, c := range cs {
-		if fas.IsNil(c) {
-			syslog.Panicf("register a nil value component %s", reflectx.Id(c))
-		}
-		name, _ := component_defination.GetComponentName(c)
-		if lc, loaded := r.componentsMap.Load(name); loaded {
-			if lc != c {
-				syslog.Panicf("register duplicated component %s", name)
-			}
-		}
-		r.componentsMap.Store(name, c)
-	}
-	//for _, c := range cs {
-	//r.scanAndCache(r.sc, c)
-	//}
-	r.components = append(r.components, cs...)
+	r.componentsMap.Store(name, singleton)
+	syslog.Tracef("singleton registry register component %s", name)
 }
+
+//func (r *registry) Register(cs ...any) {
+//	if len(cs) < 1 {
+//		return
+//	}
+//	for _, c := range cs {
+//		if fas.IsNil(c) {
+//			syslog.Panicf("register a nil value component %s", reflectx.Id(c))
+//		}
+//		name, _ := component_defination.GetComponentName(c)
+//		if lc, loaded := r.componentsMap.Load(name); loaded {
+//			if lc != c {
+//				syslog.Panicf("register duplicated component %s", name)
+//			}
+//		}
+//		r.componentsMap.Store(name, c)
+//	}
+//	//for _, c := range cs {
+//	//r.scanAndCache(r.sc, c)
+//	//}
+//	r.components = append(r.components, cs...)
+//}
+//
+//func (r *registry) ScanAllComponents() []*meta.Meta {
+//	var metas = make([]*meta.Meta, len(r.components))
+//	for i, component := range r.components {
+//		metas[i] = r.sc.ScanComponent(component)
+//	}
+//	return metas
+//}
 
 //func (r *registry) Scan(sc scanner.Scanner) {
 //	syslog.Tracef("registry scan by scanner %s", reflectx.Id(sc))

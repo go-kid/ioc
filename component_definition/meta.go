@@ -1,7 +1,6 @@
-package meta
+package component_definition
 
 import (
-	"github.com/go-kid/ioc/component_defination"
 	"github.com/go-kid/ioc/util/sync2"
 	"reflect"
 )
@@ -41,10 +40,10 @@ type Meta struct {
 
 func NewMeta(c any) *Meta {
 	base := NewBase(c)
-	name, alias := component_defination.GetComponentName(c)
+	name, alias := GetComponentName(c)
 	m := &Meta{
 		Base:          base,
-		id:            component_defination.ComponentId(c),
+		id:            ComponentId(c),
 		Name:          name,
 		IsAlias:       alias,
 		Address:       base.Value.Pointer(),

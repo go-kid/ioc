@@ -2,6 +2,6 @@ package registry
 
 var _registry = NewRegistry()
 
-func GlobalRegistry() Registry {
+func GlobalRegistry() SingletonRegistry {
 	return _registry
 }

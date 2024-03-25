@@ -3,7 +3,7 @@ package builtin_inject
 import (
 	"github.com/go-kid/ioc"
 	"github.com/go-kid/ioc/app"
-	"github.com/go-kid/ioc/defination"
+	"github.com/go-kid/ioc/definition"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -30,7 +30,7 @@ func Test_Any_Type_With_Specifying_Name(t *testing.T) {
 	})
 	t.Run("Interface_Type", func(t *testing.T) {
 		var tApp = &struct {
-			T defination.NamingComponent `wire:"TestComponent_1"`
+			T definition.NamingComponent `wire:"TestComponent_1"`
 		}{}
 		ioc.RunTest(t, app.SetComponents(
 			&SpecifyNameComponent{Component{"TestComponent_1"}},

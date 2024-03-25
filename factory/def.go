@@ -1,35 +1,54 @@
 package factory
 
 import (
+	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/registry"
-	"github.com/go-kid/ioc/scanner/meta"
+	"github.com/go-kid/ioc/scanner"
 )
 
-type MetaFunc func(m *meta.Meta) error
+type MetaFunc func(m *component_definition.Meta) error
 
 type Factory interface {
-	SetRegistry(r registry.Registry)
+	SetRegistry(r registry.SingletonRegistry)
 	SetConfigure(c configure.Configure)
+	SetScanner(sc scanner.Scanner)
 	AddInjectionRules(rules ...InjectionRule)
 	PrepareComponents() error
 	Initialize() error
+	GetComponents(opts ...Option) []any
+	GetComponentByName(name string) (any, error)
 }
 
 type InjectionRule interface {
 	RuleName() string
 	Priority() int
-	Condition(d *meta.Node) bool
-	Candidates(r BuildContainer, d *meta.Node) ([]*meta.Meta, error)
+	Condition(d *component_definition.Node) bool
+	Candidates(r DefinitionRegistry, d *component_definition.Node) ([]*component_definition.Meta, error)
 }
 
-type BuildContainer interface {
-	IsComponentInited(name string) bool
-	ComponentInited(name string) error
-	SetSingletonFactoryMethod(name string, method FactoryMethod)
-	GetSingletonFactoryMethod(name string) (FactoryMethod, bool)
-	EarlyExportComponent(m *meta.Meta)
-	GetEarlyExportComponent(name string) (*meta.Meta, bool)
-	GetMetas(opts ...Option) []*meta.Meta
-	GetMetaByName(name string) *meta.Meta
+type DefinitionRegistry interface {
+	RegisterMeta(m *component_definition.Meta)
+	ComponentInitialized(meta *component_definition.Meta)
+	AddSingletonFactory(name string, method SingletonFactory)
+	GetSingletonFactory(name string) (SingletonFactory, bool)
+	EarlyExportComponent(m *component_definition.Meta)
+	GetEarlyExportComponent(name string) (*component_definition.Meta, bool)
+	GetMetas(opts ...Option) []*component_definition.Meta
+	GetMetaByName(name string) *component_definition.Meta
+	GetComponentDefinitions(opts ...Option) []*component_definition.Meta
+	GetComponentDefinitionByName(name string) (*component_definition.Meta, bool)
+	GetComponent(name string) (*component_definition.Meta, error)
+	BeforeSingletonCreation(name string)
+	IsSingletonCurrentlyInCreation(name string) bool
+}
+
+type SingletonFactory interface {
+	GetComponent() (*component_definition.Meta, error)
+}
+
+type FuncSingletonFactory func() (*component_definition.Meta, error)
+
+func (d FuncSingletonFactory) GetComponent() (*component_definition.Meta, error) {
+	return d()
 }

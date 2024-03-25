@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/configure/loader"
 	"github.com/go-kid/ioc/factory"
@@ -11,23 +12,18 @@ import (
 
 type SettingOption func(s *App)
 
-func Options(opts ...SettingOption) SettingOption {
+func SetRegistry(r registry.SingletonRegistry) SettingOption {
 	return func(s *App) {
-		for _, opt := range opts {
-			opt(s)
+		s.SingletonRegistry = r
+	}
+}
+
+func SetComponents(cs ...any) SettingOption {
+	return func(s *App) {
+		for _, c := range cs {
+			name, _ := component_definition.GetComponentName(c)
+			s.SingletonRegistry.RegisterSingleton(name, c)
 		}
-	}
-}
-
-func SetRegistry(r registry.Registry) SettingOption {
-	return func(s *App) {
-		s.Registry = r
-	}
-}
-
-func SetComponents(c ...interface{}) SettingOption {
-	return func(s *App) {
-		s.Registry.Register(c...)
 	}
 }
 

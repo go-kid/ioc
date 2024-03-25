@@ -1,4 +1,4 @@
-package meta
+package component_definition
 
 import (
 	"fmt"

@@ -1,4 +1,4 @@
-package defination
+package definition
 
 const (
 	//components tag

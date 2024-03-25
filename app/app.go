@@ -3,12 +3,12 @@ package app
 import (
 	"errors"
 	"fmt"
+	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/configure"
-	"github.com/go-kid/ioc/defination"
+	"github.com/go-kid/ioc/definition"
 	"github.com/go-kid/ioc/factory"
 	"github.com/go-kid/ioc/registry"
 	"github.com/go-kid/ioc/scanner"
-	"github.com/go-kid/ioc/scanner/meta"
 	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/reflectx"
 	"github.com/samber/lo"
@@ -18,7 +18,7 @@ import (
 
 type App struct {
 	configure.Configure
-	registry.Registry
+	registry.SingletonRegistry
 	factory.Factory
 	scanner.Scanner
 	enableComponentInit     bool
@@ -28,14 +28,17 @@ type App struct {
 func NewApp(ops ...SettingOption) *App {
 	var s = &App{
 		Configure:               configure.Default(),
-		Registry:                registry.GlobalRegistry(),
+		SingletonRegistry:       registry.GlobalRegistry(),
 		Factory:                 factory.Default(),
 		Scanner:                 scanner.Default(),
 		enableComponentInit:     true,
 		enableApplicationRunner: true,
 	}
-	Options(ops...)(s)
-	SetComponents(s)
+	for _, op := range ops {
+		op(s)
+	}
+	//Options(ops...)(s)
+	//SetComponents(s)
 	err := s.validate()
 	if err != nil {
 		syslog.Fatal(err)
@@ -47,7 +50,7 @@ func (s *App) validate() error {
 	if s.Configure == nil {
 		return errors.New("missing configure")
 	}
-	if s.Registry == nil {
+	if s.SingletonRegistry == nil {
 		return errors.New("missing registry")
 	}
 	if s.Factory == nil {
@@ -69,9 +72,8 @@ func (s *App) Run() error {
 
 func (s *App) run() error {
 	/* begin scan component to meta */
-	syslog.Info("start scanning registered component...")
-	s.Registry.Scan(s.Scanner)
-	syslog.Info("component scanning finished, registry ready")
+	//syslog.Info("start scanning registered component...")
+	//syslog.Info("component scanning finished, registry ready")
 	/* registry ready */
 
 	/* begin load and bind configuration */
@@ -112,50 +114,39 @@ func (s *App) initConfiguration() error {
 	if err != nil {
 		return fmt.Errorf("initialize configure failed: %v", err)
 	}
-	syslog.Trace("start populating properties...")
-	err = s.Configure.PopulateProperties(s.getStarters()...)
-	if err != nil {
-		return fmt.Errorf("populate components properties: %v", err)
-	}
-	syslog.Info("populate properties finished")
 	return nil
 }
 
 func (s *App) initFactory() error {
-	s.Factory.SetRegistry(s.Registry)
+	s.Factory.SetRegistry(s.SingletonRegistry)
 	s.Factory.SetConfigure(s.Configure)
-	err := s.Factory.PrepareSpecialComponents()
+	s.Factory.SetScanner(s.Scanner)
+	err := s.Factory.PrepareComponents()
 	if err != nil {
-		return fmt.Errorf("prepare special components error: %v", err)
+		return fmt.Errorf("prepare components error: %v", err)
 	}
 	return nil
 }
 
 func (s *App) wire() error {
-	components := s.getStarters()
-	err := s.Factory.Initialize(components...)
+	err := s.Factory.Initialize()
 	if err != nil {
 		return fmt.Errorf("initialize component failed: %v", err)
 	}
 	return nil
 }
 
-func (s *App) getStarters() []*meta.Meta {
-	//return s.Registry.GetComponents(registry.Interface(new(defination.ApplicationStarter)))
-	return s.Registry.GetComponents()
-}
-
 func (s *App) callRunners() error {
 	if !s.enableApplicationRunner {
 		return nil
 	}
-	metas := s.GetComponents(registry.Interface(new(defination.ApplicationRunner)))
+	components := s.Factory.GetComponents(factory.Interface(new(definition.ApplicationRunner)))
 	//err := s.Factory.Initialize(metas...)
 	//if err != nil {
 	//	return fmt.Errorf("initialize application runners failed: %v", err)
 	//}
-	var runners = lo.Map(metas, func(item *meta.Meta, _ int) defination.ApplicationRunner {
-		return item.Raw.(defination.ApplicationRunner)
+	var runners = lo.Map(components, func(item any, _ int) definition.ApplicationRunner {
+		return item.(definition.ApplicationRunner)
 	})
 	if len(runners) == 0 {
 		syslog.Trace("find 0 runner(s), skip")
@@ -177,18 +168,17 @@ func (s *App) callRunners() error {
 }
 
 func (s *App) Close() {
-	metas := s.GetComponents(registry.Interface(new(defination.CloserComponent)))
+	components := s.Factory.GetComponents(factory.Interface(new(definition.CloserComponent)))
 	wg := sync.WaitGroup{}
-	wg.Add(len(metas))
-	for _, m := range metas {
-		go func(m *meta.Meta) {
+	wg.Add(len(components))
+	for _, m := range components {
+		go func(m definition.CloserComponent) {
 			defer wg.Done()
-			if err := m.Raw.(defination.CloserComponent).Close(); err != nil {
-				syslog.Errorf("Error closing %s", m.ID())
-			} else {
-				syslog.Infof("close component: %s", m.ID())
+			if err := m.Close(); err != nil {
+				syslog.Errorf("Error closing %s", component_definition.ComponentId(m))
 			}
-		}(m)
+		}(m.(definition.CloserComponent))
 	}
 	wg.Wait()
+	syslog.Infof("close all closer components")
 }

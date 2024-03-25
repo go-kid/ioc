@@ -1,8 +1,8 @@
-package component_defination
+package component_definition
 
 import (
 	"fmt"
-	"github.com/go-kid/ioc/defination"
+	"github.com/go-kid/ioc/definition"
 	"github.com/go-kid/ioc/util/reflectx"
 	"reflect"
 )
@@ -18,7 +18,7 @@ func getComponentNameWithAlias(t any) (name, alias string) {
 		c = t
 	}
 	name = reflectx.Id(c)
-	if n, ok := c.(defination.NamingComponent); ok {
+	if n, ok := c.(definition.NamingComponent); ok {
 		alias = n.Naming()
 	}
 	return

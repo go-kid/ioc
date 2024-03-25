@@ -12,7 +12,6 @@ import (
 	"github.com/samber/lo"
 	"reflect"
 	"sort"
-	"strings"
 )
 
 type defaultFactory struct {
@@ -97,8 +96,8 @@ func (f *defaultFactory) AddInjectionRules(rules ...InjectionRule) {
 }
 
 func (f *defaultFactory) Initialize() error {
-	for _, s := range f.singletonRegistry.GetSingletonNames() {
-		_, err := f.GetComponent(s)
+	for _, s := range f.definitionRegistry.GetMetas() {
+		_, err := f.GetComponent(s.Name)
 		if err != nil {
 			return err
 		}
@@ -122,14 +121,12 @@ func (f *defaultFactory) GetComponentByName(name string) (any, error) {
 
 func (f *defaultFactory) GetComponent(name string) (*component_definition.Meta, error) {
 	meta, err := f.definitionRegistry.GetComponent(name)
+	if meta != nil || err != nil {
+		return meta, err
+	}
+	meta, err = f.getSingleton(name)
 	if err != nil {
 		return nil, err
-	}
-	if meta == nil {
-		meta, err = f.getSingleton(name)
-		if err != nil {
-			return nil, err
-		}
 	}
 	return meta, nil
 }
@@ -149,7 +146,6 @@ func (f *defaultFactory) createComponent(name string) (*component_definition.Met
 		meta := f.definitionRegistry.GetMetaByName(name)
 		// set to singleton component factory cache
 		f.definitionRegistry.AddSingletonFactory(name, f.componentSingletonFactoryMethod(meta))
-		syslog.Tracef("definition registry set singleton factory for %s", name)
 		err := f.populateComponent(meta)
 		if err != nil {
 			return nil, err
@@ -205,7 +201,8 @@ func (f *defaultFactory) componentSingletonFactoryMethod(m *component_definition
 		if err != nil {
 			return nil, err
 		}
-		return f.scanner.ScanComponent(wrappedComponent), nil
+		m.Base.Update(wrappedComponent)
+		return m, nil
 	})
 }
 
@@ -316,18 +313,6 @@ func filterDependencies(n *component_definition.Node, metas []*component_definit
 	})
 	if len(result) == 0 {
 		return nil, fmt.Errorf("%s not found available components", n.ID())
-	}
-	//remove self-inject
-	result = filter(result, func(m *component_definition.Meta) bool {
-		return m.ID() != n.Holder.Meta.ID()
-	})
-	if len(result) == 0 {
-		var embedSb = strings.Builder{}
-		_ = n.Holder.Walk(func(source *component_definition.Holder) error {
-			embedSb.WriteString("\n depended on " + source.ID())
-			return nil
-		})
-		return nil, fmt.Errorf("field %s %s: self inject not allowed", n.ID(), embedSb.String())
 	}
 	//filter qualifier
 	qualifierName, isQualifier := n.Args().Find(component_definition.ArgQualifier)

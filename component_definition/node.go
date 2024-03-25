@@ -3,6 +3,7 @@ package component_definition
 import (
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 type Node struct {
@@ -34,14 +35,41 @@ func defaultNodeArgs() TagArg {
 	}
 }
 
+func filter(metas []*Meta, f func(m *Meta) bool) []*Meta {
+	var result = make([]*Meta, 0, len(metas))
+	for _, m := range metas {
+		if f(m) {
+			result = append(result, m)
+		}
+	}
+	return result
+}
+
 func (n *Node) ID() string {
 	return fmt.Sprintf("%s.Field(%s).Tag(%s)", n.Holder.ID(), n.Field.Name, n.Tag)
 }
 
 func (n *Node) Inject(metas []*Meta) error {
+	isRequired := n.args.Has(ArgRequired, "true")
 	if len(metas) == 0 {
-		if n.args.Has(ArgRequired, "true") {
+		if isRequired {
 			return fmt.Errorf("%s not found available components", n.ID())
+		}
+		return nil
+	}
+
+	//remove self-inject
+	metas = filter(metas, func(m *Meta) bool {
+		return m.ID() != n.Holder.Meta.OriginID()
+	})
+	if len(metas) == 0 {
+		if isRequired {
+			var embedSb = strings.Builder{}
+			_ = n.Holder.Walk(func(source *Holder) error {
+				embedSb.WriteString("\n depended on " + source.ID())
+				return nil
+			})
+			return fmt.Errorf("field %s %s: self inject not allowed", n.ID(), embedSb.String())
 		}
 		return nil
 	}

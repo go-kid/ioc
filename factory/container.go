@@ -68,6 +68,7 @@ func (r *container) GetMetaByName(name string) *component_definition.Meta {
 
 func (r *container) AddSingletonFactory(name string, method SingletonFactory) {
 	r.singletonFactories.Store(name, method)
+	syslog.Tracef("definition registry add singleton factory for %s", name)
 }
 
 func (r *container) GetSingletonFactory(name string) (SingletonFactory, bool) {
@@ -114,25 +115,25 @@ func (r *container) GetComponentByName(name string) any {
 
 func (r *container) GetComponent(name string) (*component_definition.Meta, error) {
 	// get component from inited components cache
-	if meta, ok := r.GetComponentDefinitionByName(name); ok {
+	if meta, ok := r.singletonObjects.Load(name); ok {
 		syslog.Tracef("definition registry get component definition by name %s", name)
 		return meta, nil
 	}
 	// get component from early export components cache
-	if earlyComponent, ok := r.GetEarlyExportComponent(name); ok {
+	if earlyComponent, ok := r.earlySingletonObjects.Load(name); ok {
 		syslog.Tracef("definition registry get early export component %s", name)
 		return earlyComponent, nil
 	}
 	// get component from singleton component factory cache
-	if factory, ok := r.GetSingletonFactory(name); ok {
+	if factory, ok := r.singletonFactories.Load(name); ok {
 		syslog.Tracef("definition registry get singleton factory %s", name)
-		createdComponent, err := factory.GetComponent()
+		component, err := factory.GetComponent()
 		if err != nil {
 			return nil, err
 		}
-		r.EarlyExportComponent(createdComponent)
+		r.earlySingletonObjects.Store(name, component)
 		r.singletonFactories.Delete(name)
-		return createdComponent, nil
+		return component, nil
 	}
 	return nil, nil
 }

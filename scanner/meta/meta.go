@@ -1,10 +1,7 @@
 package meta
 
 import (
-	"fmt"
-	"github.com/go-kid/ioc/defination"
-	"github.com/go-kid/ioc/util/fas"
-	"github.com/go-kid/ioc/util/reflectx"
+	"github.com/go-kid/ioc/component_defination"
 	"github.com/go-kid/ioc/util/sync2"
 	"reflect"
 )
@@ -30,8 +27,7 @@ func NewBase(c any) *Base {
 
 type Meta struct {
 	*Base
-	typeId  string
-	fullId  string
+	id      string
 	Name    string
 	IsAlias bool
 	Address uintptr
@@ -45,25 +41,13 @@ type Meta struct {
 
 func NewMeta(c any) *Meta {
 	base := NewBase(c)
-	address := base.Value.Pointer()
-	typeId, alias := GetComponentName(c)
-	var (
-		isAlias = alias != ""
-		name    = fas.TernaryOp(isAlias, alias, typeId)
-		fullId  string
-	)
-	if isAlias {
-		fullId = fmt.Sprintf("%s(alias='%s')(0x%x)", typeId, name, address)
-	} else {
-		fullId = fmt.Sprintf("%s(0x%x)", name, address)
-	}
+	name, alias := component_defination.GetComponentName(c)
 	m := &Meta{
 		Base:          base,
-		typeId:        typeId,
-		fullId:        fullId,
+		id:            component_defination.ComponentId(c),
 		Name:          name,
-		IsAlias:       isAlias,
-		Address:       address,
+		IsAlias:       alias,
+		Address:       base.Value.Pointer(),
 		Raw:           c,
 		dependedOnSet: sync2.New[string, struct{}](),
 		nodeGroup:     make(map[NodeType][]*Node),
@@ -72,11 +56,7 @@ func NewMeta(c any) *Meta {
 }
 
 func (m *Meta) ID() string {
-	return m.fullId
-}
-
-func (m *Meta) TypeID() string {
-	return m.typeId
+	return m.id
 }
 
 func (m *Meta) dependOn(parent *Meta) {
@@ -105,21 +85,4 @@ func (m *Meta) GetAllNodes() []*Node {
 		nodes = append(nodes, groupNodes...)
 	}
 	return nodes
-}
-
-func GetComponentName(t any) (id, alias string) {
-	var c any
-	switch t.(type) {
-	case reflect.Value:
-		c = t.(reflect.Value).Interface()
-	case reflect.Type:
-		c = reflect.New(t.(reflect.Type)).Interface()
-	default:
-		c = t
-	}
-	id = reflectx.Id(c)
-	if n, ok := c.(defination.NamingComponent); ok {
-		alias = n.Naming()
-	}
-	return
 }

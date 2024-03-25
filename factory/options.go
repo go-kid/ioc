@@ -1,4 +1,4 @@
-package registry
+package factory
 
 import (
 	"github.com/go-kid/ioc/scanner/meta"

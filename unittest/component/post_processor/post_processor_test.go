@@ -10,14 +10,14 @@ import (
 type PostProcessor struct {
 }
 
-func (p *PostProcessor) PostProcessBeforeInitialization(component interface{}, componentName string) error {
+func (p *PostProcessor) PostProcessBeforeInitialization(component interface{}) error {
 	if c, ok := component.(*Component); ok {
 		c.BeforeInitFlag = true
 	}
 	return nil
 }
 
-func (p *PostProcessor) PostProcessAfterInitialization(component interface{}, componentName string) error {
+func (p *PostProcessor) PostProcessAfterInitialization(component interface{}) error {
 	if c, ok := component.(*Component); ok {
 		c.AfterInitFlag = true
 	}

@@ -1,5 +1,16 @@
 package defination
 
+import "github.com/go-kid/ioc/scanner/meta"
+
+type InitializingComponent interface {
+	Initializing() error
+}
+
+type ComponentPostInitializingProcessor interface {
+	PostProcessBeforeInitializing(m *meta.Meta) (*meta.Meta, error)
+	PostProcessAfterInitializing(m *meta.Meta) (*meta.Meta, error)
+}
+
 type InitializeComponent interface {
 	Init() error
 }
@@ -22,8 +33,8 @@ type Configuration interface {
 }
 
 type ComponentPostProcessor interface {
-	PostProcessBeforeInitialization(component interface{}, componentName string) error
-	PostProcessAfterInitialization(component interface{}, componentName string) error
+	PostProcessBeforeInitialization(component interface{}) error
+	PostProcessAfterInitialization(component interface{}) error
 }
 
 type CloserComponent interface {

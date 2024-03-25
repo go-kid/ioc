@@ -8,6 +8,7 @@ import (
 	"github.com/go-kid/ioc/scanner/meta"
 	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/reflectx"
+	"github.com/go-kid/ioc/util/sync2"
 	"github.com/samber/lo"
 	"reflect"
 	"sort"
@@ -15,14 +16,25 @@ import (
 )
 
 type defaultFactory struct {
-	registry       registry.Registry
-	configure      configure.Configure
-	injectionRules []InjectionRule
-	postProcessors []defination.ComponentPostProcessor
+	container
+	registry                   registry.Registry
+	configure                  configure.Configure
+	injectionRules             []InjectionRule
+	postInitializingProcessors []defination.ComponentPostInitializingProcessor
+	postProcessors             []defination.ComponentPostProcessor
 }
 
+type FactoryMethod func() (*meta.Meta, error)
+
 func Default() Factory {
-	f := &defaultFactory{}
+	f := &defaultFactory{
+		container: container{
+			metaMaps:              sync2.New[string, *meta.Meta](),
+			singletonObjects:      sync2.New[string, *meta.Meta](),
+			earlySingletonObjects: sync2.New[string, *meta.Meta](),
+			singletonFactories:    sync2.New[string, FactoryMethod](),
+		},
+	}
 	f.AddInjectionRules(
 		new(specifyInjector),
 		new(unSpecifyPtrInjector),
@@ -36,17 +48,16 @@ func Default() Factory {
 	return f
 }
 
-func (f *defaultFactory) PrepareSpecialComponents() error {
-	cppMetas := f.registry.GetComponents(registry.Interface(new(defination.ComponentPostProcessor)))
-	err := f.Initialize(cppMetas...)
-	if err != nil {
-		return err
-	}
-	f.postProcessors = make([]defination.ComponentPostProcessor, len(cppMetas))
-	for i, pm := range cppMetas {
-		syslog.Tracef("register component post processor %s", pm.ID())
-		f.postProcessors[i] = pm.Raw.(defination.ComponentPostProcessor)
-		f.registry.RemoveComponents(pm.Name)
+func (f *defaultFactory) PrepareComponents() error {
+	f.registry.GetComponents()
+	cppMetas := f.registry.GetInternalComponents()
+	for _, cppMeta := range cppMetas {
+		switch cpp := cppMeta.Raw; cpp.(type) {
+		case defination.ComponentPostInitializingProcessor:
+			f.postInitializingProcessors = append(f.postInitializingProcessors, cpp.(defination.ComponentPostInitializingProcessor))
+		case defination.ComponentPostProcessor:
+			f.postProcessors = append(f.postProcessors, cpp.(defination.ComponentPostProcessor))
+		}
 	}
 	return nil
 }
@@ -66,9 +77,9 @@ func (f *defaultFactory) AddInjectionRules(rules ...InjectionRule) {
 	})
 }
 
-func (f *defaultFactory) Initialize(metas ...*meta.Meta) error {
-	for _, m := range metas {
-		err := f.initialize(m)
+func (f *defaultFactory) Initialize() error {
+	for _, m := range f.registry.GetInternalComponents() {
+		_, err := f.getOrInitiateComponentMeta(m)
 		if err != nil {
 			return err
 		}
@@ -76,39 +87,93 @@ func (f *defaultFactory) Initialize(metas ...*meta.Meta) error {
 	return nil
 }
 
-func (f *defaultFactory) initialize(m *meta.Meta) error {
-	syslog.Tracef("start initialize component %s", m.ID())
-	if f.registry.IsComponentInited(m.Name) {
-		syslog.Tracef("component %s is already init, skip initialize", m.ID())
-		return nil
-	}
-	f.registry.ComponentInited(m.Name)
+func (f *defaultFactory) GetComponent(name string) (*meta.Meta, error) {
+	m := f.registry.GetInternalComponentByName(name)
+	return f.getOrInitiateComponentMeta(m)
+}
 
-	syslog.Tracef("start inject dependencies %s", m.ID())
+func (f *defaultFactory) getOrInitiateComponentMeta(m *meta.Meta) (*meta.Meta, error) {
+	// get component from inited components cache
+	if f.registry.IsComponentInited(m.Name) {
+		return f.registry.GetComponentByName(m.Name), nil
+	}
+	// get component from early export components cache
+	if earlyComponent, ok := f.registry.GetEarlyExportComponent(m.Name); ok {
+		return earlyComponent, nil
+	}
+	// get component from singleton component factory cache
+	if factoryMethod, ok := f.registry.GetSingletonFactoryMethod(m.Name); ok {
+		createdComponent, err := factoryMethod()
+		if err != nil {
+			return nil, err
+		}
+		f.registry.EarlyExportComponent(createdComponent)
+		return createdComponent, nil
+	}
+
+	// set to singleton component factory cache
+	f.registry.SetSingletonFactoryMethod(m.Name, func() (*meta.Meta, error) {
+		return f.initializingComponent(m)
+	})
+	// inject dependencies
 	for _, node := range m.GetComponentNodes() {
 		dependencies, err := f.getDependencies(m.ID(), node)
 		if err != nil {
-			return fmt.Errorf("get dependencies failed: %v", err)
+			return nil, err
 		}
-		for _, dependency := range dependencies {
-			err := f.initialize(dependency)
+		var wrappedDependencies = make([]*meta.Meta, len(dependencies))
+		for i, dependency := range dependencies {
+			wrappedDependency, err := f.getOrInitiateComponentMeta(dependency)
 			if err != nil {
-				return err
+				return nil, err
 			}
+			wrappedDependencies[i] = wrappedDependency
 		}
-		err = node.Inject(dependencies)
+		err = node.Inject(wrappedDependencies)
 		if err != nil {
-			return fmt.Errorf("inject dependencies failed: %v", err)
+			return nil, fmt.Errorf("inject dependencies failed: %v", err)
 		}
 	}
-
 	err := f.doInitialize(m)
 	if err != nil {
-		return fmt.Errorf("factory initialize component %s failed: %v", m.ID(), err)
+		return nil, err
 	}
+	err = f.registry.ComponentInited(m.Name)
+	if err != nil {
+		return nil, err
+	}
+	return m, nil
+}
 
-	syslog.Tracef("factory initialized component %s", m.ID())
-	return nil
+func (f *defaultFactory) initializingComponent(m *meta.Meta) (*meta.Meta, error) {
+	for _, processor := range f.postInitializingProcessors {
+		wrappedComponent, err := processor.PostProcessBeforeInitializing(m)
+		if err != nil {
+			return nil, err
+		}
+		if wrappedComponent == nil {
+			return m, nil
+		}
+		m = wrappedComponent
+	}
+	if ic, ok := m.Raw.(defination.InitializingComponent); ok {
+		syslog.Tracef("initializing component %s do initialization", m.ID())
+		err := ic.Initializing()
+		if err != nil {
+			return nil, fmt.Errorf("initializing component %s initialization failed: %s", m.ID(), err)
+		}
+	}
+	for _, processor := range f.postInitializingProcessors {
+		wrappedComponent, err := processor.PostProcessAfterInitializing(m)
+		if err != nil {
+			return nil, err
+		}
+		if wrappedComponent == nil {
+			return m, nil
+		}
+		m = wrappedComponent
+	}
+	return m, nil
 }
 
 func (f *defaultFactory) doInitialize(m *meta.Meta) error {
@@ -118,10 +183,10 @@ func (f *defaultFactory) doInitialize(m *meta.Meta) error {
 	}
 	// init
 	if ic, ok := m.Raw.(defination.InitializeComponent); ok {
-		syslog.Tracef("component %s is InitializeComponent, start do init", m.ID())
+		syslog.Tracef("initialize component %s do init", m.ID())
 		err := ic.Init()
 		if err != nil {
-			return fmt.Errorf("component %s inited failed: %s", m.ID(), err)
+			return fmt.Errorf("initialize component %s do init failed: %s", m.ID(), err)
 		}
 	}
 	err = f.applyPostProcessAfterInitialization(m)
@@ -133,7 +198,7 @@ func (f *defaultFactory) doInitialize(m *meta.Meta) error {
 
 func (f *defaultFactory) applyPostProcessBeforeInitialization(m *meta.Meta) error {
 	for _, processor := range f.postProcessors {
-		err := processor.PostProcessBeforeInitialization(m.Raw, m.Name)
+		err := processor.PostProcessBeforeInitialization(m.Raw)
 		if err != nil {
 			return fmt.Errorf("post processor: %T process before %s init error: %v", processor, m.ID(), err)
 		}
@@ -143,7 +208,7 @@ func (f *defaultFactory) applyPostProcessBeforeInitialization(m *meta.Meta) erro
 
 func (f *defaultFactory) applyPostProcessAfterInitialization(m *meta.Meta) error {
 	for _, processor := range f.postProcessors {
-		err := processor.PostProcessAfterInitialization(m.Raw, m.Name)
+		err := processor.PostProcessAfterInitialization(m.Raw)
 		if err != nil {
 			return fmt.Errorf("post processor: %T process after %s init error: %v", processor, m.ID(), err)
 		}

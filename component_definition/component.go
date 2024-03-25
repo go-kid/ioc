@@ -3,6 +3,7 @@ package component_definition
 import (
 	"fmt"
 	"github.com/go-kid/ioc/definition"
+	"github.com/go-kid/ioc/util/fas"
 	"github.com/go-kid/ioc/util/reflectx"
 	"reflect"
 )
@@ -28,6 +29,7 @@ func GetComponentName(t any) (name string, isAlias bool) {
 	var alias string
 	name, alias = getComponentNameWithAlias(t)
 	isAlias = alias != ""
+	name = fas.TernaryOp(isAlias, alias, name)
 	return
 }
 

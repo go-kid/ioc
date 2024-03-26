@@ -1,4 +1,4 @@
-package registry
+package factory
 
 var _registry = NewRegistry()
 

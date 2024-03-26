@@ -2,6 +2,7 @@ package component_definition
 
 import (
 	"fmt"
+	"strings"
 )
 
 type Holder struct {
@@ -47,4 +48,13 @@ func (s *Holder) Walk(f func(source *Holder) error) error {
 		n = n.Holder
 	}
 	return nil
+}
+
+func (s *Holder) Stack() string {
+	var embedSb = strings.Builder{}
+	_ = s.Walk(func(source *Holder) error {
+		embedSb.WriteString("\n depended on " + source.ID())
+		return nil
+	})
+	return embedSb.String()
 }

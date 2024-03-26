@@ -2,6 +2,7 @@ package component_definition
 
 import (
 	"fmt"
+	"github.com/go-kid/ioc/util/reflectx"
 	"github.com/go-kid/ioc/util/sync2"
 	"reflect"
 )
@@ -13,33 +14,14 @@ const (
 	NodeTypeComponent     NodeType = "component"
 )
 
-type Base struct {
-	Type          reflect.Type
-	Value         reflect.Value
-	OriginAddress uintptr
-}
-
-func NewBase(c any) *Base {
-	v := reflect.ValueOf(c)
-	return &Base{
-		Type:          reflect.TypeOf(c),
-		Value:         v,
-		OriginAddress: v.Pointer(),
-	}
-}
-
-func (b *Base) Update(c any) {
-	b.Type = reflect.TypeOf(c)
-	b.Value = reflect.ValueOf(c)
-}
-
 type Meta struct {
 	*Base
 	id      string
 	Name    string
 	IsAlias bool
 
-	Raw interface{}
+	Raw    interface{}
+	Fields []*Field
 
 	dependedOnSet *sync2.Map[string, struct{}]
 	DependedOn    []*Meta
@@ -59,23 +41,26 @@ func NewMeta(c any) *Meta {
 		dependedOnSet: sync2.New[string, struct{}](),
 		nodeGroup:     make(map[NodeType][]*Node),
 	}
+	m.scanFields(NewHolder(m))
 	return m
-}
-
-func (m *Meta) OriginID() string {
-	return fmt.Sprintf("%s(0x%x)", m.id, m.OriginAddress)
 }
 
 func (m *Meta) ID() string {
 	return fmt.Sprintf("%s(0x%x)", m.id, m.Value.Pointer())
 }
 
+func (m *Meta) IsSelf(o *Meta) bool {
+	return m.Value.Pointer() == o.originAddress
+}
+
 func (m *Meta) dependOn(parent *Meta) {
 	m.dependedOnSet.LoadOrStore(parent.ID(), struct{}{})
 }
 
-func (m *Meta) SetNodes(t NodeType, nodes ...*Node) {
-	m.nodeGroup[t] = append(m.nodeGroup[t], nodes...)
+func (m *Meta) SetNodes(nodes ...*Node) {
+	for _, node := range nodes {
+		m.nodeGroup[node.NodeType] = append(m.nodeGroup[node.NodeType], node)
+	}
 }
 
 func (m *Meta) GetNodes(t NodeType) []*Node {
@@ -96,4 +81,28 @@ func (m *Meta) GetAllNodes() []*Node {
 		nodes = append(nodes, groupNodes...)
 	}
 	return nodes
+}
+
+func (m *Meta) scanFields(holder *Holder) {
+	_ = reflectx.ForEachFieldV2(holder.Type, holder.Value, false, func(field reflect.StructField, value reflect.Value) error {
+		var base = &Base{
+			Type:  field.Type,
+			Value: value,
+		}
+		//if is embed struct, find inside
+		if field.Anonymous && field.Tag == "" && field.Type.Kind() == reflect.Struct {
+			m.scanFields(NewEmbedHolder(base, holder))
+			return nil
+		}
+
+		if !value.CanSet() {
+			return nil
+		}
+		m.Fields = append(m.Fields, &Field{
+			Base:        base,
+			Holder:      holder,
+			StructField: field,
+		})
+		return nil
+	})
 }

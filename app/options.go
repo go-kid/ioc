@@ -5,16 +5,14 @@ import (
 	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/configure/loader"
 	"github.com/go-kid/ioc/factory"
-	"github.com/go-kid/ioc/registry"
-	"github.com/go-kid/ioc/scanner"
 	"github.com/go-kid/ioc/syslog"
 )
 
 type SettingOption func(s *App)
 
-func SetRegistry(r registry.SingletonRegistry) SettingOption {
+func SetRegistry(r factory.SingletonRegistry) SettingOption {
 	return func(s *App) {
-		s.SingletonRegistry = r
+		s.registry = r
 	}
 }
 
@@ -22,8 +20,14 @@ func SetComponents(cs ...any) SettingOption {
 	return func(s *App) {
 		for _, c := range cs {
 			name, _ := component_definition.GetComponentName(c)
-			s.SingletonRegistry.RegisterSingleton(name, c)
+			s.registry.RegisterSingleton(name, c)
 		}
+	}
+}
+
+func SetConfigure(c configure.Configure) SettingOption {
+	return func(s *App) {
+		s.Configure = c
 	}
 }
 
@@ -69,17 +73,17 @@ func DisableComponentInitialization() SettingOption {
 	}
 }
 
-func SetScanner(sc scanner.Scanner) SettingOption {
-	return func(s *App) {
-		s.Scanner = sc
-	}
-}
+//func SetScanner(sc scanner.Scanner) SettingOption {
+//	return func(s *App) {
+//		s.Scanner = sc
+//	}
+//}
 
-func AddScanPolicies(policies ...scanner.ScanPolicy) SettingOption {
-	return func(s *App) {
-		s.Scanner.AddScanPolicies(policies...)
-	}
-}
+//func AddScanPolicies(policies ...scanner.ScanPolicy) SettingOption {
+//	return func(s *App) {
+//		s.Scanner.AddScanPolicies(policies...)
+//	}
+//}
 
 func AddPopulateProcessors(processors ...configure.PopulateProcessor) SettingOption {
 	return func(s *App) {

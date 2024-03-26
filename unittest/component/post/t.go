@@ -57,9 +57,6 @@ func (s *serviceAAOP) SayName() {
 	fmt.Println("after say")
 }
 
-func (s *serviceAAOP) Primary() {
-}
-
 type postProcessor struct {
 }
 
@@ -78,7 +75,9 @@ func main() {
 	a := &ServiceA{Name: "service A"}
 	b := &ServiceB{Name: "service B"}
 	c := &ServiceC{Name: "service C"}
-	run, err := ioc.Run(app.LogTrace, app.SetComponents(a, b, c, &postProcessor{}))
+	app.Settings(app.LogTrace)
+	ioc.Register(&postProcessor{})
+	run, err := ioc.Run(app.SetComponents(a, b, c))
 	if err != nil {
 		panic(err)
 	}

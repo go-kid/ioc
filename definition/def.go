@@ -4,11 +4,6 @@ type InitializingComponent interface {
 	AfterPropertiesSet() error
 }
 
-type ComponentPostProcessor interface {
-	PostProcessBeforeInitialization(component any, componentName string) (any, error)
-	PostProcessAfterInitialization(component any, componentName string) (any, error)
-}
-
 type InitializeComponent interface {
 	Init() error
 }

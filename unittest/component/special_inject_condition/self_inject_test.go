@@ -2,7 +2,7 @@ package special_inject_condition
 
 import (
 	"github.com/go-kid/ioc/app"
-	"github.com/go-kid/ioc/registry"
+	"github.com/go-kid/ioc/factory"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -97,6 +97,6 @@ func TestSelfInject(t *testing.T) {
 }
 
 func RunTest(ops ...app.SettingOption) error {
-	s := app.NewApp(append([]app.SettingOption{app.SetRegistry(registry.NewRegistry())}, ops...)...)
+	s := app.NewApp(append([]app.SettingOption{app.SetRegistry(factory.NewRegistry())}, ops...)...)
 	return s.Run()
 }

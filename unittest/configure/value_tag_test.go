@@ -5,7 +5,7 @@ import (
 	"github.com/go-kid/ioc"
 	"github.com/go-kid/ioc/app"
 	"github.com/go-kid/ioc/configure/loader"
-	"github.com/go-kid/ioc/registry"
+	"github.com/go-kid/ioc/factory"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -203,7 +203,7 @@ test:
 			}
 			t2 := &T{}
 			err := app.NewApp(
-				app.SetRegistry(registry.NewRegistry()),
+				app.SetRegistry(factory.NewRegistry()),
 				app.SetConfigLoader(loader.NewRawLoader(config)),
 				app.SetComponents(t2)).Run()
 			assert.Error(t, err)
@@ -261,7 +261,7 @@ func TestValueTagValidate(t *testing.T) {
 			}
 			t2 := &T{}
 			err := app.NewApp(
-				app.SetRegistry(registry.NewRegistry()),
+				app.SetRegistry(factory.NewRegistry()),
 				app.SetComponents(t2)).Run()
 			assert.Error(t, err)
 		})
@@ -271,7 +271,7 @@ func TestValueTagValidate(t *testing.T) {
 			}
 			t2 := &T{}
 			err := app.NewApp(
-				app.SetRegistry(registry.NewRegistry()),
+				app.SetRegistry(factory.NewRegistry()),
 				app.SetComponents(t2)).Run()
 			assert.Error(t, err)
 		})
@@ -281,7 +281,7 @@ func TestValueTagValidate(t *testing.T) {
 			}
 			t2 := &T{}
 			err := app.NewApp(
-				app.SetRegistry(registry.NewRegistry()),
+				app.SetRegistry(factory.NewRegistry()),
 				app.SetComponents(t2)).Run()
 			assert.Error(t, err)
 		})

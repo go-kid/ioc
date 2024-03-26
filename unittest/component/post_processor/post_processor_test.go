@@ -40,7 +40,7 @@ func TestPostProcessor(t *testing.T) {
 	assert.Equal(t, false, c.BeforeInitFlag)
 	assert.Equal(t, false, c.InitFlag)
 	assert.Equal(t, false, c.AfterInitFlag)
-	ioc.RunTest(t, app.SetComponents(
+	ioc.RunTest(t, app.LogTrace, app.SetComponents(
 		c, &PostProcessor{},
 	))
 	assert.Equal(t, true, c.BeforeInitFlag)

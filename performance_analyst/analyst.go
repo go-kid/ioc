@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/go-kid/ioc"
 	"github.com/go-kid/ioc/app"
-	"github.com/go-kid/ioc/registry"
 	"log"
 	"os"
 	"os/exec"
@@ -86,7 +85,7 @@ func main() {
 	err := Analyst(1, "cpu", func() error {
 		_, err := ioc.Run(
 			app.LogError,
-			app.SetRegistry(registry.NewRegistry()),
+			app.SetRegistry(factory.NewRegistry()),
 			app.SetComponents(comps...),
 		)
 		//defer run.Close()

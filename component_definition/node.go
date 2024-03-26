@@ -3,29 +3,26 @@ package component_definition
 import (
 	"fmt"
 	"reflect"
-	"strings"
 )
 
 type Node struct {
-	*Base
-	Holder  *Holder
-	Field   reflect.StructField
-	Tag     string
-	TagVal  string
-	Injects []*Meta
-	args    TagArg
+	*Field
+	NodeType NodeType
+	Tag      string
+	TagVal   string
+	Injects  []*Meta
+	args     TagArg
 }
 
-func NewNode(base *Base, holder *Holder, field reflect.StructField, tag, tagVal string) *Node {
+func NewNode(field *Field, nodeType NodeType, tag, tagVal string) *Node {
 	parsedTagVal, arg := defaultNodeArgs().Parse(tagVal)
 	return &Node{
-		Base:    base,
-		Holder:  holder,
-		Field:   field,
-		Tag:     tag,
-		TagVal:  parsedTagVal,
-		Injects: nil,
-		args:    arg,
+		Field:    field,
+		NodeType: nodeType,
+		Tag:      tag,
+		TagVal:   parsedTagVal,
+		Injects:  nil,
+		args:     arg,
 	}
 }
 
@@ -46,7 +43,11 @@ func filter(metas []*Meta, f func(m *Meta) bool) []*Meta {
 }
 
 func (n *Node) ID() string {
-	return fmt.Sprintf("%s.Field(%s).Tag(%s)", n.Holder.ID(), n.Field.Name, n.Tag)
+	return fmt.Sprintf("%s.Tag(%s).Type(%s)", n.Field.ID(), n.Tag, n.NodeType)
+}
+
+func (n *Node) String() string {
+	return n.ID()
 }
 
 func (n *Node) Inject(metas []*Meta) error {
@@ -60,16 +61,11 @@ func (n *Node) Inject(metas []*Meta) error {
 
 	//remove self-inject
 	metas = filter(metas, func(m *Meta) bool {
-		return m.ID() != n.Holder.Meta.OriginID()
+		return !n.Holder.Meta.IsSelf(m)
 	})
 	if len(metas) == 0 {
 		if isRequired {
-			var embedSb = strings.Builder{}
-			_ = n.Holder.Walk(func(source *Holder) error {
-				embedSb.WriteString("\n depended on " + source.ID())
-				return nil
-			})
-			return fmt.Errorf("field %s %s: self inject not allowed", n.ID(), embedSb.String())
+			return fmt.Errorf("field %s %s: self inject not allowed", n.ID(), n.Holder.Stack())
 		}
 		return nil
 	}

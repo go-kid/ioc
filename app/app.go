@@ -7,58 +7,53 @@ import (
 	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/definition"
 	"github.com/go-kid/ioc/factory"
-	"github.com/go-kid/ioc/registry"
-	"github.com/go-kid/ioc/scanner"
 	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/reflectx"
-	"github.com/samber/lo"
 	"sort"
 	"sync"
 )
 
 type App struct {
 	configure.Configure
-	registry.SingletonRegistry
 	factory.Factory
-	scanner.Scanner
+	registry                factory.SingletonRegistry
 	enableComponentInit     bool
 	enableApplicationRunner bool
+	ApplicationRunners      []definition.ApplicationRunner `wire:",required=false"`
+	CloserComponents        []definition.CloserComponent   `wire:",required=false"`
 }
 
 func NewApp(ops ...SettingOption) *App {
 	var s = &App{
 		Configure:               configure.Default(),
-		SingletonRegistry:       registry.GlobalRegistry(),
+		registry:                factory.GlobalRegistry(),
 		Factory:                 factory.Default(),
-		Scanner:                 scanner.Default(),
 		enableComponentInit:     true,
 		enableApplicationRunner: true,
 	}
-	for _, op := range ops {
+	for _, op := range append(ops, globalOptions...) {
 		op(s)
 	}
-	//Options(ops...)(s)
-	//SetComponents(s)
-	err := s.validate()
+	err := s.initiate()
 	if err != nil {
 		syslog.Fatal(err)
 	}
 	return s
 }
 
-func (s *App) validate() error {
+func (s *App) initiate() error {
 	if s.Configure == nil {
 		return errors.New("missing configure")
 	}
-	if s.SingletonRegistry == nil {
+	if s.registry == nil {
 		return errors.New("missing registry")
 	}
 	if s.Factory == nil {
 		return errors.New("missing factory")
 	}
-	if s.Scanner == nil {
-		return errors.New("missing scanner")
-	}
+	s.Factory.SetRegistry(s.registry)
+	s.Factory.SetConfigure(s.Configure)
+	s.registry.RegisterSingleton("ApplicationContext", s)
 	return nil
 }
 
@@ -118,9 +113,6 @@ func (s *App) initConfiguration() error {
 }
 
 func (s *App) initFactory() error {
-	s.Factory.SetRegistry(s.SingletonRegistry)
-	s.Factory.SetConfigure(s.Configure)
-	s.Factory.SetScanner(s.Scanner)
 	err := s.Factory.PrepareComponents()
 	if err != nil {
 		return fmt.Errorf("prepare components error: %v", err)
@@ -129,7 +121,7 @@ func (s *App) initFactory() error {
 }
 
 func (s *App) wire() error {
-	err := s.Factory.Initialize()
+	err := s.Factory.Refresh()
 	if err != nil {
 		return fmt.Errorf("initialize component failed: %v", err)
 	}
@@ -137,22 +129,12 @@ func (s *App) wire() error {
 }
 
 func (s *App) callRunners() error {
-	if !s.enableApplicationRunner {
-		return nil
-	}
-	components := s.Factory.GetComponents(factory.Interface(new(definition.ApplicationRunner)))
-	//err := s.Factory.Initialize(metas...)
-	//if err != nil {
-	//	return fmt.Errorf("initialize application runners failed: %v", err)
-	//}
-	var runners = lo.Map(components, func(item any, _ int) definition.ApplicationRunner {
-		return item.(definition.ApplicationRunner)
-	})
+	runners := s.ApplicationRunners
 	if len(runners) == 0 {
-		syslog.Trace("find 0 runner(s), skip")
+		syslog.Trace("find 0 application runner(s), skip")
 		return nil
 	}
-	syslog.Tracef("find %d runner(s), start sort", len(runners))
+	syslog.Tracef("find %d application runner(s), start sort", len(runners))
 	sort.Slice(runners, func(i, j int) bool {
 		return runners[i].Order() < runners[j].Order()
 	})
@@ -164,20 +146,20 @@ func (s *App) callRunners() error {
 			return fmt.Errorf("start runner %s failed: %v", reflectx.Id(runner), err)
 		}
 	}
+	s.ApplicationRunners = nil
 	return nil
 }
 
 func (s *App) Close() {
-	components := s.Factory.GetComponents(factory.Interface(new(definition.CloserComponent)))
 	wg := sync.WaitGroup{}
-	wg.Add(len(components))
-	for _, m := range components {
+	wg.Add(len(s.CloserComponents))
+	for _, m := range s.CloserComponents {
 		go func(m definition.CloserComponent) {
 			defer wg.Done()
 			if err := m.Close(); err != nil {
 				syslog.Errorf("Error closing %s", component_definition.ComponentId(m))
 			}
-		}(m.(definition.CloserComponent))
+		}(m)
 	}
 	wg.Wait()
 	syslog.Infof("close all closer components")

@@ -3,7 +3,7 @@ package special_inject_condition
 import (
 	"github.com/go-kid/ioc"
 	"github.com/go-kid/ioc/app"
-	"github.com/go-kid/ioc/registry"
+	"github.com/go-kid/ioc/factory"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -106,7 +106,7 @@ func TestWireQualifierComponent(t *testing.T) {
 			Comp ITest `wire:"test33,qualifier=group1"`
 		}
 		var tt = &T{}
-		newApp := app.NewApp(app.SetRegistry(registry.NewRegistry()), app.SetComponents(data...), app.SetComponents(tt))
+		newApp := app.NewApp(app.SetRegistry(factory.NewRegistry()), app.SetComponents(data...), app.SetComponents(tt))
 		err := newApp.Run()
 		assert.Error(t, err)
 	})
@@ -115,7 +115,7 @@ func TestWireQualifierComponent(t *testing.T) {
 			Comp ITest `wire:",qualifier=group3"`
 		}
 		var tt = &T{}
-		newApp := app.NewApp(app.SetRegistry(registry.NewRegistry()), app.SetComponents(data...), app.SetComponents(tt))
+		newApp := app.NewApp(app.SetRegistry(factory.NewRegistry()), app.SetComponents(data...), app.SetComponents(tt))
 		err := newApp.Run()
 		assert.Error(t, err)
 	})
@@ -124,7 +124,7 @@ func TestWireQualifierComponent(t *testing.T) {
 			Comp []ITest `wire:",qualifier=group3"`
 		}
 		var tt = &T{}
-		newApp := app.NewApp(app.SetRegistry(registry.NewRegistry()), app.SetComponents(data...), app.SetComponents(tt))
+		newApp := app.NewApp(app.SetRegistry(factory.NewRegistry()), app.SetComponents(data...), app.SetComponents(tt))
 		err := newApp.Run()
 		assert.Error(t, err)
 	})

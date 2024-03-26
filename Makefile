@@ -1,3 +1,6 @@
 run_unittest:
 	go test ./unittest/...
 	go test ./util/...
+
+scan_initiate:
+	kioc scan -o initiate_helper

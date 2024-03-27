@@ -118,7 +118,7 @@ func TestComponentLifecycle(t *testing.T) {
 				},
 			}})
 		}
-		app2 := ioc.RunTest(t, app.SetComponents(comps...))
+		app2 := ioc.RunTest(t, app.LogTrace, app.SetComponents(comps...))
 		app2.Close()
 		for _, comp := range comps {
 			assert.Equal(t, 2, comp.(*CloserComponent).State)

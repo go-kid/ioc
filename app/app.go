@@ -152,6 +152,8 @@ func (s *App) callRunners() error {
 
 func (s *App) Close() {
 	wg := sync.WaitGroup{}
+	fmt.Println(len(s.Factory.GetComponents(factory.Interface(new(definition.CloserComponent)))))
+	fmt.Println(len(s.CloserComponents))
 	wg.Add(len(s.CloserComponents))
 	for _, m := range s.CloserComponents {
 		go func(m definition.CloserComponent) {

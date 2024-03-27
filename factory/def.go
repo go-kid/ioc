@@ -14,7 +14,7 @@ type Factory interface {
 	AddInjectionRules(rules ...InjectionRule)
 	PrepareComponents() error
 	Refresh() error
-	GetComponents(opts ...Option) []any
+	GetComponents(opts ...Option) ([]any, error)
 	GetComponentByName(name string) (any, error)
 	GetDefinitionRegistry() DefinitionRegistry
 }
@@ -41,26 +41,22 @@ type DefinitionRegistry interface {
 }
 
 type SingletonComponentRegistry interface {
-	ComponentInitialized(meta *component_definition.Meta)
+	AddSingleton(name string, meta any)
 	AddSingletonFactory(name string, method SingletonFactory)
-	GetSingletonFactory(name string) (SingletonFactory, bool)
-	EarlyExportComponent(m *component_definition.Meta)
-	GetEarlyExportComponent(name string) (*component_definition.Meta, bool)
-	GetComponentDefinitions(opts ...Option) []*component_definition.Meta
-	GetComponentDefinitionByName(name string) (*component_definition.Meta, bool)
-	GetComponent(name string) (*component_definition.Meta, error)
-	BeforeSingletonCreation(name string)
+	GetSingletonByFactory(name string, factory SingletonFactory) (any, error)
+	GetSingleton(name string) (any, error)
+	BeforeSingletonCreation(name string) error
 	IsSingletonCurrentlyInCreation(name string) bool
 	RemoveComponents(name string)
 }
 
 type SingletonFactory interface {
-	GetComponent() (*component_definition.Meta, error)
+	GetComponent() (any, error)
 }
 
-type FuncSingletonFactory func() (*component_definition.Meta, error)
+type FuncSingletonFactory func() (any, error)
 
-func (d FuncSingletonFactory) GetComponent() (*component_definition.Meta, error) {
+func (d FuncSingletonFactory) GetComponent() (any, error) {
 	return d()
 }
 

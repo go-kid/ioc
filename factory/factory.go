@@ -26,14 +26,6 @@ type defaultFactory struct {
 	injectionRules                            []InjectionRule
 }
 
-func (f *defaultFactory) GetComponents(opts ...Option) []any {
-	var results []any
-	for _, meta := range f.singletonComponentRegistry.GetComponentDefinitions(opts...) {
-		results = append(results, meta.Raw)
-	}
-	return results
-}
-
 func Default() Factory {
 	f := &defaultFactory{
 		definitionRegistry:         DefaultDefinitionRegistry(),
@@ -81,11 +73,9 @@ func (f *defaultFactory) PrepareComponents() error {
 		singletons[name] = singleton
 	}
 	for name, singleton := range singletons {
-		for _, processor := range f.definitionRegistryPostProcessors {
-			err := processor.PostProcessDefinitionRegistry(f.definitionRegistry, singleton, name)
-			if err != nil {
-				return err
-			}
+		err := f.postProcessDefinitionRegistry(singleton, name)
+		if err != nil {
+			return err
 		}
 	}
 	//syslog.Trace("start populating properties...")
@@ -107,6 +97,16 @@ func (f *defaultFactory) PrepareComponents() error {
 	return nil
 }
 
+func (f *defaultFactory) postProcessDefinitionRegistry(c any, name string) error {
+	for _, processor := range f.definitionRegistryPostProcessors {
+		err := processor.PostProcessDefinitionRegistry(f.definitionRegistry, c, name)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (f *defaultFactory) SetRegistry(r SingletonRegistry) {
 	f.singletonRegistry = r
 }
@@ -124,7 +124,7 @@ func (f *defaultFactory) AddInjectionRules(rules ...InjectionRule) {
 
 func (f *defaultFactory) Refresh() error {
 	for _, s := range f.definitionRegistry.GetMetas() {
-		_, err := f.GetComponent(s.Name)
+		_, err := f.getComponent(s.Name)
 		if err != nil {
 			return err
 		}
@@ -132,39 +132,91 @@ func (f *defaultFactory) Refresh() error {
 	return nil
 }
 
-func (f *defaultFactory) GetComponentByName(name string) (any, error) {
-	meta, err := f.singletonComponentRegistry.GetComponent(name)
-	if err != nil {
-		return nil, err
-	}
-	if meta == nil {
-		meta, err = f.getSingleton(name)
+func (f *defaultFactory) GetComponents(opts ...Option) ([]any, error) {
+	var results []any
+	metas := f.definitionRegistry.GetMetas(opts...)
+	for _, meta := range metas {
+		c, err := f.GetComponentByName(meta.Name)
 		if err != nil {
 			return nil, err
 		}
+		results = append(results, c)
 	}
-	return meta.Raw, nil
+	return results, nil
 }
 
-func (f *defaultFactory) GetComponent(name string) (*component_definition.Meta, error) {
-	meta, err := f.singletonComponentRegistry.GetComponent(name)
-	if meta != nil || err != nil {
-		return meta, err
-	}
-	meta, err = f.getSingleton(name)
-	if err != nil {
-		return nil, err
-	}
-	return meta, nil
-}
-
-func (f *defaultFactory) getSingleton(name string) (*component_definition.Meta, error) {
-	f.singletonComponentRegistry.BeforeSingletonCreation(name)
-	component, err := f.createComponent(name)
+func (f *defaultFactory) GetComponentByName(name string) (any, error) {
+	component, err := f.getComponent(name)
 	if err != nil {
 		return nil, err
 	}
 	return component, nil
+}
+
+func (f *defaultFactory) getComponent(name string) (any, error) {
+	var component any
+	singleton, err := f.singletonComponentRegistry.GetSingleton(name)
+	if err != nil {
+		return nil, err
+	}
+	if singleton != nil {
+		if f.singletonComponentRegistry.IsSingletonCurrentlyInCreation(name) {
+			syslog.Debugf("Returning eagerly cached instance of singleton '%s' that is not fully initialized yet - a consequence of a circular reference", name)
+		} else {
+			syslog.Debugf("Returning cached instance of singleton '%s'", name)
+		}
+		component = singleton
+	} else {
+		meta := f.definitionRegistry.GetMetaByName(name)
+		dependsOn, err := f.getDependsOn(meta)
+		if err != nil {
+			return nil, err
+		}
+		for _, dep := range dependsOn {
+			_, err = f.getComponent(dep)
+			if err != nil {
+				return nil, err
+			}
+		}
+		singleton, err := f.singletonComponentRegistry.GetSingletonByFactory(name, FuncSingletonFactory(func() (any, error) {
+			return f.createComponent2(name, meta)
+		}))
+		if err != nil {
+			return nil, err
+		}
+		component = singleton
+	}
+	return component, nil
+}
+
+func (f *defaultFactory) createComponent2(name string, meta *component_definition.Meta) (any, error) {
+	component, err := f.resolveBeforeInstantiation(name, meta)
+	if err != nil {
+		return nil, err
+	}
+	if component != nil {
+		return component, nil
+	}
+	component = f.doCreateComponent(name, meta)
+	return component, nil
+}
+
+func (f *defaultFactory) doCreateComponent(name string, meta *component_definition.Meta) any {
+	return nil
+}
+
+func (f *defaultFactory) getDependsOn(meta *component_definition.Meta) ([]string, error) {
+	var dependsOn []string
+	for _, node := range meta.GetComponentNodes() {
+		dependencies, err := f.getDependencies(meta.ID(), node)
+		if err != nil {
+			return nil, err
+		}
+		for _, dependency := range dependencies {
+			dependsOn = append(dependsOn, dependency.Name)
+		}
+	}
+	return dependsOn, nil
 }
 
 func (f *defaultFactory) createComponent(name string) (*component_definition.Meta, error) {
@@ -189,6 +241,11 @@ func (f *defaultFactory) populateComponent(meta *component_definition.Meta) erro
 			return err
 		}
 	}
+	var err error
+	meta, err = f.doInitialization(meta)
+	if err != nil {
+		return err
+	}
 	for _, node := range meta.GetComponentNodes() {
 		dependencies, err := f.getDependencies(meta.ID(), node)
 		if err != nil {
@@ -196,7 +253,7 @@ func (f *defaultFactory) populateComponent(meta *component_definition.Meta) erro
 		}
 		var injects []*component_definition.Meta
 		for _, dependency := range dependencies {
-			component, err := f.GetComponent(dependency.Name)
+			component, err := f.getComponent(dependency.Name)
 			if err != nil {
 				return err
 			}
@@ -229,28 +286,51 @@ func (f *defaultFactory) populateComponent(meta *component_definition.Meta) erro
 	return nil
 }
 
-func (f *defaultFactory) componentSingletonFactoryMethod(m *component_definition.Meta) SingletonFactory {
-	return FuncSingletonFactory(func() (*component_definition.Meta, error) {
-		var wrappedComponent, componentName = m.Raw, m.Name
-		var err error
-		wrappedComponent, err = f.applyPostProcessBeforeInitialization(wrappedComponent, componentName)
+func (f *defaultFactory) resolveBeforeInstantiation(componentName string, m *component_definition.Meta) (any, error) {
+	var wrappedComponent = m.Raw
+	var err error
+	wrappedComponent, err = f.applyPostProcessBeforeInitialization(wrappedComponent, componentName)
+	if err != nil {
+		return nil, err
+	}
+	if ic, ok := wrappedComponent.(definition.InitializingComponent); ok {
+		syslog.Tracef("initializing component %s do initialization", m.ID())
+		err := ic.AfterPropertiesSet()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("initializing component %s initialization failed: %s", m.ID(), err)
 		}
-		if ic, ok := wrappedComponent.(definition.InitializingComponent); ok {
-			syslog.Tracef("initializing component %s do initialization", m.ID())
-			err := ic.AfterPropertiesSet()
-			if err != nil {
-				return nil, fmt.Errorf("initializing component %s initialization failed: %s", m.ID(), err)
-			}
-		}
-		wrappedComponent, err = f.applyPostProcessAfterInitialization(wrappedComponent, componentName)
+	}
+	wrappedComponent, err = f.applyPostProcessAfterInitialization(wrappedComponent, componentName)
+	if err != nil {
+		return nil, err
+	}
+	//m.Base.Update(wrappedComponent)
+	return m, nil
+}
+
+func (f *defaultFactory) doInitialization(m *component_definition.Meta) (*component_definition.Meta, error) {
+	var wrappedComponent, componentName = m.Raw, m.Name
+	var err error
+	wrappedComponent, err = f.applyPostProcessBeforeInitialization(wrappedComponent, componentName)
+	if err != nil {
+		return nil, err
+	}
+	if ic, ok := wrappedComponent.(definition.InitializingComponent); ok {
+		syslog.Tracef("initializing component %s do initialization", m.ID())
+		err := ic.AfterPropertiesSet()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("initializing component %s initialization failed: %s", m.ID(), err)
 		}
-		m.Base.Update(wrappedComponent)
-		return m, nil
-	})
+	}
+	wrappedComponent, err = f.applyPostProcessAfterInitialization(wrappedComponent, componentName)
+	if err != nil {
+		return nil, err
+	}
+	err = f.postProcessDefinitionRegistry(wrappedComponent, componentName)
+	if err != nil {
+		return nil, err
+	}
+	return
 }
 
 func (f *defaultFactory) applyPostProcessBeforeInitialization(c any, name string) (any, error) {

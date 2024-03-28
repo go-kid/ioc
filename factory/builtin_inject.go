@@ -1,9 +1,9 @@
 package factory
 
 import (
-	"github.com/go-kid/ioc/defination"
+	"github.com/go-kid/ioc/component_definition"
+	"github.com/go-kid/ioc/definition"
 	"github.com/go-kid/ioc/registry"
-	"github.com/go-kid/ioc/scanner/meta"
 	"reflect"
 )
 
@@ -32,14 +32,14 @@ func (b *specifyInjector) RuleName() string {
 	return "Any_Type_With_Specifying_Name"
 }
 
-func (b *specifyInjector) Condition(d *meta.Node) bool {
-	return d.Tag == defination.InjectTag && d.TagVal != "" && //ruleTagNotEmpty
+func (b *specifyInjector) Condition(d *component_definition.Node) bool {
+	return d.Tag == definition.InjectTag && d.TagVal != "" && //ruleTagNotEmpty
 		(d.Type.Kind() == reflect.Ptr || d.Type.Kind() == reflect.Interface)
 }
 
-func (b *specifyInjector) Candidates(r registry.Registry, d *meta.Node) ([]*meta.Meta, error) {
+func (b *specifyInjector) Candidates(r registry.Registry, d *component_definition.Node) ([]*component_definition.Meta, error) {
 	dm := r.GetComponentByName(d.TagVal)
-	return []*meta.Meta{dm}, nil
+	return []*component_definition.Meta{dm}, nil
 }
 
 /*
@@ -59,12 +59,12 @@ func (b *unSpecifyPtrInjector) RuleName() string {
 	return "Pointer_Without_Specifying_Name"
 }
 
-func (b *unSpecifyPtrInjector) Condition(d *meta.Node) bool {
-	return d.Tag == defination.InjectTag && d.TagVal == "" && //ruleEmptyTag
+func (b *unSpecifyPtrInjector) Condition(d *component_definition.Node) bool {
+	return d.Tag == definition.InjectTag && d.TagVal == "" && //ruleEmptyTag
 		d.Type.Kind() == reflect.Ptr //rulePointer
 }
 
-func (b *unSpecifyPtrInjector) Candidates(r registry.Registry, d *meta.Node) ([]*meta.Meta, error) {
+func (b *unSpecifyPtrInjector) Candidates(r registry.Registry, d *component_definition.Node) ([]*component_definition.Meta, error) {
 	metas := r.GetComponents(registry.Type(d.Type))
 	return metas, nil
 }
@@ -86,12 +86,12 @@ func (s *unSpecifyPtrSliceInjector) RuleName() string {
 	return "Pointer_Slice"
 }
 
-func (s *unSpecifyPtrSliceInjector) Condition(d *meta.Node) bool {
-	return d.Tag == defination.InjectTag && d.TagVal == "" && //ruleEmptyTag
+func (s *unSpecifyPtrSliceInjector) Condition(d *component_definition.Node) bool {
+	return d.Tag == definition.InjectTag && d.TagVal == "" && //ruleEmptyTag
 		d.Type.Kind() == reflect.Slice && d.Type.Elem().Kind() == reflect.Pointer //ruleSlicePtr
 }
 
-func (s *unSpecifyPtrSliceInjector) Candidates(r registry.Registry, d *meta.Node) ([]*meta.Meta, error) {
+func (s *unSpecifyPtrSliceInjector) Candidates(r registry.Registry, d *component_definition.Node) ([]*component_definition.Meta, error) {
 	metas := r.GetComponents(registry.Type(d.Type.Elem()))
 	return metas, nil
 }
@@ -114,12 +114,12 @@ func (i *unSpecifyInterfaceInjector) RuleName() string {
 	return "Interface_Without_Specifying_Name"
 }
 
-func (i *unSpecifyInterfaceInjector) Condition(d *meta.Node) bool {
-	return d.Tag == defination.InjectTag && d.TagVal == "" && //ruleEmptyTag
+func (i *unSpecifyInterfaceInjector) Condition(d *component_definition.Node) bool {
+	return d.Tag == definition.InjectTag && d.TagVal == "" && //ruleEmptyTag
 		d.Type.Kind() == reflect.Interface //ruleInterface
 }
 
-func (i *unSpecifyInterfaceInjector) Candidates(r registry.Registry, d *meta.Node) ([]*meta.Meta, error) {
+func (i *unSpecifyInterfaceInjector) Candidates(r registry.Registry, d *component_definition.Node) ([]*component_definition.Meta, error) {
 	metas := r.GetComponents(registry.InterfaceType(d.Type))
 	return metas, nil
 }
@@ -141,12 +141,12 @@ func (s *unSpecifyInterfaceSliceInjector) RuleName() string {
 	return "Interface_Slice"
 }
 
-func (s *unSpecifyInterfaceSliceInjector) Condition(d *meta.Node) bool {
-	return d.Tag == defination.InjectTag && d.TagVal == "" && //ruleEmptyTag
+func (s *unSpecifyInterfaceSliceInjector) Condition(d *component_definition.Node) bool {
+	return d.Tag == definition.InjectTag && d.TagVal == "" && //ruleEmptyTag
 		d.Type.Kind() == reflect.Slice && d.Type.Elem().Kind() == reflect.Interface //ruleSliceInterface
 }
 
-func (s *unSpecifyInterfaceSliceInjector) Candidates(r registry.Registry, d *meta.Node) ([]*meta.Meta, error) {
+func (s *unSpecifyInterfaceSliceInjector) Candidates(r registry.Registry, d *component_definition.Node) ([]*component_definition.Meta, error) {
 	metas := r.GetComponents(registry.InterfaceType(d.Type.Elem()))
 	return metas, nil
 }

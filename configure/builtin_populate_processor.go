@@ -3,8 +3,8 @@ package configure
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/go-kid/ioc/defination"
-	"github.com/go-kid/ioc/scanner/meta"
+	"github.com/go-kid/ioc/component_definition"
+	"github.com/go-kid/ioc/definition"
 	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/reflectx"
 	"github.com/go-kid/ioc/util/strconv2"
@@ -23,7 +23,7 @@ const (
 )
 
 const (
-	ArgValidate meta.ArgType = "validate"
+	ArgValidate component_definition.ArgType = "validate"
 )
 
 type executeExpressionPopulation struct {
@@ -35,14 +35,14 @@ func (e *executeExpressionPopulation) Order() int {
 	return OrderExecuteExpressionPopulation
 }
 
-func (e *executeExpressionPopulation) Filter(d *meta.Node) bool {
+func (e *executeExpressionPopulation) Filter(d *component_definition.Node) bool {
 	e.once.Do(func() {
 		e.expReg = regexp.MustCompile("\\$\\{\\w+(\\.\\w+)*(:[^{}]*)?}")
 	})
 	return e.expReg.MatchString(d.TagVal)
 }
 
-func (e *executeExpressionPopulation) Populate(r Binder, prop *meta.Node) error {
+func (e *executeExpressionPopulation) Populate(r Binder, prop *component_definition.Node) error {
 	rawTagVal := prop.TagVal
 
 	matches := e.expReg.FindAllString(prop.TagVal, -1)
@@ -100,13 +100,13 @@ func (p *propPopulation) Order() int {
 	return OrderPropPopulation
 }
 
-func (p *propPopulation) Filter(d *meta.Node) bool {
-	return d.Tag == defination.PropTag
+func (p *propPopulation) Filter(d *component_definition.Node) bool {
+	return d.Tag == definition.PropTag
 }
 
-func (p *propPopulation) Populate(r Binder, prop *meta.Node) error {
+func (p *propPopulation) Populate(r Binder, prop *component_definition.Node) error {
 	if r.Get(prop.TagVal) == nil {
-		if prop.Args().Has(meta.ArgRequired, "true") {
+		if prop.Args().Has(component_definition.ArgRequired, "true") {
 			return fmt.Errorf("properties is required")
 		}
 		return nil
@@ -130,11 +130,11 @@ func (v *valuePopulation) Order() int {
 	return OrderValuePopulation
 }
 
-func (v *valuePopulation) Filter(d *meta.Node) bool {
-	return d.Tag == defination.ValueTag
+func (v *valuePopulation) Filter(d *component_definition.Node) bool {
+	return d.Tag == definition.ValueTag
 }
 
-func (v *valuePopulation) Populate(r Binder, prop *meta.Node) error {
+func (v *valuePopulation) Populate(r Binder, prop *component_definition.Node) error {
 	v.once.Do(func() {
 		var jsonUnmarshalHandler = func(_ reflect.Type, v reflect.Value, s string) error {
 			return reflectx.SetValue(v, func(a any) error {
@@ -150,7 +150,7 @@ func (v *valuePopulation) Populate(r Binder, prop *meta.Node) error {
 		v.validate = validator.New(validator.WithRequiredStructEnabled())
 	})
 	if prop.TagVal == "" {
-		if prop.Args().Has(meta.ArgRequired, "true") {
+		if prop.Args().Has(component_definition.ArgRequired, "true") {
 			return fmt.Errorf("properties is required")
 		}
 		return nil
@@ -164,7 +164,7 @@ func (v *valuePopulation) Populate(r Binder, prop *meta.Node) error {
 
 var v = validator.New(validator.WithRequiredStructEnabled())
 
-func validate(prop *meta.Node) error {
+func validate(prop *component_definition.Node) error {
 	if ts, ok := prop.Args().Find(ArgValidate); ok {
 		var p = prop.Type
 		if p.Kind() == reflect.Pointer {

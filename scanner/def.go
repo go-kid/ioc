@@ -1,17 +1,17 @@
 package scanner
 
 import (
-	"github.com/go-kid/ioc/scanner/meta"
+	"github.com/go-kid/ioc/component_definition"
 	"reflect"
 )
 
 type Scanner interface {
 	AddScanPolicies(policies ...ScanPolicy)
-	ScanComponent(c any) *meta.Meta
+	ScanComponent(c any) *component_definition.Meta
 }
 
 type ScanPolicy interface {
-	Group() meta.NodeType
+	Group() component_definition.NodeType
 	Tag() string
 	ExtHandler() ExtTagHandler
 }

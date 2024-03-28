@@ -1,4 +1,4 @@
-package meta
+package component_definition
 
 import (
 	"fmt"
@@ -6,25 +6,23 @@ import (
 )
 
 type Node struct {
-	*Base
-	Holder  *Holder
-	Field   reflect.StructField
-	Tag     string
-	TagVal  string
-	Injects []*Meta
-	args    TagArg
+	*Field
+	NodeType NodeType
+	Tag      string
+	TagVal   string
+	Injects  []*Meta
+	args     TagArg
 }
 
-func NewNode(base *Base, holder *Holder, field reflect.StructField, tag, tagVal string) *Node {
+func NewNode(field *Field, nodeType NodeType, tag, tagVal string) *Node {
 	parsedTagVal, arg := defaultNodeArgs().Parse(tagVal)
 	return &Node{
-		Base:    base,
-		Holder:  holder,
-		Field:   field,
-		Tag:     tag,
-		TagVal:  parsedTagVal,
-		Injects: nil,
-		args:    arg,
+		Field:    field,
+		NodeType: nodeType,
+		Tag:      tag,
+		TagVal:   parsedTagVal,
+		Injects:  nil,
+		args:     arg,
 	}
 }
 
@@ -34,14 +32,40 @@ func defaultNodeArgs() TagArg {
 	}
 }
 
+func filter(metas []*Meta, f func(m *Meta) bool) []*Meta {
+	var result = make([]*Meta, 0, len(metas))
+	for _, m := range metas {
+		if f(m) {
+			result = append(result, m)
+		}
+	}
+	return result
+}
+
 func (n *Node) ID() string {
-	return fmt.Sprintf("%s.Field(%s).Tag(%s)", n.Holder.ID(), n.Field.Name, n.Tag)
+	return fmt.Sprintf("%s.Tag(%s).Type(%s)", n.Field.ID(), n.Tag, n.NodeType)
+}
+
+func (n *Node) String() string {
+	return n.ID()
 }
 
 func (n *Node) Inject(metas []*Meta) error {
+	isRequired := n.args.Has(ArgRequired, "true")
 	if len(metas) == 0 {
-		if n.args.Has(ArgRequired, "true") {
+		if isRequired {
 			return fmt.Errorf("%s not found available components", n.ID())
+		}
+		return nil
+	}
+
+	//remove self-inject
+	metas = filter(metas, func(m *Meta) bool {
+		return !n.Holder.Meta.IsSelf(m)
+	})
+	if len(metas) == 0 {
+		if isRequired {
+			return fmt.Errorf("field %s %s: self inject not allowed", n.ID(), n.Holder.Stack())
 		}
 		return nil
 	}

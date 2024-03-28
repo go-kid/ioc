@@ -1,4 +1,4 @@
-package defination
+package definition
 
 type InitializeComponent interface {
 	Init() error

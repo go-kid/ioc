@@ -1,16 +1,14 @@
 package scanner
 
-import (
-	"github.com/go-kid/ioc/scanner/meta"
-)
+import "github.com/go-kid/ioc/component_definition"
 
 type policy struct {
-	nt      meta.NodeType
+	nt      component_definition.NodeType
 	tag     string
 	handler ExtTagHandler
 }
 
-func (p *policy) Group() meta.NodeType {
+func (p *policy) Group() component_definition.NodeType {
 	return p.nt
 }
 
@@ -24,7 +22,7 @@ func (p *policy) ExtHandler() ExtTagHandler {
 
 func NewComponentScanPolicy(tag string, handler ExtTagHandler) ScanPolicy {
 	return &policy{
-		nt:      meta.NodeTypeComponent,
+		nt:      component_definition.NodeTypeComponent,
 		tag:     tag,
 		handler: handler,
 	}
@@ -32,7 +30,7 @@ func NewComponentScanPolicy(tag string, handler ExtTagHandler) ScanPolicy {
 
 func NewConfigurationScanPolicy(tag string, handler ExtTagHandler) ScanPolicy {
 	return &policy{
-		nt:      meta.NodeTypeConfiguration,
+		nt:      component_definition.NodeTypeConfiguration,
 		tag:     tag,
 		handler: handler,
 	}

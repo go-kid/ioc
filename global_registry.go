@@ -1,19 +1,19 @@
 package ioc
 
 import (
+	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/registry"
-	"github.com/go-kid/ioc/scanner/meta"
 )
 
 func Register(cs ...interface{}) {
 	registry.GlobalRegistry().Register(cs...)
 }
 
-func GetComponents(options ...registry.Option) []*meta.Meta {
+func GetComponents(options ...registry.Option) []*component_definition.Meta {
 	return registry.GlobalRegistry().GetComponents(options...)
 }
 
-func GetComponentByName(name string) *meta.Meta {
+func GetComponentByName(name string) *component_definition.Meta {
 	return registry.GlobalRegistry().GetComponentByName(name)
 }
 

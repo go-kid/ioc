@@ -3,12 +3,12 @@ package app
 import (
 	"errors"
 	"fmt"
+	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/configure"
-	"github.com/go-kid/ioc/defination"
+	"github.com/go-kid/ioc/definition"
 	"github.com/go-kid/ioc/factory"
 	"github.com/go-kid/ioc/registry"
 	"github.com/go-kid/ioc/scanner"
-	"github.com/go-kid/ioc/scanner/meta"
 	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/reflectx"
 	"github.com/samber/lo"
@@ -140,7 +140,7 @@ func (s *App) wire() error {
 	return nil
 }
 
-func (s *App) getStarters() []*meta.Meta {
+func (s *App) getStarters() []*component_definition.Meta {
 	//return s.Registry.GetComponents(registry.Interface(new(defination.ApplicationStarter)))
 	return s.Registry.GetComponents()
 }
@@ -149,13 +149,13 @@ func (s *App) callRunners() error {
 	if !s.enableApplicationRunner {
 		return nil
 	}
-	metas := s.GetComponents(registry.Interface(new(defination.ApplicationRunner)))
+	metas := s.GetComponents(registry.Interface(new(definition.ApplicationRunner)))
 	//err := s.Factory.Initialize(metas...)
 	//if err != nil {
 	//	return fmt.Errorf("initialize application runners failed: %v", err)
 	//}
-	var runners = lo.Map(metas, func(item *meta.Meta, _ int) defination.ApplicationRunner {
-		return item.Raw.(defination.ApplicationRunner)
+	var runners = lo.Map(metas, func(item *component_definition.Meta, _ int) definition.ApplicationRunner {
+		return item.Raw.(definition.ApplicationRunner)
 	})
 	if len(runners) == 0 {
 		syslog.Trace("find 0 runner(s), skip")
@@ -177,13 +177,13 @@ func (s *App) callRunners() error {
 }
 
 func (s *App) Close() {
-	metas := s.GetComponents(registry.Interface(new(defination.CloserComponent)))
+	metas := s.GetComponents(registry.Interface(new(definition.CloserComponent)))
 	wg := sync.WaitGroup{}
 	wg.Add(len(metas))
 	for _, m := range metas {
-		go func(m *meta.Meta) {
+		go func(m *component_definition.Meta) {
 			defer wg.Done()
-			if err := m.Raw.(defination.CloserComponent).Close(); err != nil {
+			if err := m.Raw.(definition.CloserComponent).Close(); err != nil {
 				syslog.Errorf("Error closing %s", m.ID())
 			} else {
 				syslog.Infof("close component: %s", m.ID())

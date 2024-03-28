@@ -2,9 +2,9 @@ package configure
 
 import (
 	"fmt"
+	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/configure/binder"
 	"github.com/go-kid/ioc/configure/loader"
-	"github.com/go-kid/ioc/scanner/meta"
 	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/reflectx"
 	"os"
@@ -85,7 +85,7 @@ func (c *configure) loadConfigure() error {
 	return nil
 }
 
-func (c *configure) PopulateProperties(metas ...*meta.Meta) error {
+func (c *configure) PopulateProperties(metas ...*component_definition.Meta) error {
 	for _, m := range metas {
 		for _, node := range m.GetConfigurationNodes() {
 			for _, processor := range c.populateProcessors {

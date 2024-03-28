@@ -1,8 +1,8 @@
 package registry
 
 import (
+	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/scanner"
-	"github.com/go-kid/ioc/scanner/meta"
 	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/fas"
 	"github.com/go-kid/ioc/util/list"
@@ -19,8 +19,8 @@ Dependency Register and Dependency Lookup
 type Registry interface {
 	Scan(sc scanner.Scanner)
 	Register(cs ...any)
-	GetComponents(opts ...Option) []*meta.Meta
-	GetComponentByName(name string) *meta.Meta
+	GetComponents(opts ...Option) []*component_definition.Meta
+	GetComponentByName(name string) *component_definition.Meta
 	RemoveComponents(name string)
 	ComponentInited(name string)
 	IsComponentInited(name string) bool
@@ -28,13 +28,13 @@ type Registry interface {
 
 type registry struct {
 	components       []any
-	metaMaps         *sync2.Map[string, *meta.Meta]
+	metaMaps         *sync2.Map[string, *component_definition.Meta]
 	initedComponents list.Set
 }
 
 func NewRegistry() Registry {
 	return &registry{
-		metaMaps:         sync2.New[string, *meta.Meta](),
+		metaMaps:         sync2.New[string, *component_definition.Meta](),
 		initedComponents: list.NewConcurrentSets(),
 	}
 }
@@ -66,10 +66,10 @@ func (r *registry) Scan(sc scanner.Scanner) {
 }
 
 func (r *registry) scanAndCache(sc scanner.Scanner, c any) {
-	var m *meta.Meta
+	var m *component_definition.Meta
 	switch c.(type) {
-	case *meta.Meta:
-		m = c.(*meta.Meta)
+	case *component_definition.Meta:
+		m = c.(*component_definition.Meta)
 		syslog.Tracef("registry scan raw meta %s", m.ID())
 	default:
 		m = sc.ScanComponent(c)
@@ -85,9 +85,9 @@ func (r *registry) scanAndCache(sc scanner.Scanner, c any) {
 	syslog.Tracef("registry cache component %s", m.ID())
 }
 
-func (r *registry) GetComponents(opts ...Option) []*meta.Meta {
-	var metas = make([]*meta.Meta, 0)
-	r.metaMaps.Range(func(k string, m *meta.Meta) bool {
+func (r *registry) GetComponents(opts ...Option) []*component_definition.Meta {
+	var metas = make([]*component_definition.Meta, 0)
+	r.metaMaps.Range(func(k string, m *component_definition.Meta) bool {
 		if accept(m, opts...) {
 			metas = append(metas, m)
 		}
@@ -96,7 +96,7 @@ func (r *registry) GetComponents(opts ...Option) []*meta.Meta {
 	return metas
 }
 
-func (r *registry) GetComponentByName(name string) *meta.Meta {
+func (r *registry) GetComponentByName(name string) *component_definition.Meta {
 	if c, ok := r.metaMaps.Load(name); ok {
 		return c
 	}

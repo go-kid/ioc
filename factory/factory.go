@@ -2,10 +2,10 @@ package factory
 
 import (
 	"fmt"
+	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/configure"
-	"github.com/go-kid/ioc/defination"
+	"github.com/go-kid/ioc/definition"
 	"github.com/go-kid/ioc/registry"
-	"github.com/go-kid/ioc/scanner/meta"
 	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/reflectx"
 	"github.com/samber/lo"
@@ -18,7 +18,7 @@ type defaultFactory struct {
 	registry       registry.Registry
 	configure      configure.Configure
 	injectionRules []InjectionRule
-	postProcessors []defination.ComponentPostProcessor
+	postProcessors []definition.ComponentPostProcessor
 }
 
 func Default() Factory {
@@ -37,15 +37,15 @@ func Default() Factory {
 }
 
 func (f *defaultFactory) PrepareSpecialComponents() error {
-	cppMetas := f.registry.GetComponents(registry.Interface(new(defination.ComponentPostProcessor)))
+	cppMetas := f.registry.GetComponents(registry.Interface(new(definition.ComponentPostProcessor)))
 	err := f.Initialize(cppMetas...)
 	if err != nil {
 		return err
 	}
-	f.postProcessors = make([]defination.ComponentPostProcessor, len(cppMetas))
+	f.postProcessors = make([]definition.ComponentPostProcessor, len(cppMetas))
 	for i, pm := range cppMetas {
 		syslog.Tracef("register component post processor %s", pm.ID())
-		f.postProcessors[i] = pm.Raw.(defination.ComponentPostProcessor)
+		f.postProcessors[i] = pm.Raw.(definition.ComponentPostProcessor)
 		f.registry.RemoveComponents(pm.Name)
 	}
 	return nil
@@ -66,7 +66,7 @@ func (f *defaultFactory) AddInjectionRules(rules ...InjectionRule) {
 	})
 }
 
-func (f *defaultFactory) Initialize(metas ...*meta.Meta) error {
+func (f *defaultFactory) Initialize(metas ...*component_definition.Meta) error {
 	for _, m := range metas {
 		err := f.initialize(m)
 		if err != nil {
@@ -76,7 +76,7 @@ func (f *defaultFactory) Initialize(metas ...*meta.Meta) error {
 	return nil
 }
 
-func (f *defaultFactory) initialize(m *meta.Meta) error {
+func (f *defaultFactory) initialize(m *component_definition.Meta) error {
 	syslog.Tracef("start initialize component %s", m.ID())
 	if f.registry.IsComponentInited(m.Name) {
 		syslog.Tracef("component %s is already init, skip initialize", m.ID())
@@ -111,13 +111,13 @@ func (f *defaultFactory) initialize(m *meta.Meta) error {
 	return nil
 }
 
-func (f *defaultFactory) doInitialize(m *meta.Meta) error {
+func (f *defaultFactory) doInitialize(m *component_definition.Meta) error {
 	err := f.applyPostProcessBeforeInitialization(m)
 	if err != nil {
 		return err
 	}
 	// init
-	if ic, ok := m.Raw.(defination.InitializeComponent); ok {
+	if ic, ok := m.Raw.(definition.InitializeComponent); ok {
 		syslog.Tracef("component %s is InitializeComponent, start do init", m.ID())
 		err := ic.Init()
 		if err != nil {
@@ -131,7 +131,7 @@ func (f *defaultFactory) doInitialize(m *meta.Meta) error {
 	return nil
 }
 
-func (f *defaultFactory) applyPostProcessBeforeInitialization(m *meta.Meta) error {
+func (f *defaultFactory) applyPostProcessBeforeInitialization(m *component_definition.Meta) error {
 	for _, processor := range f.postProcessors {
 		err := processor.PostProcessBeforeInitialization(m.Raw, m.Name)
 		if err != nil {
@@ -141,7 +141,7 @@ func (f *defaultFactory) applyPostProcessBeforeInitialization(m *meta.Meta) erro
 	return nil
 }
 
-func (f *defaultFactory) applyPostProcessAfterInitialization(m *meta.Meta) error {
+func (f *defaultFactory) applyPostProcessAfterInitialization(m *component_definition.Meta) error {
 	for _, processor := range f.postProcessors {
 		err := processor.PostProcessAfterInitialization(m.Raw, m.Name)
 		if err != nil {
@@ -156,7 +156,7 @@ const diErrOutput = "DI report error by processor: %s\n" +
 	"caused field: %s\n" +
 	"caused by: %v\n"
 
-func (f *defaultFactory) getDependencies(metaID string, d *meta.Node) ([]*meta.Meta, error) {
+func (f *defaultFactory) getDependencies(metaID string, d *component_definition.Node) ([]*component_definition.Meta, error) {
 	inj, find := lo.Find(f.injectionRules, func(item InjectionRule) bool {
 		return item.Condition(d)
 	})
@@ -179,7 +179,7 @@ func (f *defaultFactory) getDependencies(metaID string, d *meta.Node) ([]*meta.M
 	candidates, err = filterDependencies(d, candidates)
 	if err != nil {
 		if len(candidates) == 0 {
-			if d.Args().Has(meta.ArgRequired, "true") {
+			if d.Args().Has(component_definition.ArgRequired, "true") {
 				return nil, fmt.Errorf(diErrOutput, inj.RuleName(), metaID, d.ID(), err)
 			}
 			return nil, nil
@@ -190,35 +190,35 @@ func (f *defaultFactory) getDependencies(metaID string, d *meta.Node) ([]*meta.M
 }
 
 var (
-	primaryInterface = new(defination.WirePrimary)
+	primaryInterface = new(definition.WirePrimary)
 )
 
-func filterDependencies(n *meta.Node, metas []*meta.Meta) ([]*meta.Meta, error) {
+func filterDependencies(n *component_definition.Node, metas []*component_definition.Meta) ([]*component_definition.Meta, error) {
 	//remove nil meta
-	result := filter(metas, func(m *meta.Meta) bool {
+	result := filter(metas, func(m *component_definition.Meta) bool {
 		return m != nil
 	})
 	if len(result) == 0 {
 		return nil, fmt.Errorf("%s not found available components", n.ID())
 	}
 	//remove self-inject
-	result = filter(result, func(m *meta.Meta) bool {
+	result = filter(result, func(m *component_definition.Meta) bool {
 		return m.ID() != n.Holder.Meta.ID()
 	})
 	if len(result) == 0 {
 		var embedSb = strings.Builder{}
-		_ = n.Holder.Walk(func(source *meta.Holder) error {
+		_ = n.Holder.Walk(func(source *component_definition.Holder) error {
 			embedSb.WriteString("\n depended on " + source.ID())
 			return nil
 		})
 		return nil, fmt.Errorf("field %s %s: self inject not allowed", n.ID(), embedSb.String())
 	}
 	//filter qualifier
-	qualifierName, isQualifier := n.Args().Find(meta.ArgQualifier)
+	qualifierName, isQualifier := n.Args().Find(component_definition.ArgQualifier)
 	if isQualifier {
-		result = filter(result, func(m *meta.Meta) bool {
-			qualifier, ok := m.Raw.(defination.WireQualifier)
-			return ok && n.Args().Has(meta.ArgQualifier, qualifier.Qualifier())
+		result = filter(result, func(m *component_definition.Meta) bool {
+			qualifier, ok := m.Raw.(definition.WireQualifier)
+			return ok && n.Args().Has(component_definition.ArgQualifier, qualifier.Qualifier())
 		})
 		if len(result) == 0 {
 			return nil, fmt.Errorf("field %s: no component found for qualifier %s", n.ID(), qualifierName)
@@ -240,13 +240,13 @@ func filterDependencies(n *meta.Node, metas []*meta.Meta) ([]*meta.Meta, error) 
 				candidate = m
 			}
 		}
-		result = []*meta.Meta{candidate}
+		result = []*component_definition.Meta{candidate}
 	}
 	return result, nil
 }
 
-func filter(metas []*meta.Meta, f func(m *meta.Meta) bool) []*meta.Meta {
-	var result = make([]*meta.Meta, 0, len(metas))
+func filter(metas []*component_definition.Meta, f func(m *component_definition.Meta) bool) []*component_definition.Meta {
+	var result = make([]*component_definition.Meta, 0, len(metas))
 	for _, m := range metas {
 		if f(m) {
 			result = append(result, m)

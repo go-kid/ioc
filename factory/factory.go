@@ -190,19 +190,44 @@ func (f *defaultFactory) getComponent(name string) (any, error) {
 }
 
 func (f *defaultFactory) createComponent2(name string, meta *component_definition.Meta) (any, error) {
-	component, err := f.resolveBeforeInstantiation(name, meta)
-	if err != nil {
-		return nil, err
+	//resolveBeforeInstantiation
+	for _, processor := range f.instantiationAwareComponentPostProcessors {
+		component, err := processor.PostProcessBeforeInstantiation(meta.Type, name)
+		if err != nil {
+			return nil, err
+		}
+		if component != nil {
+			return component, nil
+		}
 	}
-	if component != nil {
-		return component, nil
-	}
-	component = f.doCreateComponent(name, meta)
+	component := f.doCreateComponent(name, meta)
 	return component, nil
 }
 
 func (f *defaultFactory) doCreateComponent(name string, meta *component_definition.Meta) any {
-	return nil
+	var component = meta.Raw
+	earlySingletonExposure := f.singletonComponentRegistry.IsSingletonCurrentlyInCreation(name)
+	if earlySingletonExposure {
+		f.singletonComponentRegistry.AddSingletonFactory(name, f.getEarlyBeanReference(name, meta))
+	}
+	err := f.populateComponent(meta)
+	if err != nil {
+		return nil
+	}
+	exposedComponent, err := f.initializeComponent(meta)
+	if err != nil {
+		return nil
+	}
+	if earlySingletonExposure {
+		earlySingleton, err := f.singletonComponentRegistry.GetSingleton(name)
+		if err != nil {
+			return nil
+		}
+		if exposedComponent == component {
+			exposedComponent = earlySingleton
+		}
+	}
+	return exposedComponent
 }
 
 func (f *defaultFactory) getDependsOn(meta *component_definition.Meta) ([]string, error) {
@@ -219,32 +244,12 @@ func (f *defaultFactory) getDependsOn(meta *component_definition.Meta) ([]string
 	return dependsOn, nil
 }
 
-func (f *defaultFactory) createComponent(name string) (*component_definition.Meta, error) {
-	var result *component_definition.Meta
-	if f.singletonComponentRegistry.IsSingletonCurrentlyInCreation(name) {
-		meta := f.definitionRegistry.GetMetaByName(name)
-		// set to singleton component factory cache
-		f.singletonComponentRegistry.AddSingletonFactory(name, f.componentSingletonFactoryMethod(meta))
-		err := f.populateComponent(meta)
-		if err != nil {
-			return nil, err
-		}
-		result = meta
-	}
-	return result, nil
-}
-
 func (f *defaultFactory) populateComponent(meta *component_definition.Meta) error {
 	if len(meta.GetConfigurationNodes()) != 0 {
 		err := f.configure.PopulateProperties(meta)
 		if err != nil {
 			return err
 		}
-	}
-	var err error
-	meta, err = f.doInitialization(meta)
-	if err != nil {
-		return err
 	}
 	for _, node := range meta.GetComponentNodes() {
 		dependencies, err := f.getDependencies(meta.ID(), node)
@@ -264,73 +269,54 @@ func (f *defaultFactory) populateComponent(meta *component_definition.Meta) erro
 			return err
 		}
 	}
-	for _, processor := range f.initializedPostProcessors {
-		err := processor.PostProcessBeforeInitialization(meta.Raw)
-		if err != nil {
-			return err
-		}
-	}
-	if c, ok := meta.Raw.(definition.InitializeComponent); ok {
-		err := c.Init()
-		if err != nil {
-			return err
-		}
-	}
-	for _, processor := range f.initializedPostProcessors {
-		err := processor.PostProcessAfterInitialization(meta.Raw)
-		if err != nil {
-			return err
-		}
-	}
 	f.singletonComponentRegistry.ComponentInitialized(meta)
 	return nil
 }
 
-func (f *defaultFactory) resolveBeforeInstantiation(componentName string, m *component_definition.Meta) (any, error) {
-	var wrappedComponent = m.Raw
-	var err error
-	wrappedComponent, err = f.applyPostProcessBeforeInitialization(wrappedComponent, componentName)
-	if err != nil {
-		return nil, err
-	}
-	if ic, ok := wrappedComponent.(definition.InitializingComponent); ok {
-		syslog.Tracef("initializing component %s do initialization", m.ID())
-		err := ic.AfterPropertiesSet()
+func (f *defaultFactory) getEarlyBeanReference(componentName string, m *component_definition.Meta) SingletonFactory {
+	return FuncSingletonFactory(func() (any, error) {
+		var wrappedComponent = m.Raw
+		var err error
+		wrappedComponent, err = f.applyPostProcessBeforeInitialization(wrappedComponent, componentName)
 		if err != nil {
-			return nil, fmt.Errorf("initializing component %s initialization failed: %s", m.ID(), err)
+			return nil, err
 		}
-	}
-	wrappedComponent, err = f.applyPostProcessAfterInitialization(wrappedComponent, componentName)
-	if err != nil {
-		return nil, err
-	}
-	//m.Base.Update(wrappedComponent)
-	return m, nil
+		if ic, ok := wrappedComponent.(definition.InitializingComponent); ok {
+			syslog.Tracef("initializing component %s do initialization", m.ID())
+			err := ic.AfterPropertiesSet()
+			if err != nil {
+				return nil, fmt.Errorf("initializing component %s initialization failed: %s", m.ID(), err)
+			}
+		}
+		wrappedComponent, err = f.applyPostProcessAfterInitialization(wrappedComponent, componentName)
+		if err != nil {
+			return nil, err
+		}
+		//m.Base.Update(wrappedComponent)
+		return wrappedComponent, nil
+	})
 }
 
-func (f *defaultFactory) doInitialization(m *component_definition.Meta) (*component_definition.Meta, error) {
-	var wrappedComponent, componentName = m.Raw, m.Name
-	var err error
-	wrappedComponent, err = f.applyPostProcessBeforeInitialization(wrappedComponent, componentName)
-	if err != nil {
-		return nil, err
-	}
-	if ic, ok := wrappedComponent.(definition.InitializingComponent); ok {
-		syslog.Tracef("initializing component %s do initialization", m.ID())
-		err := ic.AfterPropertiesSet()
+func (f *defaultFactory) initializeComponent(m *component_definition.Meta) (any, error) {
+	for _, processor := range f.initializedPostProcessors {
+		err := processor.PostProcessBeforeInitialization(m.Raw)
 		if err != nil {
-			return nil, fmt.Errorf("initializing component %s initialization failed: %s", m.ID(), err)
+			return nil, err
 		}
 	}
-	wrappedComponent, err = f.applyPostProcessAfterInitialization(wrappedComponent, componentName)
-	if err != nil {
-		return nil, err
+	if ic, ok := m.Raw.(definition.InitializeComponent); ok {
+		err := ic.Init()
+		if err != nil {
+			return nil, err
+		}
 	}
-	err = f.postProcessDefinitionRegistry(wrappedComponent, componentName)
-	if err != nil {
-		return nil, err
+	for _, processor := range f.initializedPostProcessors {
+		err := processor.PostProcessAfterInitialization(m.Raw)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return
+	return m.Raw, nil
 }
 
 func (f *defaultFactory) applyPostProcessBeforeInitialization(c any, name string) (any, error) {

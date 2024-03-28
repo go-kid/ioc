@@ -74,7 +74,6 @@ type ComponentPostProcessor interface {
 }
 
 type InstantiationAwareComponentPostProcessor interface {
-	ComponentPostProcessor
 	PostProcessBeforeInstantiation(p reflect.Type, componentName string) (any, error)
 	PostProcessAfterInstantiation(component any, componentName string) (bool, error)
 	PostProcessProperties(properties []*component_definition.Node, component any, componentName string) ([]*component_definition.Meta, error)
@@ -86,7 +85,6 @@ type ComponentInitializedPostProcessor interface {
 }
 
 type DestructionAwareComponentPostProcessor interface {
-	ComponentPostProcessor
 	PostProcessBeforeDestruction(component any, componentName string) error
 	RequireDestruction(component any) bool
 }

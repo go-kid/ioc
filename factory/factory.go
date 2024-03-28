@@ -90,11 +90,9 @@ func (f *defaultFactory) initialize(m *component_definition.Meta) error {
 		if err != nil {
 			return fmt.Errorf("get dependencies failed: %v", err)
 		}
-		for _, dependency := range dependencies {
-			err := f.initialize(dependency)
-			if err != nil {
-				return err
-			}
+		err = f.Initialize(dependencies...)
+		if err != nil {
+			return err
 		}
 		err = node.Inject(dependencies)
 		if err != nil {

@@ -23,6 +23,8 @@ type App struct {
 	scanner.Scanner
 	enableComponentInit     bool
 	enableApplicationRunner bool
+	Runners                 []definition.ApplicationRunner `wire:",required=false"`
+	Closers                 []definition.CloserComponent   `wire:",required=false"`
 }
 
 func NewApp(ops ...SettingOption) *App {
@@ -34,8 +36,8 @@ func NewApp(ops ...SettingOption) *App {
 		enableComponentInit:     true,
 		enableApplicationRunner: true,
 	}
+	ops = append(ops, SetComponents(s))
 	Options(ops...)(s)
-	SetComponents(s)
 	err := s.validate()
 	if err != nil {
 		syslog.Fatal(err)
@@ -177,18 +179,19 @@ func (s *App) callRunners() error {
 }
 
 func (s *App) Close() {
-	metas := s.GetComponents(registry.Interface(new(definition.CloserComponent)))
 	wg := sync.WaitGroup{}
-	wg.Add(len(metas))
-	for _, m := range metas {
-		go func(m *component_definition.Meta) {
+	wg.Add(len(s.Closers))
+	for _, m := range s.Closers {
+		go func(m definition.CloserComponent) {
 			defer wg.Done()
-			if err := m.Raw.(definition.CloserComponent).Close(); err != nil {
-				syslog.Errorf("Error closing %s", m.ID())
+			name, _ := component_definition.GetComponentName(m)
+			if err := m.Close(); err != nil {
+				syslog.Errorf("Error closing %s", name)
 			} else {
-				syslog.Infof("close component: %s", m.ID())
+				syslog.Tracef("close component: %s", name)
 			}
 		}(m)
 	}
 	wg.Wait()
+	syslog.Info("close all closer components")
 }

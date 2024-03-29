@@ -112,7 +112,7 @@ func (m *Meta) GetAllNodes() []*Node {
 	return nodes
 }
 
-func (m *Meta) Proxy(origin any) {
+func (m *Meta) UseProxy(origin any) {
 	m.ProxyMeta = &Meta{
 		Base:         m.Base,
 		ProxyMeta:    nil,

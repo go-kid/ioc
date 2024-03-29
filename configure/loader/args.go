@@ -1,6 +1,7 @@
 package loader
 
 import (
+	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/properties"
 	"github.com/go-kid/ioc/util/strconv2"
 	"gopkg.in/yaml.v3"
@@ -35,6 +36,9 @@ func (args ArgsLoader) LoadConfig() ([]byte, error) {
 	}
 	if len(p) == 0 {
 		return nil, nil
+	}
+	for key, value := range p.Expand() {
+		syslog.Pref("ArgsLoader").Tracef("load %s=%s", key, value)
 	}
 	return yaml.Marshal(p.Expand())
 }

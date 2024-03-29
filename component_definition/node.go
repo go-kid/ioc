@@ -43,7 +43,7 @@ func filter(metas []*Meta, f func(m *Meta) bool) []*Meta {
 }
 
 func (n *Node) ID() string {
-	return fmt.Sprintf("%s.Tag(%s).Type(%s)", n.Field.ID(), n.Tag, n.NodeType)
+	return fmt.Sprintf("%s.Tag(%s:'%s').Type(%s)", n.Field.ID(), n.Tag, n.TagVal, n.NodeType)
 }
 
 func (n *Node) String() string {

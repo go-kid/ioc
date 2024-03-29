@@ -71,12 +71,6 @@ func DisableApplicationRunner() SettingOption {
 	}
 }
 
-func DisableComponentInitialization() SettingOption {
-	return func(s *App) {
-		s.enableComponentInit = false
-	}
-}
-
 //func SetScanner(sc scanner.Scanner) SettingOption {
 //	return func(s *App) {
 //		s.Scanner = sc

@@ -1,12 +1,15 @@
 package syslog
 
 import (
+	"fmt"
 	"log"
 	"os"
+	"strings"
 )
 
 type Logger interface {
 	Level(lv Lv) Logger
+	Pref(pref any) Logger
 
 	Trace(v ...any)
 	Tracef(format string, v ...any)
@@ -28,6 +31,7 @@ type logger struct {
 	logger   *log.Logger
 	lv       Lv
 	levelPre []string
+	pref     []string
 }
 
 func New(lv Lv) Logger {
@@ -39,18 +43,6 @@ func New(lv Lv) Logger {
 		lv:       lv,
 		logger:   log.New(os.Stderr, "[ioc] ", log.LstdFlags),
 		levelPre: lp,
-	}
-}
-
-func (l *logger) print(lv Lv, v ...any) {
-	if lv >= l.lv {
-		l.logger.Println(append([]any{l.levelPre[lv]}, v...)...)
-	}
-}
-
-func (l *logger) printf(lv Lv, format string, v ...any) {
-	if lv >= l.lv {
-		l.logger.Printf(l.levelPre[lv]+" "+format, v...)
 	}
 }
 
@@ -96,28 +88,73 @@ func (l *logger) Errorf(format string, v ...any) {
 
 func (l *logger) Panic(v ...any) {
 	if LvPanic >= l.lv {
-		l.logger.Panicln(append([]any{l.levelPre[LvPanic]}, v...)...)
+		l.print(LvPanic, v...)
+		panic(v)
 	}
 }
 
 func (l *logger) Panicf(format string, v ...any) {
 	if LvPanic >= l.lv {
-		l.logger.Panicf(l.levelPre[LvPanic]+" "+format, v...)
+		l.printf(LvPanic, format, v...)
+		panic(fmt.Sprintf(format, v...))
 	}
 }
 
 func (l *logger) Fatal(v ...any) {
 	if LvFatal >= l.lv {
-		l.logger.Fatalln(append([]any{l.levelPre[LvFatal]}, v...)...)
+		l.print(LvFatal, v...)
+		Fatal(v)
 	}
 }
 
 func (l *logger) Fatalf(format string, v ...any) {
 	if LvFatal >= l.lv {
-		l.logger.Fatalf(l.levelPre[LvFatal]+" "+format, v...)
+		l.printf(LvFatal, format, v...)
+		Fatal(fmt.Sprintf(format, v...))
+	}
+}
+
+func (l *logger) print(lv Lv, v ...any) {
+	if lv >= l.lv {
+		sb := strings.Builder{}
+		sb.WriteString(l.levelPre[lv])
+		if len(l.pref) != 0 {
+			for _, s := range l.pref {
+				sb.WriteString(" " + s)
+			}
+		}
+		l.logger.Println(append([]any{sb.String()}, v...)...)
+	}
+}
+
+func (l *logger) printf(lv Lv, format string, v ...any) {
+	if lv >= l.lv {
+		sb := strings.Builder{}
+		sb.WriteString(l.levelPre[lv])
+		if len(l.pref) != 0 {
+			for _, s := range l.pref {
+				sb.WriteString(" " + s)
+			}
+		}
+		l.logger.Printf(sb.String()+" "+format, v...)
 	}
 }
 
 func (l *logger) Level(lv Lv) Logger {
 	return New(lv)
+}
+
+func (l *logger) clone() *logger {
+	return &logger{
+		logger:   l.logger,
+		lv:       l.lv,
+		levelPre: l.levelPre,
+		pref:     l.pref,
+	}
+}
+
+func (l *logger) Pref(pref any) Logger {
+	clone := l.clone()
+	clone.pref = append(clone.pref, fmt.Sprintf("[%v]", pref))
+	return clone
 }

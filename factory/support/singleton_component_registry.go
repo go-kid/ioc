@@ -1,6 +1,7 @@
 package support
 
 import (
+	"fmt"
 	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/list"
@@ -23,59 +24,49 @@ func DefaultSingletonComponentRegistry() SingletonComponentRegistry {
 	}
 }
 
-func (r *defaultSingletonComponentRegistry) GetComponentDefinitions(opts ...Option) []*component_definition.Meta {
-	var metas = make([]*component_definition.Meta, 0)
-	r.singletonObjects.Range(func(k string, m *component_definition.Meta) (shouldContinue bool) {
-		if Accept(m, opts...) {
-			metas = append(metas, m)
-		}
-		return true
-	})
-	return metas
-}
-
-func (r *defaultSingletonComponentRegistry) GetComponentDefinitionByName(name string) (*component_definition.Meta, bool) {
-	return r.singletonObjects.Load(name)
-}
-
 func (r *defaultSingletonComponentRegistry) AddSingletonFactory(name string, method SingletonFactory) {
 	r.singletonFactories.Store(name, method)
-	syslog.Tracef("definition registry add singleton factory for %s", name)
+	r.logger().Tracef("add singleton factory for '%s' to singleton factories cache", name)
 }
 
-func (r *defaultSingletonComponentRegistry) RemoveComponents(name string) {
+func (r *defaultSingletonComponentRegistry) RemoveSingleton(name string) {
 	r.singletonObjects.Delete(name)
-	syslog.Tracef("registry remove component %s", name)
+	r.earlySingletonObjects.Delete(name)
+	r.singletonFactories.Delete(name)
+	r.singletonCurrentlyInCreation.Remove(name)
+	r.logger().Tracef("remove singleton '%s'", name)
 }
 
 func (r *defaultSingletonComponentRegistry) AddSingleton(name string, meta *component_definition.Meta) {
 	r.singletonObjects.Store(name, meta)
 	r.earlySingletonObjects.Delete(name)
 	r.singletonFactories.Delete(name)
+	r.logger().Tracef("put singleton '%s' to singleton objects", name)
 	//syslog.Tracef("registry update component %s to inited", name)
 }
 
 func (r *defaultSingletonComponentRegistry) GetSingleton(name string, allowEarlyReference bool) (*component_definition.Meta, error) {
 	// get component from inited components cache
 	if meta, ok := r.singletonObjects.Load(name); ok {
-		syslog.Tracef("definition registry get component definition by name %s", name)
+		r.logger().Tracef("get singleton '%s' from singleton objects", name)
 		return meta, nil
 	}
 	// get component from early export components cache
 	if earlyComponent, ok := r.earlySingletonObjects.Load(name); ok {
-		syslog.Tracef("definition registry get early export component %s", name)
+		r.logger().Tracef("get singleton '%s' from early singleton cache", name)
 		return earlyComponent, nil
 	}
 	if allowEarlyReference {
 		// get component from singleton component factory cache
 		if factory, ok := r.singletonFactories.Load(name); ok {
-			syslog.Tracef("definition registry get singleton factory %s", name)
+			r.logger().Tracef("get singleton '%s' from object factories", name)
 			component, err := factory.GetComponent()
 			if err != nil {
 				return nil, err
 			}
 			r.earlySingletonObjects.Store(name, component)
 			r.singletonFactories.Delete(name)
+			r.logger().Tracef("singleton '%s' created from object factories and move to early cache", name)
 			return component, nil
 		}
 	}
@@ -86,20 +77,23 @@ func (r *defaultSingletonComponentRegistry) GetSingletonOrCreateByFactory(name s
 	if singleton, loaded := r.singletonObjects.Load(name); loaded {
 		return singleton, nil
 	}
+	r.logger().Tracef("singleton '%s' currently is new, start creating", name)
 	r.singletonCurrentlyInCreation.Put(name)
+	r.logger().Tracef("create instance of singleton '%s'", name)
 	singleton, err := factory.GetComponent()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create instance of singleton '%s' error: %v", name, err)
 	}
+	r.logger().Tracef("singleton '%s' finished creating", name)
 	r.singletonCurrentlyInCreation.Remove(name)
 	r.AddSingleton(name, singleton)
 	return singleton, nil
 }
 
-func (r *defaultSingletonComponentRegistry) BeforeSingletonCreation(name string) {
-	r.singletonCurrentlyInCreation.Put(name)
-}
-
 func (r *defaultSingletonComponentRegistry) IsSingletonCurrentlyInCreation(name string) bool {
 	return r.singletonCurrentlyInCreation.Exists(name)
+}
+
+func (r *defaultSingletonComponentRegistry) logger() syslog.Logger {
+	return syslog.GetLogger().Pref("SingletonComponentRegistry")
 }

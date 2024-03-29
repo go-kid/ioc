@@ -8,7 +8,6 @@ import (
 	"github.com/go-kid/ioc/factory"
 	"github.com/go-kid/ioc/factory/support"
 	"github.com/go-kid/ioc/syslog"
-	"github.com/go-kid/ioc/util/reflectx"
 	"sort"
 	"sync"
 )
@@ -17,7 +16,6 @@ type App struct {
 	configure.Configure
 	factory.Factory
 	registry                support.SingletonRegistry
-	enableComponentInit     bool
 	enableApplicationRunner bool
 	ApplicationRunners      []definition.ApplicationRunner `wire:",required=false"`
 	CloserComponents        []definition.CloserComponent   `wire:",required=false"`
@@ -29,7 +27,6 @@ func NewApp(ops ...SettingOption) *App {
 		Configure:               configure.Default(),
 		registry:                factory.GlobalRegistry(),
 		Factory:                 factory.Default(),
-		enableComponentInit:     true,
 		enableApplicationRunner: true,
 	}
 	for _, op := range append(ops, globalOptions...) {
@@ -37,7 +34,7 @@ func NewApp(ops ...SettingOption) *App {
 	}
 	err := s.initiate()
 	if err != nil {
-		syslog.Fatal(err)
+		s.logger().Fatal(err)
 	}
 	return s
 }
@@ -60,47 +57,46 @@ func (s *App) initiate() error {
 
 func (s *App) Run() error {
 	if err := s.run(); err != nil {
-		syslog.Errorf("framework run failed: %v", err)
+		s.logger().Errorf("framework run failed: %v", err)
 		return err
 	}
 	return nil
 }
 
 func (s *App) run() error {
-	/* begin scan component to meta */
-	//syslog.Info("start scanning registered component...")
-	//syslog.Info("component scanning finished, registry ready")
-	/* registry ready */
-
 	/* begin load and bind configuration */
-	syslog.Info("start init config...")
+	s.logger().Info("start initializing configuration...")
 	if err := s.initConfiguration(); err != nil {
 		return fmt.Errorf("init config failed: %v", err)
 	}
-	syslog.Info("populate finished, components properties ready")
+	s.logger().Info("configuration is loaded")
 
 	/* set default init behavior */
 	err := s.initFactory()
 	if err != nil {
-		return fmt.Errorf("init factory failed: %v", err)
+		return fmt.Errorf("init component factory failed: %v", err)
 	}
-	syslog.Info("factory ready")
+	s.logger().Info("component factory is ready")
 	/* factory ready */
 
 	/* begin inject dependencies */
-	syslog.Info("start wire dependencies...")
-	if err := s.wire(); err != nil {
-		return fmt.Errorf("wire dependencies failed: %v", err)
+	s.logger().Info("start refreshing components...")
+	if err := s.refresh(); err != nil {
+		return fmt.Errorf("refresh components failed: %v", err)
 	}
-	syslog.Info("injection finished, components dependencies ready")
+	s.logger().Info("all components is refreshed")
 	/* dependency injection ready */
 
+	s.logger().Info("application is issued")
+
 	/* begin call runners */
-	syslog.Info("start start runners...")
-	if err := s.callRunners(); err != nil {
-		return fmt.Errorf("start runners failed: %v", err)
+	if s.enableApplicationRunner {
+		s.logger().Info("start starting runners...")
+		if err := s.callRunners(); err != nil {
+			return fmt.Errorf("start runners failed: %v", err)
+		}
 	}
-	syslog.Info("all runners started")
+
 	/* finished */
 	return nil
 }
@@ -121,7 +117,7 @@ func (s *App) initFactory() error {
 	return nil
 }
 
-func (s *App) wire() error {
+func (s *App) refresh() error {
 	err := s.Factory.Refresh()
 	if err != nil {
 		return fmt.Errorf("initialize component failed: %v", err)
@@ -132,36 +128,43 @@ func (s *App) wire() error {
 func (s *App) callRunners() error {
 	runners := s.ApplicationRunners
 	if len(runners) == 0 {
-		syslog.Trace("find 0 application runner(s), skip")
+		s.logger().Trace("find 0 application runner, skip")
 		return nil
 	}
-	syslog.Tracef("find %d application runner(s), start sort", len(runners))
+	s.logger().Tracef("find %d application runner(s), start sort", len(runners))
 	sort.Slice(runners, func(i, j int) bool {
 		return runners[i].Order() < runners[j].Order()
 	})
 	for i := range runners {
 		runner := runners[i]
-		syslog.Tracef("start runner %s [%d/%d]", reflectx.Id(runner), i+1, len(runners))
+		s.logger().Tracef("start runner %T [%d/%d]", runner, i+1, len(runners))
 		err := runner.Run()
 		if err != nil {
-			return fmt.Errorf("start runner %s failed: %v", reflectx.Id(runner), err)
+			return fmt.Errorf("start runner %T failed: %v", runner, err)
 		}
 	}
 	s.ApplicationRunners = nil
+	s.logger().Info("all runners started")
 	return nil
 }
 
 func (s *App) Close() {
-	wg := sync.WaitGroup{}
-	wg.Add(len(s.CloserComponents))
-	for _, m := range s.CloserComponents {
-		go func(m definition.CloserComponent) {
-			defer wg.Done()
-			if err := m.Close(); err != nil {
-				syslog.Errorf("Error closing %T", m)
-			}
-		}(m)
+	if len(s.CloserComponents) != 0 {
+		wg := sync.WaitGroup{}
+		wg.Add(len(s.CloserComponents))
+		for _, m := range s.CloserComponents {
+			go func(m definition.CloserComponent) {
+				defer wg.Done()
+				if err := m.Close(); err != nil {
+					s.logger().Errorf("Error closing %T", m)
+				}
+			}(m)
+		}
+		wg.Wait()
+		s.logger().Infof("close all closer components")
 	}
-	wg.Wait()
-	syslog.Infof("close all closer components")
+}
+
+func (s *App) logger() syslog.Logger {
+	return syslog.GetLogger().Pref("Application")
 }

@@ -29,7 +29,7 @@ type Service interface {
 type ServiceA struct {
 	Name     string
 	ServiceB *ServiceB `wire:""`
-	ServiceC *ServiceC `wire:""`
+	//ServiceC *ServiceC `wire:""`
 	//ServiceA Service   `wire:""`
 }
 
@@ -42,8 +42,8 @@ func (s *ServiceA) SayName() {
 }
 
 type ServiceB struct {
-	Name string
-	//ServiceA Service `wire:""`
+	Name     string
+	ServiceA Service `wire:""`
 }
 
 type ServiceC struct {
@@ -79,15 +79,18 @@ func main() {
 	a := &ServiceA{Name: "service A"}
 	b := &ServiceB{Name: "service B"}
 	c := &ServiceC{Name: "service C"}
-	app.Settings(app.LogTrace)
-	ioc.Register(&postProcessor{})
-	run, err := ioc.Run(app.SetComponents(a, b, c))
+	run, err := ioc.Run(app.LogTrace, app.SetComponents(
+		a, b, c,
+		//&postProcessor{},
+	))
 	if err != nil {
 		panic(err)
 	}
 	defer run.Close()
 	fmt.Println(a.ServiceB.Name)
-	fmt.Println(a.ServiceC.Name)
+	//fmt.Println(a.ServiceC.Name)
+	b.ServiceA.SayName()
+
 	//fmt.Printf("a: %T\n", a.ServiceA)
 	//a.ServiceA.SayName()
 	//fmt.Printf("b: %T\n", b.ServiceA)

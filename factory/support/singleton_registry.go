@@ -50,10 +50,14 @@ func NewRegistry() SingletonRegistry {
 func (r *registry) RegisterSingleton(name string, singleton any) {
 	if exist, loaded := r.componentsMap.Load(name); loaded {
 		if exist != singleton {
-			syslog.Panicf("register duplicated component %s", name)
+			r.logger().Panicf("register duplicated component %s", name)
 		}
 		return
 	}
 	r.componentsMap.Store(name, singleton)
-	syslog.Tracef("singleton registry register component %s", name)
+	r.logger().Tracef("singleton registry register component %s", name)
+}
+
+func (r *registry) logger() syslog.Logger {
+	return syslog.GetLogger().Pref("SingletonRegistry")
 }

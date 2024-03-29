@@ -22,12 +22,9 @@ type DefinitionRegistry interface {
 type SingletonComponentRegistry interface {
 	AddSingleton(name string, meta *component_definition.Meta)
 	AddSingletonFactory(name string, method SingletonFactory)
-	GetComponentDefinitions(opts ...Option) []*component_definition.Meta
-	GetComponentDefinitionByName(name string) (*component_definition.Meta, bool)
 	GetSingleton(name string, allowEarlyReference bool) (*component_definition.Meta, error)
-	RemoveComponents(name string)
+	RemoveSingleton(name string)
 	GetSingletonOrCreateByFactory(name string, factory SingletonFactory) (*component_definition.Meta, error)
-	BeforeSingletonCreation(name string)
 	IsSingletonCurrentlyInCreation(name string) bool
 }
 

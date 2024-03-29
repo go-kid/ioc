@@ -30,14 +30,6 @@ type defaultFactory struct {
 	injectionRules                            []InjectionRule
 }
 
-func (f *defaultFactory) GetComponents(opts ...support.Option) []any {
-	var results []any
-	for _, meta := range f.singletonComponentRegistry.GetComponentDefinitions(opts...) {
-		results = append(results, meta.Raw)
-	}
-	return results
-}
-
 func Default() Factory {
 	f := &defaultFactory{
 		definitionRegistry:         support.DefaultDefinitionRegistry(),
@@ -137,12 +129,25 @@ func (f *defaultFactory) Refresh() error {
 		return names[i] < names[j]
 	})
 	for _, name := range names {
+		f.logger().Tracef("refresh component with name '%s'", name)
 		_, err := f.doGetComponent(name)
 		if err != nil {
-			return err
+			return fmt.Errorf("refresh component with name '%s' failed: %v", name, err)
 		}
 	}
 	return nil
+}
+
+func (f *defaultFactory) GetComponents(opts ...support.Option) ([]any, error) {
+	var components []any
+	for _, meta := range f.definitionRegistry.GetMetas(opts...) {
+		component, err := f.GetComponentByName(meta.Name())
+		if err != nil {
+			return nil, err
+		}
+		components = append(components, component)
+	}
+	return components, nil
 }
 
 func (f *defaultFactory) GetComponentByName(name string) (any, error) {
@@ -160,10 +165,10 @@ func (f *defaultFactory) doGetComponent(name string) (*component_definition.Meta
 	}
 	if sharedInstance != nil {
 		if f.singletonComponentRegistry.IsSingletonCurrentlyInCreation(name) {
-			syslog.Debugf("returning eagerly cached instance of singleton '%s' that is not fully initialized yet - a consequence of a circular reference",
+			f.logger().Debugf("returning eagerly cached instance of singleton '%s' that is not fully initialized yet - a consequence of a circular reference",
 				name)
 		} else {
-			syslog.Debugf("returning eagerly cached instance of singleton '%s'", name)
+			f.logger().Debugf("returning eagerly cached instance of singleton '%s'", name)
 		}
 		return sharedInstance, nil
 	}
@@ -207,28 +212,35 @@ func (f *defaultFactory) doCreateComponent(name string, meta *component_definiti
 	// set to singleton component factory cache
 	earlySingletonExposure := f.singletonComponentRegistry.IsSingletonCurrentlyInCreation(name)
 	if earlySingletonExposure {
-		syslog.Debugf("eagerly caching bean '%s' to allow for resolving potential circular references", name)
+		f.logger().Debugf("eagerly caching bean '%s' to allow for resolving potential circular references", name)
 		f.singletonComponentRegistry.AddSingletonFactory(name, f.componentSingletonFactoryMethod(meta))
 	}
 
 	var exposedComponent = meta
+	f.logger().Tracef("start populate component '%s'", name)
 	err := f.populateComponent(name, meta)
 	if err != nil {
 		return nil, err
 	}
+	f.logger().Debugf("component '%s' population finished", name)
+
+	f.logger().Tracef("start initialize component '%s'", name)
 	err = f.initializeComponent(meta)
 	if err != nil {
 		return nil, err
 	}
+	f.logger().Debugf("component '%s' initialization finished", name)
 
 	if earlySingletonExposure {
-		earlySingleton, err := f.singletonComponentRegistry.GetSingleton(name, false)
+		f.logger().Tracef("try get early singleton reference '%s' for dependents reference version check", name)
+		earlySingletonReference, err := f.singletonComponentRegistry.GetSingleton(name, false)
 		if err != nil {
 			return nil, err
 		}
-		if earlySingleton != nil {
-			if reflect.DeepEqual(earlySingleton, meta) {
-				exposedComponent = earlySingleton
+		if earlySingletonReference != nil {
+			f.logger().Tracef("early singleton reference for '%s' exists, start check other dependents reference version", name)
+			if reflect.DeepEqual(earlySingletonReference, meta) {
+				exposedComponent = earlySingletonReference
 			} else if dependents := meta.GetDependents(); len(dependents) != 0 {
 				for _, dependent := range dependents {
 					if f.singletonComponentRegistry.IsSingletonCurrentlyInCreation(dependent) {
@@ -239,58 +251,71 @@ func (f *defaultFactory) doCreateComponent(name string, meta *component_definiti
 			}
 		}
 	}
+	f.logger().Debugf("do create component '%s' finished", name)
 	return exposedComponent, nil
 }
 
 func (f *defaultFactory) populateComponent(name string, meta *component_definition.Meta) error {
 	if len(meta.GetConfigurationNodes()) != 0 {
+		f.logger().Tracef("populate properties for '%s'", name)
 		err := f.configure.PopulateProperties(meta)
 		if err != nil {
 			return err
 		}
 	}
-	for _, node := range meta.GetComponentNodes() {
-		dependencies, err := f.getDependencies(meta.ID(), node)
-		if err != nil {
-			return err
-		}
-		var injects []*component_definition.Meta
-		for _, dependency := range dependencies {
-			component, err := f.doGetComponent(dependency.Name())
+	if nodes := meta.GetComponentNodes(); len(nodes) > 0 {
+		f.logger().Tracef("inject dependencies for '%s'", name)
+		for _, node := range meta.GetComponentNodes() {
+			f.logger().Tracef("get dependencies for %s", node.ID())
+			dependencies, err := f.getDependencies(meta.ID(), node)
 			if err != nil {
 				return err
 			}
-			injects = append(injects, component)
+			var injects []*component_definition.Meta
+			for _, dependency := range dependencies {
+				f.logger().Tracef("found dependency '%s' for '%s', start to get or create", dependency.Name(), name)
+				component, err := f.doGetComponent(dependency.Name())
+				if err != nil {
+					return err
+				}
+				injects = append(injects, component)
+			}
+			err = node.Inject(injects)
+			if err != nil {
+				return err
+			}
 		}
-		err = node.Inject(injects)
-		if err != nil {
-			return err
-		}
+		f.logger().Tracef("finished inject dependencies for '%s'", name)
 	}
 	return nil
 }
 
 func (f *defaultFactory) componentSingletonFactoryMethod(m *component_definition.Meta) support.SingletonFactory {
 	return support.FuncSingletonFactory(func() (*component_definition.Meta, error) {
-		fmt.Println("factory get", m.ID())
+		logger := f.logger().Pref("SingletonFactory")
 		var wrappedComponent, componentName = m.Raw, m.Name()
 		var err error
+		logger.Tracef("start to apply post process before component '%s' initialization", componentName)
 		wrappedComponent, err = f.applyPostProcessBeforeInitialization(wrappedComponent, componentName)
 		if err != nil {
 			return nil, err
 		}
 		if ic, ok := wrappedComponent.(definition.InitializingComponent); ok {
-			syslog.Tracef("initializing component %s do initialization", m.ID())
+			logger.Tracef("invoking after properties set method for component '%s'", componentName)
 			err := ic.AfterPropertiesSet()
 			if err != nil {
-				return nil, fmt.Errorf("initializing component %s initialization failed: %s", m.ID(), err)
+				return nil, fmt.Errorf("invoking after properties set method for component '%s' error: %s", componentName, err)
 			}
 		}
+		logger.Tracef("start to apply post process after component '%s' initialization", componentName)
 		wrappedComponent, err = f.applyPostProcessAfterInitialization(wrappedComponent, componentName)
 		if err != nil {
 			return nil, err
 		}
-		m.Proxy(wrappedComponent)
+		if !reflect.DeepEqual(wrappedComponent, m.Raw) {
+			logger.Debugf("detected a proxy instance for '%s', return proxy component", componentName)
+			m.UseProxy(wrappedComponent)
+		}
 		return m, nil
 	})
 }
@@ -334,6 +359,7 @@ func (f *defaultFactory) applyPostProcessAfterInitialization(c any, name string)
 }
 
 func (f *defaultFactory) initializeComponent(meta *component_definition.Meta) error {
+	f.logger().Tracef("post process before initialize component '%s'", meta.Name())
 	for _, processor := range f.initializedPostProcessors {
 		err := processor.PostProcessBeforeInitialization(meta.Raw)
 		if err != nil {
@@ -341,17 +367,20 @@ func (f *defaultFactory) initializeComponent(meta *component_definition.Meta) er
 		}
 	}
 	if c, ok := meta.Raw.(definition.InitializeComponent); ok {
+		f.logger().Tracef("invoking init method for component '%s'", meta.Name())
 		err := c.Init()
 		if err != nil {
 			return err
 		}
 	}
+	f.logger().Tracef("post process after initialize component '%s'", meta.Name())
 	for _, processor := range f.initializedPostProcessors {
 		err := processor.PostProcessAfterInitialization(meta.Raw)
 		if err != nil {
 			return err
 		}
 	}
+	f.logger().Debugf("initialize component '%s' finished", meta.Name())
 	return nil
 }
 
@@ -369,7 +398,7 @@ func (f *defaultFactory) getDependencies(metaID string, d *component_definition.
 	}
 	defer func() {
 		if err := recover(); err != nil {
-			syslog.Panicf(diErrOutput, inj.RuleName(), metaID, d.ID(), err)
+			f.logger().Panicf(diErrOutput, inj.RuleName(), metaID, d.ID(), err)
 		}
 	}()
 	candidates, err := inj.Candidates(f.definitionRegistry, d)
@@ -449,4 +478,8 @@ func filter(metas []*component_definition.Meta, f func(m *component_definition.M
 
 func (f *defaultFactory) GetDefinitionRegistry() support.DefinitionRegistry {
 	return f.definitionRegistry
+}
+
+func (f *defaultFactory) logger() syslog.Logger {
+	return syslog.GetLogger().Pref("ComponentFactory")
 }

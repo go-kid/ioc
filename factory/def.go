@@ -14,7 +14,7 @@ type Factory interface {
 	AddInjectionRules(rules ...InjectionRule)
 	PrepareComponents() error
 	Refresh() error
-	GetComponents(opts ...support.Option) []any
+	GetComponents(opts ...support.Option) ([]any, error)
 	GetComponentByName(name string) (any, error)
 	GetDefinitionRegistry() support.DefinitionRegistry
 }

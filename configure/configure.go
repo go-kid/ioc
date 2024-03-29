@@ -6,7 +6,6 @@ import (
 	"github.com/go-kid/ioc/configure/binder"
 	"github.com/go-kid/ioc/configure/loader"
 	"github.com/go-kid/ioc/syslog"
-	"github.com/go-kid/ioc/util/reflectx"
 	"os"
 	"sort"
 )
@@ -54,33 +53,33 @@ func (c *configure) SetBinder(binder Binder) {
 
 func (c *configure) Initialize() error {
 	if len(c.loaders) == 0 {
-		syslog.Trace("not found config loaders, skip init configs")
+		c.logger().Trace("not config loaders found, skip initialize configure")
 		return nil
 	}
-	syslog.Info("start loading configs...")
+	c.logger().Info("start loading configurations...")
 	err := c.loadConfigure()
 	if err != nil {
-		return fmt.Errorf("loading configure: %v", err)
+		return fmt.Errorf("loading configurations: %v", err)
 	}
-	syslog.Info("loading configure finished")
+	c.logger().Info("loading configurations finished")
 	return nil
 }
 
 func (c *configure) loadConfigure() error {
 	sumLoaders := len(c.loaders)
 	for i, l := range c.loaders {
-		syslog.Tracef("config loaders start loading config %s ...[%d/%d]", reflectx.Id(l), i+1, sumLoaders)
+		c.logger().Tracef("config loader %T start loading configurations... [%d/%d]", l, i+1, sumLoaders)
 		config, err := l.LoadConfig()
 		if err != nil {
-			return fmt.Errorf("config loader load config failed: %v", err)
+			return fmt.Errorf("config loader %T load config failed: %v", l, err)
 		}
 		if len(config) != 0 {
+			c.logger().Tracef("config binder set configurations with size %d", len(config))
 			err = c.Binder.SetConfig(config)
 			if err != nil {
-				return fmt.Errorf("config binder set config failed: %v", err)
+				return fmt.Errorf("config binder set configurations failed: %v\nraw configurations: %s", err, string(config))
 			}
 		}
-		syslog.Tracef("config loader loading finished ...[%d/%d]", i+1, sumLoaders)
 	}
 	return nil
 }
@@ -90,7 +89,7 @@ func (c *configure) PopulateProperties(metas ...*component_definition.Meta) erro
 		for _, node := range m.GetConfigurationNodes() {
 			for _, processor := range c.populateProcessors {
 				if processor.Filter(node) {
-					syslog.Tracef("populate property %s.Value(%s)", node.ID(), node.TagVal)
+					c.logger().Tracef("populate property %s.Value(%s)", node.ID(), node.TagVal)
 					err := processor.Populate(c.Binder, node)
 					if err != nil {
 						return fmt.Errorf("populate config properties %s.Value(%s) error: %v", node.ID(), node.TagVal, err)
@@ -100,4 +99,8 @@ func (c *configure) PopulateProperties(metas ...*component_definition.Meta) erro
 		}
 	}
 	return nil
+}
+
+func (c *configure) logger() syslog.Logger {
+	return syslog.GetLogger().Pref("Configure")
 }

@@ -2,6 +2,7 @@ package support
 
 import (
 	"github.com/go-kid/ioc/component_definition"
+	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/sync2"
 )
 
@@ -16,8 +17,8 @@ func DefaultDefinitionRegistry() DefinitionRegistry {
 }
 
 func (r *defaultDefinitionRegistry) RegisterMeta(m *component_definition.Meta) {
-	var name = m.Name()
-	r.metaMaps.Store(name, m)
+	r.metaMaps.Store(m.Name(), m)
+	syslog.Pref("ComponentDefinitionRegistry").Tracef("register component definition for '%s'", m.Name())
 }
 
 func (r *defaultDefinitionRegistry) GetMetas(opts ...Option) []*component_definition.Meta {
@@ -44,6 +45,6 @@ func (r *defaultDefinitionRegistry) GetMetaOrRegister(name string, handler Regis
 	}
 	m := handler()
 	m.SetName(name)
-	r.metaMaps.Store(name, m)
+	r.RegisterMeta(m)
 	return m
 }

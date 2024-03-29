@@ -15,9 +15,15 @@ type ComponentPostProcessor interface {
 }
 
 type InstantiationAwareComponentPostProcessor interface {
+	ComponentPostProcessor
 	PostProcessBeforeInstantiation(m *component_definition.Meta, componentName string) (*component_definition.Meta, error)
 	PostProcessAfterInstantiation(component any, componentName string) (bool, error)
 	PostProcessProperties(properties []*component_definition.Node, component any, componentName string) ([]*component_definition.Meta, error)
+}
+
+type SmartInstantiationAwareBeanPostProcessor interface {
+	InstantiationAwareComponentPostProcessor
+	GetEarlyBeanReference(meta *component_definition.Meta, componentName string) (*component_definition.Meta, error)
 }
 
 type ComponentInitializedPostProcessor interface {
@@ -26,6 +32,7 @@ type ComponentInitializedPostProcessor interface {
 }
 
 type DestructionAwareComponentPostProcessor interface {
+	ComponentPostProcessor
 	PostProcessBeforeDestruction(component any, componentName string) error
 	RequireDestruction(component any) bool
 }

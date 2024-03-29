@@ -151,3 +151,7 @@ func (m *Meta) scanFields(holder *Holder) {
 		return nil
 	})
 }
+
+func (m *Meta) IsSingleton() bool {
+	return true
+}

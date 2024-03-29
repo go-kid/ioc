@@ -36,3 +36,11 @@ type WireQualifier interface {
 type WirePrimary interface {
 	Primary()
 }
+
+type LazyInitComponent interface {
+	LazyInit()
+}
+
+type DependentOn interface {
+	DependentOn() []string
+}

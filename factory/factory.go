@@ -17,17 +17,18 @@ import (
 )
 
 type defaultFactory struct {
-	singletonRegistry                         support.SingletonRegistry
-	definitionRegistry                        support.DefinitionRegistry
-	singletonComponentRegistry                support.SingletonComponentRegistry
-	configure                                 configure.Configure
-	definitionRegistryPostProcessors          []processors.DefinitionRegistryPostProcessor
-	factoryPostProcessors                     []ComponentFactoryPostProcessor
-	postProcessors                            []processors.ComponentPostProcessor
-	instantiationAwareComponentPostProcessors []processors.InstantiationAwareComponentPostProcessor
-	destructionAwareComponentPostProcessors   []processors.DestructionAwareComponentPostProcessor
-	initializedPostProcessors                 []processors.ComponentInitializedPostProcessor
-	injectionRules                            []InjectionRule
+	singletonRegistry                           support.SingletonRegistry
+	definitionRegistry                          support.DefinitionRegistry
+	singletonComponentRegistry                  support.SingletonComponentRegistry
+	configure                                   configure.Configure
+	definitionRegistryPostProcessors            []processors.DefinitionRegistryPostProcessor
+	factoryPostProcessors                       []ComponentFactoryPostProcessor
+	postProcessors                              []processors.ComponentPostProcessor
+	hasInstantiationAwareComponentPostProcessor bool
+	hasDestructionAwareComponentPostProcessor   bool
+	initializedPostProcessors                   []processors.ComponentInitializedPostProcessor
+	injectionRules                              []InjectionRule
+	allowCircularReferences                     bool
 }
 
 func Default() Factory {
@@ -39,6 +40,7 @@ func Default() Factory {
 			&definition_registry_post_processors.ValueTagScanProcessor{},
 			&definition_registry_post_processors.WireTagScanProcessor{},
 		},
+		allowCircularReferences: true,
 	}
 	f.AddInjectionRules(
 		new(specifyInjector),
@@ -61,25 +63,24 @@ func (f *defaultFactory) PrepareComponents() error {
 		if err != nil {
 			return err
 		}
-		if p, ok := singleton.(processors.DefinitionRegistryPostProcessor); ok {
-			f.definitionRegistryPostProcessors = append(f.definitionRegistryPostProcessors, p)
+		switch singleton.(type) {
+		case processors.ComponentPostProcessor:
+			if _, ok := singleton.(processors.InstantiationAwareComponentPostProcessor); ok {
+				f.hasInstantiationAwareComponentPostProcessor = true
+			}
+			if _, ok := singleton.(processors.DestructionAwareComponentPostProcessor); ok {
+				f.hasDestructionAwareComponentPostProcessor = true
+			}
+			f.postProcessors = append(f.postProcessors, singleton.(processors.ComponentPostProcessor))
+		case processors.DefinitionRegistryPostProcessor:
+			f.definitionRegistryPostProcessors = append(f.definitionRegistryPostProcessors, singleton.(processors.DefinitionRegistryPostProcessor))
+		case ComponentFactoryPostProcessor:
+			f.factoryPostProcessors = append(f.factoryPostProcessors, singleton.(ComponentFactoryPostProcessor))
+		case processors.ComponentInitializedPostProcessor:
+			f.initializedPostProcessors = append(f.initializedPostProcessors, singleton.(processors.ComponentInitializedPostProcessor))
+		default:
+			singletons[name] = singleton
 		}
-		if p, ok := singleton.(ComponentFactoryPostProcessor); ok {
-			f.factoryPostProcessors = append(f.factoryPostProcessors, p)
-		}
-		if p, ok := singleton.(processors.ComponentPostProcessor); ok {
-			f.postProcessors = append(f.postProcessors, p)
-		}
-		if p, ok := singleton.(processors.InstantiationAwareComponentPostProcessor); ok {
-			f.instantiationAwareComponentPostProcessors = append(f.instantiationAwareComponentPostProcessors, p)
-		}
-		if p, ok := singleton.(processors.DestructionAwareComponentPostProcessor); ok {
-			f.destructionAwareComponentPostProcessors = append(f.destructionAwareComponentPostProcessors, p)
-		}
-		if p, ok := singleton.(processors.ComponentInitializedPostProcessor); ok {
-			f.initializedPostProcessors = append(f.initializedPostProcessors, p)
-		}
-		singletons[name] = singleton
 	}
 	for name, singleton := range singletons {
 		for _, processor := range f.definitionRegistryPostProcessors {
@@ -124,11 +125,30 @@ func (f *defaultFactory) AddInjectionRules(rules ...InjectionRule) {
 }
 
 func (f *defaultFactory) Refresh() error {
-	names := f.singletonRegistry.GetSingletonNames()
+	var (
+		dependentOnNames []string
+		names            []string
+	)
+
+	for _, meta := range f.definitionRegistry.GetMetas() {
+		switch meta.Raw.(type) {
+		case definition.LazyInitComponent:
+			continue
+		case definition.DependentOn:
+			dependentOn := meta.Raw.(definition.DependentOn)
+			dependentOnNames = append(dependentOnNames, dependentOn.DependentOn()...)
+		default:
+			names = append(names, meta.Name())
+		}
+	}
+	sort.Slice(dependentOnNames, func(i, j int) bool {
+		return dependentOnNames[i] < dependentOnNames[j]
+	})
 	sort.Slice(names, func(i, j int) bool {
 		return names[i] < names[j]
 	})
-	for _, name := range names {
+	var eagerlyComponents = append(dependentOnNames, names...)
+	for _, name := range eagerlyComponents {
 		f.logger().Tracef("refresh component with name '%s'", name)
 		_, err := f.doGetComponent(name)
 		if err != nil {
@@ -185,17 +205,19 @@ func (f *defaultFactory) doGetComponent(name string) (*component_definition.Meta
 func (f *defaultFactory) createComponent(name string) (*component_definition.Meta, error) {
 	meta := f.definitionRegistry.GetMetaByName(name)
 
-	if len(f.instantiationAwareComponentPostProcessors) != 0 {
+	if f.hasInstantiationAwareComponentPostProcessor {
 		if meta == nil {
 			return nil, fmt.Errorf("component definition with name '%s' not found", name)
 		}
-		for _, processor := range f.instantiationAwareComponentPostProcessors {
-			component, err := processor.PostProcessBeforeInstantiation(meta, name)
-			if err != nil {
-				return nil, err
-			}
-			if component != nil {
-				return component, nil
+		for _, processor := range f.postProcessors {
+			if ipb, ok := processor.(processors.InstantiationAwareComponentPostProcessor); ok {
+				component, err := ipb.PostProcessBeforeInstantiation(meta, name)
+				if err != nil {
+					return nil, err
+				}
+				if component != nil {
+					return component, nil
+				}
 			}
 		}
 	}
@@ -210,52 +232,66 @@ func (f *defaultFactory) createComponent(name string) (*component_definition.Met
 
 func (f *defaultFactory) doCreateComponent(name string, meta *component_definition.Meta) (*component_definition.Meta, error) {
 	// set to singleton component factory cache
-	earlySingletonExposure := f.singletonComponentRegistry.IsSingletonCurrentlyInCreation(name)
+	earlySingletonExposure := meta.IsSingleton() && f.allowCircularReferences && f.singletonComponentRegistry.IsSingletonCurrentlyInCreation(name)
 	if earlySingletonExposure {
 		f.logger().Debugf("eagerly caching bean '%s' to allow for resolving potential circular references", name)
-		f.singletonComponentRegistry.AddSingletonFactory(name, f.componentSingletonFactoryMethod(meta))
+		f.singletonComponentRegistry.AddSingletonFactory(name, support.FuncSingletonFactory(func() (*component_definition.Meta, error) {
+			return f.getEarlyBeanReference(name, meta)
+		}))
 	}
 
 	var exposedComponent = meta
-	f.logger().Tracef("start populate component '%s'", name)
+
 	err := f.populateComponent(name, meta)
 	if err != nil {
 		return nil, err
 	}
-	f.logger().Debugf("component '%s' population finished", name)
 
-	f.logger().Tracef("start initialize component '%s'", name)
-	err = f.initializeComponent(meta)
+	exposedComponent, err = f.initializeComponent(name, meta)
 	if err != nil {
 		return nil, err
 	}
-	f.logger().Debugf("component '%s' initialization finished", name)
 
 	if earlySingletonExposure {
-		f.logger().Tracef("try get early singleton reference '%s' for dependents reference version check", name)
+		f.logger().Tracef("try get early singleton reference '%s' to check with currently exposed component", name)
 		earlySingletonReference, err := f.singletonComponentRegistry.GetSingleton(name, false)
 		if err != nil {
 			return nil, err
 		}
 		if earlySingletonReference != nil {
 			f.logger().Tracef("early singleton reference for '%s' exists, start check other dependents reference version", name)
-			if reflect.DeepEqual(earlySingletonReference, meta) {
+			fmt.Printf("%#v\n", meta)
+			fmt.Printf("%#v\n", exposedComponent)
+			fmt.Printf("%#v\n", earlySingletonReference)
+			if reflect.DeepEqual(exposedComponent, meta) {
 				exposedComponent = earlySingletonReference
+				f.logger().Tracef("early singleton reference for '%s' is equal to currently exposed component, use early singleton reference to exposed", name)
 			} else if dependents := meta.GetDependents(); len(dependents) != 0 {
+				dependentComponents := strings.Join(dependents, "\n")
+				f.logger().Tracef("early singleton reference with name '%s' has been injected into components [%s]", name, dependentComponents)
+				var actualDependents []string
 				for _, dependent := range dependents {
 					if f.singletonComponentRegistry.IsSingletonCurrentlyInCreation(dependent) {
-						return nil, fmt.Errorf("singleton with name '%s' has been injected into other beans \n%s, but has been wrapped which means that other beans do not use the final version of the bean, please try change component init order.",
-							name, strings.Join(dependents, "\n"))
+						actualDependents = append(actualDependents, dependent)
 					}
+				}
+				if len(actualDependents) != 0 {
+					return nil, fmt.Errorf("singleton with name '%s' has been injected into other components \n[%s], but has been wrapped which means that other beans do not use the final version of the bean, please try change component init order.",
+						name, actualDependents)
 				}
 			}
 		}
+	}
+	err = f.processInitializedComponentInitialization(meta)
+	if err != nil {
+		return nil, err
 	}
 	f.logger().Debugf("do create component '%s' finished", name)
 	return exposedComponent, nil
 }
 
 func (f *defaultFactory) populateComponent(name string, meta *component_definition.Meta) error {
+	f.logger().Tracef("start populate component '%s'", name)
 	if len(meta.GetConfigurationNodes()) != 0 {
 		f.logger().Tracef("populate properties for '%s'", name)
 		err := f.configure.PopulateProperties(meta)
@@ -287,37 +323,65 @@ func (f *defaultFactory) populateComponent(name string, meta *component_definiti
 		}
 		f.logger().Tracef("finished inject dependencies for '%s'", name)
 	}
+	f.logger().Debugf("component '%s' population finished", name)
 	return nil
 }
 
-func (f *defaultFactory) componentSingletonFactoryMethod(m *component_definition.Meta) support.SingletonFactory {
-	return support.FuncSingletonFactory(func() (*component_definition.Meta, error) {
-		logger := f.logger().Pref("SingletonFactory")
-		var wrappedComponent, componentName = m.Raw, m.Name()
+func (f *defaultFactory) getEarlyBeanReference(name string, m *component_definition.Meta) (*component_definition.Meta, error) {
+	var exposedComponent = m
+	if f.hasInstantiationAwareComponentPostProcessor {
 		var err error
-		logger.Tracef("start to apply post process before component '%s' initialization", componentName)
-		wrappedComponent, err = f.applyPostProcessBeforeInitialization(wrappedComponent, componentName)
-		if err != nil {
-			return nil, err
-		}
-		if ic, ok := wrappedComponent.(definition.InitializingComponent); ok {
-			logger.Tracef("invoking after properties set method for component '%s'", componentName)
-			err := ic.AfterPropertiesSet()
-			if err != nil {
-				return nil, fmt.Errorf("invoking after properties set method for component '%s' error: %s", componentName, err)
+		for _, processor := range f.postProcessors {
+			if ibp, ok := processor.(processors.SmartInstantiationAwareBeanPostProcessor); ok {
+				exposedComponent, err = ibp.GetEarlyBeanReference(m, name)
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
-		logger.Tracef("start to apply post process after component '%s' initialization", componentName)
-		wrappedComponent, err = f.applyPostProcessAfterInitialization(wrappedComponent, componentName)
+	}
+	return exposedComponent, nil
+}
+
+func (f *defaultFactory) initializeComponent(name string, m *component_definition.Meta) (*component_definition.Meta, error) {
+	f.logger().Tracef("start initialize component '%s'", name)
+	logger := f.logger()
+	var wrappedComponent = m.Raw
+	var err error
+	logger.Tracef("start to apply post process before component '%s' initialization", name)
+	wrappedComponent, err = f.applyPostProcessBeforeInitialization(wrappedComponent, name)
+	if err != nil {
+		return nil, err
+	}
+	err = f.invokeInitMethods(name, wrappedComponent)
+	if err != nil {
+		return nil, err
+	}
+	logger.Tracef("start to apply post process after component '%s' initialization", name)
+	wrappedComponent, err = f.applyPostProcessAfterInitialization(wrappedComponent, name)
+	if err != nil {
+		return nil, err
+	}
+	if !reflect.DeepEqual(wrappedComponent, m.Raw) {
+		m = component_definition.NewMeta(wrappedComponent)
+		m.SetName(name)
+		//m.UseProxy(wrappedComponent)
+		logger.Debugf("component '%s' initialization finished, detected a new instance '%s' proxy, return proxy component", name, m.Type.String())
+	} else {
+		f.logger().Debugf("component '%s' initialization finished", name)
+	}
+	return m, nil
+}
+
+func (f *defaultFactory) invokeInitMethods(name string, component any) error {
+	if ic, ok := component.(definition.InitializingComponent); ok {
+		f.logger().Tracef("invoking afterPropertiesSet() method for component '%s'", name)
+		err := ic.AfterPropertiesSet()
 		if err != nil {
-			return nil, err
+			return fmt.Errorf("invoking afterPropertiesSet() method for component '%s' error: %s", name, err)
 		}
-		if !reflect.DeepEqual(wrappedComponent, m.Raw) {
-			logger.Debugf("detected a proxy instance for '%s', return proxy component", componentName)
-			m.UseProxy(wrappedComponent)
-		}
-		return m, nil
-	})
+	}
+	return nil
 }
 
 func (f *defaultFactory) applyPostProcessBeforeInitialization(c any, name string) (any, error) {
@@ -358,7 +422,7 @@ func (f *defaultFactory) applyPostProcessAfterInitialization(c any, name string)
 	return result, nil
 }
 
-func (f *defaultFactory) initializeComponent(meta *component_definition.Meta) error {
+func (f *defaultFactory) processInitializedComponentInitialization(meta *component_definition.Meta) error {
 	f.logger().Tracef("post process before initialize component '%s'", meta.Name())
 	for _, processor := range f.initializedPostProcessors {
 		err := processor.PostProcessBeforeInitialization(meta.Raw)

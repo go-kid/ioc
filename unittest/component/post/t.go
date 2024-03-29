@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/go-kid/ioc"
 	"github.com/go-kid/ioc/app"
+	"github.com/go-kid/ioc/component_definition"
 )
 
 type T struct {
@@ -64,24 +65,45 @@ func (s *serviceAAOP) SayName() {
 type postProcessor struct {
 }
 
+func (p *postProcessor) PostProcessBeforeInstantiation(m *component_definition.Meta, componentName string) (*component_definition.Meta, error) {
+	return nil, nil
+}
+
+func (p *postProcessor) PostProcessAfterInstantiation(component any, componentName string) (bool, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (p *postProcessor) PostProcessProperties(properties []*component_definition.Node, component any, componentName string) ([]*component_definition.Meta, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (p *postProcessor) GetEarlyBeanReference(meta *component_definition.Meta, componentName string) (*component_definition.Meta, error) {
+	if s, ok := meta.Raw.(*ServiceA); ok {
+		aop := &serviceAAOP{s: s}
+		meta.UseProxy(aop)
+	}
+	return meta, nil
+}
+
 func (p *postProcessor) PostProcessBeforeInitialization(component any, componentName string) (any, error) {
 	return component, nil
 }
 
 func (p *postProcessor) PostProcessAfterInitialization(component any, componentName string) (any, error) {
-	if s, ok := component.(*ServiceA); ok {
-		return &serviceAAOP{s: s}, nil
-	}
 	return component, nil
 }
 
 func main() {
 	a := &ServiceA{Name: "service A"}
 	b := &ServiceB{Name: "service B"}
-	c := &ServiceC{Name: "service C"}
+	//c := &ServiceC{Name: "service C"}
 	run, err := ioc.Run(app.LogTrace, app.SetComponents(
-		a, b, c,
-		//&postProcessor{},
+		a,
+		b,
+		//c,
+		&postProcessor{},
 	))
 	if err != nil {
 		panic(err)

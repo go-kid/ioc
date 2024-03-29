@@ -5,12 +5,13 @@ import (
 	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/configure/loader"
 	"github.com/go-kid/ioc/factory"
+	"github.com/go-kid/ioc/factory/support"
 	"github.com/go-kid/ioc/syslog"
 )
 
 type SettingOption func(s *App)
 
-func SetRegistry(r factory.SingletonRegistry) SettingOption {
+func SetRegistry(r support.SingletonRegistry) SettingOption {
 	return func(s *App) {
 		s.registry = r
 	}
@@ -19,7 +20,10 @@ func SetRegistry(r factory.SingletonRegistry) SettingOption {
 func SetComponents(cs ...any) SettingOption {
 	return func(s *App) {
 		for _, c := range cs {
-			name, _ := component_definition.GetComponentName(c)
+			name, alias := component_definition.GetComponentNameWithAlias(c)
+			if alias != "" {
+				name = alias
+			}
 			s.registry.RegisterSingleton(name, c)
 		}
 	}

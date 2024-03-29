@@ -1,7 +1,9 @@
 package factory
 
-var _registry = NewRegistry()
+import "github.com/go-kid/ioc/factory/support"
 
-func GlobalRegistry() SingletonRegistry {
+var _registry = support.NewRegistry()
+
+func GlobalRegistry() support.SingletonRegistry {
 	return _registry
 }

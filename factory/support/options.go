@@ -1,4 +1,4 @@
-package factory
+package support
 
 import (
 	"github.com/go-kid/ioc/component_definition"

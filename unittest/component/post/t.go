@@ -30,7 +30,11 @@ type ServiceA struct {
 	Name     string
 	ServiceB *ServiceB `wire:""`
 	ServiceC *ServiceC `wire:""`
-	ServiceA Service   `wire:""`
+	//ServiceA Service   `wire:""`
+}
+
+func (s *ServiceA) Qualifier() string {
+	return ""
 }
 
 func (s *ServiceA) SayName() {
@@ -38,13 +42,13 @@ func (s *ServiceA) SayName() {
 }
 
 type ServiceB struct {
-	Name     string
-	ServiceA Service `wire:""`
+	Name string
+	//ServiceA Service `wire:""`
 }
 
 type ServiceC struct {
-	Name     string
-	ServiceA Service `wire:""`
+	Name string
+	//ServiceA Service `wire:""`
 }
 
 type serviceAAOP struct {
@@ -82,10 +86,12 @@ func main() {
 		panic(err)
 	}
 	defer run.Close()
-	fmt.Printf("a: %T\n", a.ServiceA)
-	a.ServiceA.SayName()
-	fmt.Printf("b: %T\n", b.ServiceA)
-	b.ServiceA.SayName()
-	fmt.Printf("c: %T\n", c.ServiceA)
-	c.ServiceA.SayName()
+	fmt.Println(a.ServiceB.Name)
+	fmt.Println(a.ServiceC.Name)
+	//fmt.Printf("a: %T\n", a.ServiceA)
+	//a.ServiceA.SayName()
+	//fmt.Printf("b: %T\n", b.ServiceA)
+	//b.ServiceA.SayName()
+	//fmt.Printf("c: %T\n", c.ServiceA)
+	//c.ServiceA.SayName()
 }

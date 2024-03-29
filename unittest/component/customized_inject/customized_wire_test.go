@@ -51,11 +51,9 @@ type scanCompPostProcessor struct {
 }
 
 func (s *scanCompPostProcessor) PostProcessDefinitionRegistry(registry factory.DefinitionRegistry, component any, componentName string) error {
-	meta := registry.GetMetaByName(componentName)
-	if meta == nil {
-		meta = component_definition.NewMeta(component)
-		registry.RegisterMeta(meta)
-	}
+	meta := registry.GetMetaOrRegister(componentName, func() *component_definition.Meta {
+		return component_definition.NewMeta(component)
+	})
 	for _, field := range meta.Fields {
 		if tagVal, ok := field.StructField.Tag.Lookup("Comp"); ok {
 			meta.SetNodes(component_definition.NewNode(field, component_definition.NodeTypeComponent, "Comp", tagVal))

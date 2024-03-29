@@ -16,8 +16,3 @@ func NewBase(c any) *Base {
 		originAddress: v.Pointer(),
 	}
 }
-
-func (b *Base) Update(c any) {
-	b.Type = reflect.TypeOf(c)
-	b.Value = reflect.ValueOf(c)
-}

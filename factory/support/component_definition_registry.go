@@ -1,11 +1,9 @@
-package factory
+package support
 
 import (
 	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/util/sync2"
 )
-
-var _ DefinitionRegistry = &defaultDefinitionRegistry{}
 
 type defaultDefinitionRegistry struct {
 	metaMaps *sync2.Map[string, *component_definition.Meta]
@@ -18,7 +16,8 @@ func DefaultDefinitionRegistry() DefinitionRegistry {
 }
 
 func (r *defaultDefinitionRegistry) RegisterMeta(m *component_definition.Meta) {
-	r.metaMaps.Store(m.Name, m)
+	var name = m.Name()
+	r.metaMaps.Store(name, m)
 }
 
 func (r *defaultDefinitionRegistry) GetMetas(opts ...Option) []*component_definition.Meta {
@@ -37,4 +36,14 @@ func (r *defaultDefinitionRegistry) GetMetaByName(name string) *component_defini
 		return c
 	}
 	return nil
+}
+
+func (r *defaultDefinitionRegistry) GetMetaOrRegister(name string, handler RegisterMeta) *component_definition.Meta {
+	if m, ok := r.metaMaps.Load(name); ok {
+		return m
+	}
+	m := handler()
+	m.SetName(name)
+	r.metaMaps.Store(name, m)
+	return m
 }

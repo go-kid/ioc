@@ -2,6 +2,7 @@ package factory
 
 import (
 	"github.com/go-kid/ioc/component_definition"
+	"github.com/go-kid/ioc/factory/support"
 	"reflect"
 )
 
@@ -26,8 +27,8 @@ func (c *customizedPtrInjector) Condition(d *component_definition.Node) bool {
 	return d.Type.Kind() == reflect.Ptr
 }
 
-func (c *customizedPtrInjector) Candidates(r DefinitionRegistry, d *component_definition.Node) ([]*component_definition.Meta, error) {
-	metas := r.GetMetas(FuncNameAndResult(d.Tag, d.TagVal), Type(d.Type))
+func (c *customizedPtrInjector) Candidates(r support.DefinitionRegistry, d *component_definition.Node) ([]*component_definition.Meta, error) {
+	metas := r.GetMetas(support.FuncNameAndResult(d.Tag, d.TagVal), support.Type(d.Type))
 	return metas, nil
 }
 
@@ -46,8 +47,8 @@ func (c *customizedInterfaceInjector) Condition(d *component_definition.Node) bo
 	return d.Type.Kind() == reflect.Interface
 }
 
-func (c *customizedInterfaceInjector) Candidates(r DefinitionRegistry, d *component_definition.Node) ([]*component_definition.Meta, error) {
-	metas := r.GetMetas(FuncNameAndResult(d.Tag, d.TagVal), InterfaceType(d.Type))
+func (c *customizedInterfaceInjector) Candidates(r support.DefinitionRegistry, d *component_definition.Node) ([]*component_definition.Meta, error) {
+	metas := r.GetMetas(support.FuncNameAndResult(d.Tag, d.TagVal), support.InterfaceType(d.Type))
 	return metas, nil
 }
 
@@ -66,7 +67,7 @@ func (s *customizedInterfaceSliceInjector) Condition(d *component_definition.Nod
 	return d.Type.Kind() == reflect.Slice && d.Type.Elem().Kind() == reflect.Interface //ruleSliceInterface
 }
 
-func (s *customizedInterfaceSliceInjector) Candidates(r DefinitionRegistry, d *component_definition.Node) ([]*component_definition.Meta, error) {
-	metas := r.GetMetas(FuncNameAndResult(d.Tag, d.TagVal), InterfaceType(d.Type.Elem()))
+func (s *customizedInterfaceSliceInjector) Candidates(r support.DefinitionRegistry, d *component_definition.Node) ([]*component_definition.Meta, error) {
+	metas := r.GetMetas(support.FuncNameAndResult(d.Tag, d.TagVal), support.InterfaceType(d.Type.Elem()))
 	return metas, nil
 }

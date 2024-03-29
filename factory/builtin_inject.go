@@ -3,6 +3,7 @@ package factory
 import (
 	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/definition"
+	"github.com/go-kid/ioc/factory/support"
 	"reflect"
 )
 
@@ -36,7 +37,7 @@ func (b *specifyInjector) Condition(d *component_definition.Node) bool {
 		(d.Type.Kind() == reflect.Ptr || d.Type.Kind() == reflect.Interface)
 }
 
-func (b *specifyInjector) Candidates(r DefinitionRegistry, d *component_definition.Node) ([]*component_definition.Meta, error) {
+func (b *specifyInjector) Candidates(r support.DefinitionRegistry, d *component_definition.Node) ([]*component_definition.Meta, error) {
 	dm := r.GetMetaByName(d.TagVal)
 	return []*component_definition.Meta{dm}, nil
 }
@@ -63,8 +64,8 @@ func (b *unSpecifyPtrInjector) Condition(d *component_definition.Node) bool {
 		d.Type.Kind() == reflect.Ptr //rulePointer
 }
 
-func (b *unSpecifyPtrInjector) Candidates(r DefinitionRegistry, d *component_definition.Node) ([]*component_definition.Meta, error) {
-	metas := r.GetMetas(Type(d.Type))
+func (b *unSpecifyPtrInjector) Candidates(r support.DefinitionRegistry, d *component_definition.Node) ([]*component_definition.Meta, error) {
+	metas := r.GetMetas(support.Type(d.Type))
 	return metas, nil
 }
 
@@ -90,8 +91,8 @@ func (s *unSpecifyPtrSliceInjector) Condition(d *component_definition.Node) bool
 		d.Type.Kind() == reflect.Slice && d.Type.Elem().Kind() == reflect.Pointer //ruleSlicePtr
 }
 
-func (s *unSpecifyPtrSliceInjector) Candidates(r DefinitionRegistry, d *component_definition.Node) ([]*component_definition.Meta, error) {
-	metas := r.GetMetas(Type(d.Type.Elem()))
+func (s *unSpecifyPtrSliceInjector) Candidates(r support.DefinitionRegistry, d *component_definition.Node) ([]*component_definition.Meta, error) {
+	metas := r.GetMetas(support.Type(d.Type.Elem()))
 	return metas, nil
 }
 
@@ -118,8 +119,8 @@ func (i *unSpecifyInterfaceInjector) Condition(d *component_definition.Node) boo
 		d.Type.Kind() == reflect.Interface //ruleInterface
 }
 
-func (i *unSpecifyInterfaceInjector) Candidates(r DefinitionRegistry, d *component_definition.Node) ([]*component_definition.Meta, error) {
-	metas := r.GetMetas(InterfaceType(d.Type))
+func (i *unSpecifyInterfaceInjector) Candidates(r support.DefinitionRegistry, d *component_definition.Node) ([]*component_definition.Meta, error) {
+	metas := r.GetMetas(support.InterfaceType(d.Type))
 	return metas, nil
 }
 
@@ -145,7 +146,7 @@ func (s *unSpecifyInterfaceSliceInjector) Condition(d *component_definition.Node
 		d.Type.Kind() == reflect.Slice && d.Type.Elem().Kind() == reflect.Interface //ruleSliceInterface
 }
 
-func (s *unSpecifyInterfaceSliceInjector) Candidates(r DefinitionRegistry, d *component_definition.Node) ([]*component_definition.Meta, error) {
-	metas := r.GetMetas(InterfaceType(d.Type.Elem()))
+func (s *unSpecifyInterfaceSliceInjector) Candidates(r support.DefinitionRegistry, d *component_definition.Node) ([]*component_definition.Meta, error) {
+	metas := r.GetMetas(support.InterfaceType(d.Type.Elem()))
 	return metas, nil
 }

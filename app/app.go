@@ -3,10 +3,10 @@ package app
 import (
 	"errors"
 	"fmt"
-	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/definition"
 	"github.com/go-kid/ioc/factory"
+	"github.com/go-kid/ioc/factory/support"
 	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/reflectx"
 	"sort"
@@ -16,11 +16,12 @@ import (
 type App struct {
 	configure.Configure
 	factory.Factory
-	registry                factory.SingletonRegistry
+	registry                support.SingletonRegistry
 	enableComponentInit     bool
 	enableApplicationRunner bool
 	ApplicationRunners      []definition.ApplicationRunner `wire:",required=false"`
 	CloserComponents        []definition.CloserComponent   `wire:",required=false"`
+	//App                     *App                           `wire:"ApplicationContext"`
 }
 
 func NewApp(ops ...SettingOption) *App {
@@ -53,7 +54,7 @@ func (s *App) initiate() error {
 	}
 	s.Factory.SetRegistry(s.registry)
 	s.Factory.SetConfigure(s.Configure)
-	s.registry.RegisterSingleton("ApplicationContext", s)
+	//s.registry.RegisterSingleton("ApplicationContext", s)
 	return nil
 }
 
@@ -157,7 +158,7 @@ func (s *App) Close() {
 		go func(m definition.CloserComponent) {
 			defer wg.Done()
 			if err := m.Close(); err != nil {
-				syslog.Errorf("Error closing %s", component_definition.ComponentId(m))
+				syslog.Errorf("Error closing %T", m)
 			}
 		}(m)
 	}

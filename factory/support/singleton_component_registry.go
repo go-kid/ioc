@@ -1,4 +1,4 @@
-package factory
+package support
 
 import (
 	"github.com/go-kid/ioc/component_definition"
@@ -6,8 +6,6 @@ import (
 	"github.com/go-kid/ioc/util/list"
 	"github.com/go-kid/ioc/util/sync2"
 )
-
-var _ SingletonComponentRegistry = &defaultSingletonComponentRegistry{}
 
 type defaultSingletonComponentRegistry struct {
 	singletonObjects             *sync2.Map[string, *component_definition.Meta]
@@ -45,31 +43,19 @@ func (r *defaultSingletonComponentRegistry) AddSingletonFactory(name string, met
 	syslog.Tracef("definition registry add singleton factory for %s", name)
 }
 
-func (r *defaultSingletonComponentRegistry) GetSingletonFactory(name string) (SingletonFactory, bool) {
-	return r.singletonFactories.Load(name)
-}
-
-func (r *defaultSingletonComponentRegistry) EarlyExportComponent(m *component_definition.Meta) {
-	r.earlySingletonObjects.Store(m.Name, m)
-	r.singletonFactories.Delete(m.Name)
-}
-
-func (r *defaultSingletonComponentRegistry) GetEarlyExportComponent(name string) (*component_definition.Meta, bool) {
-	return r.earlySingletonObjects.Load(name)
-}
-
 func (r *defaultSingletonComponentRegistry) RemoveComponents(name string) {
 	r.singletonObjects.Delete(name)
 	syslog.Tracef("registry remove component %s", name)
 }
 
-func (r *defaultSingletonComponentRegistry) ComponentInitialized(meta *component_definition.Meta) {
-	r.singletonCurrentlyInCreation.Remove(meta.Name)
-	r.singletonObjects.Store(meta.Name, meta)
+func (r *defaultSingletonComponentRegistry) AddSingleton(name string, meta *component_definition.Meta) {
+	r.singletonObjects.Store(name, meta)
+	r.earlySingletonObjects.Delete(name)
+	r.singletonFactories.Delete(name)
 	//syslog.Tracef("registry update component %s to inited", name)
 }
 
-func (r *defaultSingletonComponentRegistry) GetComponent(name string) (*component_definition.Meta, error) {
+func (r *defaultSingletonComponentRegistry) GetSingleton(name string, allowEarlyReference bool) (*component_definition.Meta, error) {
 	// get component from inited components cache
 	if meta, ok := r.singletonObjects.Load(name); ok {
 		syslog.Tracef("definition registry get component definition by name %s", name)
@@ -80,18 +66,34 @@ func (r *defaultSingletonComponentRegistry) GetComponent(name string) (*componen
 		syslog.Tracef("definition registry get early export component %s", name)
 		return earlyComponent, nil
 	}
-	// get component from singleton component factory cache
-	if factory, ok := r.singletonFactories.Load(name); ok {
-		syslog.Tracef("definition registry get singleton factory %s", name)
-		component, err := factory.GetComponent()
-		if err != nil {
-			return nil, err
+	if allowEarlyReference {
+		// get component from singleton component factory cache
+		if factory, ok := r.singletonFactories.Load(name); ok {
+			syslog.Tracef("definition registry get singleton factory %s", name)
+			component, err := factory.GetComponent()
+			if err != nil {
+				return nil, err
+			}
+			r.earlySingletonObjects.Store(name, component)
+			r.singletonFactories.Delete(name)
+			return component, nil
 		}
-		r.earlySingletonObjects.Store(name, component)
-		r.singletonFactories.Delete(name)
-		return component, nil
 	}
 	return nil, nil
+}
+
+func (r *defaultSingletonComponentRegistry) GetSingletonOrCreateByFactory(name string, factory SingletonFactory) (*component_definition.Meta, error) {
+	if singleton, loaded := r.singletonObjects.Load(name); loaded {
+		return singleton, nil
+	}
+	r.singletonCurrentlyInCreation.Put(name)
+	singleton, err := factory.GetComponent()
+	if err != nil {
+		return nil, err
+	}
+	r.singletonCurrentlyInCreation.Remove(name)
+	r.AddSingleton(name, singleton)
+	return singleton, nil
 }
 
 func (r *defaultSingletonComponentRegistry) BeforeSingletonCreation(name string) {

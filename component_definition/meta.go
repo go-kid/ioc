@@ -16,45 +16,74 @@ const (
 
 type Meta struct {
 	*Base
-	id      string
-	Name    string
-	IsAlias bool
+	ProxyMeta *Meta
+	name      string
+	alias     string
 
 	Raw    interface{}
 	Fields []*Field
 
-	dependedOnSet *sync2.Map[string, struct{}]
-	DependedOn    []*Meta
+	dependentSet *sync2.Map[string, struct{}]
+	Dependent    []*Meta
 
 	nodeGroup map[NodeType][]*Node
 }
 
 func NewMeta(c any) *Meta {
 	base := NewBase(c)
-	name, alias := GetComponentName(c)
+	name, alias := GetComponentNameWithAlias(c)
 	m := &Meta{
-		Base:          base,
-		id:            ComponentId(c),
-		Name:          name,
-		IsAlias:       alias,
-		Raw:           c,
-		dependedOnSet: sync2.New[string, struct{}](),
-		nodeGroup:     make(map[NodeType][]*Node),
+		Base:         base,
+		name:         name,
+		alias:        alias,
+		Raw:          c,
+		dependentSet: sync2.New[string, struct{}](),
+		nodeGroup:    make(map[NodeType][]*Node),
 	}
 	m.scanFields(NewHolder(m))
 	return m
 }
 
 func (m *Meta) ID() string {
-	return fmt.Sprintf("%s(0x%x)", m.id, m.Value.Pointer())
+	if m.IsAlias() {
+		return fmt.Sprintf("%s(alias=%s)(0x%x)", m.name, m.alias, m.Value.Pointer())
+	}
+	return fmt.Sprintf("%s(0x%x)", m.name, m.Value.Pointer())
+}
+
+func (m *Meta) Name() string {
+	if m.IsAlias() {
+		return m.alias
+	}
+	return m.name
+}
+
+func (m *Meta) SetName(name string) {
+	if name != m.name {
+		m.alias = name
+	}
+}
+
+func (m *Meta) IsAlias() bool {
+	return m.alias != ""
 }
 
 func (m *Meta) IsSelf(o *Meta) bool {
 	return m.Value.Pointer() == o.originAddress
 }
 
-func (m *Meta) dependOn(parent *Meta) {
-	m.dependedOnSet.LoadOrStore(parent.ID(), struct{}{})
+func (m *Meta) dependOn(dependent *Meta) {
+	_, loaded := m.dependentSet.LoadOrStore(dependent.ID(), struct{}{})
+	if !loaded {
+		m.Dependent = append(m.Dependent, dependent)
+	}
+}
+
+func (m *Meta) GetDependents() (names []string) {
+	for _, meta := range m.Dependent {
+		names = append(names, meta.Name())
+	}
+	return
 }
 
 func (m *Meta) SetNodes(nodes ...*Node) {
@@ -81,6 +110,22 @@ func (m *Meta) GetAllNodes() []*Node {
 		nodes = append(nodes, groupNodes...)
 	}
 	return nodes
+}
+
+func (m *Meta) Proxy(origin any) {
+	m.ProxyMeta = &Meta{
+		Base:         m.Base,
+		ProxyMeta:    nil,
+		name:         m.name,
+		alias:        m.alias,
+		Raw:          m.Raw,
+		Fields:       m.Fields,
+		dependentSet: m.dependentSet,
+		Dependent:    m.Dependent,
+		nodeGroup:    m.nodeGroup,
+	}
+	m.Base = NewBase(origin)
+	m.Raw = origin
 }
 
 func (m *Meta) scanFields(holder *Holder) {

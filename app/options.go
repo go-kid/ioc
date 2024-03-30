@@ -1,7 +1,6 @@
 package app
 
 import (
-	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/configure/loader"
 	"github.com/go-kid/ioc/factory"
@@ -20,11 +19,7 @@ func SetRegistry(r support.SingletonRegistry) SettingOption {
 func SetComponents(cs ...any) SettingOption {
 	return func(s *App) {
 		for _, c := range cs {
-			name, alias := component_definition.GetComponentNameWithAlias(c)
-			if alias != "" {
-				name = alias
-			}
-			s.registry.RegisterSingleton(name, c)
+			s.registry.RegisterSingleton(c)
 		}
 	}
 }

@@ -128,6 +128,21 @@ func (m *Meta) UseProxy(origin any) {
 	m.Raw = origin
 }
 
+type Interceptor = func(name string, m *Meta) error
+
+func CreateProxy(origin *Meta, name string, newComponent any, interceptors ...Interceptor) (*Meta, error) {
+	nm := NewMeta(newComponent)
+	nm.SetName(name)
+	nm.ProxyMeta = origin
+	for _, interceptor := range interceptors {
+		err := interceptor(name, nm)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return nm, nil
+}
+
 func (m *Meta) scanFields(holder *Holder) {
 	_ = reflectx.ForEachFieldV2(holder.Type, holder.Value, false, func(field reflect.StructField, value reflect.Value) error {
 		var base = &Base{

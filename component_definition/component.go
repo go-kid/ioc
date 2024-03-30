@@ -22,3 +22,11 @@ func GetComponentNameWithAlias(t any) (name, alias string) {
 	}
 	return
 }
+
+func GetComponentName(t any) string {
+	name, alias := GetComponentNameWithAlias(t)
+	if alias != "" {
+		name = alias
+	}
+	return name
+}

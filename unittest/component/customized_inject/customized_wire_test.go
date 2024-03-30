@@ -4,7 +4,7 @@ import (
 	"github.com/go-kid/ioc"
 	"github.com/go-kid/ioc/app"
 	"github.com/go-kid/ioc/component_definition"
-	"github.com/go-kid/ioc/factory"
+	"github.com/go-kid/ioc/factory/support"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -50,7 +50,7 @@ func (b *InterfaceImplComponent) SimpleInterface() {}
 type scanCompPostProcessor struct {
 }
 
-func (s *scanCompPostProcessor) PostProcessDefinitionRegistry(registry factory.DefinitionRegistry, component any, componentName string) error {
+func (s *scanCompPostProcessor) PostProcessDefinitionRegistry(registry support.DefinitionRegistry, component any, componentName string) error {
 	meta := registry.GetMetaOrRegister(componentName, func() *component_definition.Meta {
 		return component_definition.NewMeta(component)
 	})

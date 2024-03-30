@@ -13,7 +13,6 @@ import (
 	"github.com/samber/lo"
 	"reflect"
 	"sort"
-	"strings"
 )
 
 type defaultFactory struct {
@@ -82,20 +81,13 @@ func (f *defaultFactory) PrepareComponents() error {
 			singletons[name] = singleton
 		}
 	}
+
 	for name, singleton := range singletons {
-		for _, processor := range f.definitionRegistryPostProcessors {
-			err := processor.PostProcessDefinitionRegistry(f.definitionRegistry, singleton, name)
-			if err != nil {
-				return err
-			}
+		err := f.postProcessDefinitionRegistry(name, singleton)
+		if err != nil {
+			return err
 		}
 	}
-	//syslog.Trace("start populating properties...")
-	//err := f.configure.PopulateProperties(metas...)
-	//if err != nil {
-	//	return fmt.Errorf("populate components properties: %v", err)
-	//}
-	//syslog.Info("populate properties finished")
 
 	if len(f.factoryPostProcessors) != 0 {
 		for _, fp := range f.factoryPostProcessors {
@@ -106,6 +98,16 @@ func (f *defaultFactory) PrepareComponents() error {
 		}
 	}
 
+	return nil
+}
+
+func (f *defaultFactory) postProcessDefinitionRegistry(name string, component any) error {
+	for _, processor := range f.definitionRegistryPostProcessors {
+		err := processor.PostProcessDefinitionRegistry(f.definitionRegistry, component, name)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -125,30 +127,22 @@ func (f *defaultFactory) AddInjectionRules(rules ...InjectionRule) {
 }
 
 func (f *defaultFactory) Refresh() error {
-	var (
-		dependentOnNames []string
-		names            []string
-	)
+
+	var names []string
 
 	for _, meta := range f.definitionRegistry.GetMetas() {
 		switch meta.Raw.(type) {
 		case definition.LazyInitComponent:
 			continue
-		case definition.DependentOn:
-			dependentOn := meta.Raw.(definition.DependentOn)
-			dependentOnNames = append(dependentOnNames, dependentOn.DependentOn()...)
 		default:
 			names = append(names, meta.Name())
 		}
 	}
-	sort.Slice(dependentOnNames, func(i, j int) bool {
-		return dependentOnNames[i] < dependentOnNames[j]
-	})
+
 	sort.Slice(names, func(i, j int) bool {
 		return names[i] < names[j]
 	})
-	var eagerlyComponents = append(dependentOnNames, names...)
-	for _, name := range eagerlyComponents {
+	for _, name := range names {
 		f.logger().Tracef("refresh component with name '%s'", name)
 		_, err := f.doGetComponent(name)
 		if err != nil {
@@ -260,23 +254,19 @@ func (f *defaultFactory) doCreateComponent(name string, meta *component_definiti
 		}
 		if earlySingletonReference != nil {
 			f.logger().Tracef("early singleton reference for '%s' exists, start check other dependents reference version", name)
-			fmt.Printf("%#v\n", meta)
-			fmt.Printf("%#v\n", exposedComponent)
-			fmt.Printf("%#v\n", earlySingletonReference)
-			if reflect.DeepEqual(exposedComponent, meta) {
+			if exposedComponent == meta {
 				exposedComponent = earlySingletonReference
 				f.logger().Tracef("early singleton reference for '%s' is equal to currently exposed component, use early singleton reference to exposed", name)
-			} else if dependents := meta.GetDependents(); len(dependents) != 0 {
-				dependentComponents := strings.Join(dependents, "\n")
-				f.logger().Tracef("early singleton reference with name '%s' has been injected into components [%s]", name, dependentComponents)
+			} else if dependents := append(earlySingletonReference.GetDependents(), meta.GetDependents()...); len(dependents) != 0 {
+				f.logger().Tracef("early singleton reference with name '%s' has been injected into components %s", name, dependents)
 				var actualDependents []string
 				for _, dependent := range dependents {
-					if f.singletonComponentRegistry.IsSingletonCurrentlyInCreation(dependent) {
+					if !f.singletonComponentRegistry.IsSingletonCurrentlyInCreation(dependent) {
 						actualDependents = append(actualDependents, dependent)
 					}
 				}
 				if len(actualDependents) != 0 {
-					return nil, fmt.Errorf("singleton with name '%s' has been injected into other components \n[%s], but has been wrapped which means that other beans do not use the final version of the bean, please try change component init order.",
+					return nil, fmt.Errorf("singleton with name '%s' has been injected into other components \n%s, but has been wrapped which means that other beans do not use the final version of the bean, please try change component init order.",
 						name, actualDependents)
 				}
 			}
@@ -328,19 +318,29 @@ func (f *defaultFactory) populateComponent(name string, meta *component_definiti
 }
 
 func (f *defaultFactory) getEarlyBeanReference(name string, m *component_definition.Meta) (*component_definition.Meta, error) {
-	var exposedComponent = m
+	var exposedComponent = m.Raw
+	var err error
 	if f.hasInstantiationAwareComponentPostProcessor {
-		var err error
 		for _, processor := range f.postProcessors {
 			if ibp, ok := processor.(processors.SmartInstantiationAwareBeanPostProcessor); ok {
-				exposedComponent, err = ibp.GetEarlyBeanReference(m, name)
+				exposedComponent, err = ibp.GetEarlyBeanReference(exposedComponent, name)
 				if err != nil {
 					return nil, err
 				}
 			}
 		}
 	}
-	return exposedComponent, nil
+	if exposedComponent != m.Raw {
+		m, err = f.genProxyComponent(m, name, exposedComponent)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return m, nil
+}
+
+func (f *defaultFactory) genProxyComponent(origin *component_definition.Meta, name string, newComponent any) (*component_definition.Meta, error) {
+	return component_definition.CreateProxy(origin, name, newComponent)
 }
 
 func (f *defaultFactory) initializeComponent(name string, m *component_definition.Meta) (*component_definition.Meta, error) {
@@ -362,10 +362,14 @@ func (f *defaultFactory) initializeComponent(name string, m *component_definitio
 	if err != nil {
 		return nil, err
 	}
-	if !reflect.DeepEqual(wrappedComponent, m.Raw) {
-		m = component_definition.NewMeta(wrappedComponent)
-		m.SetName(name)
+	if wrappedComponent != m.Raw {
+		//m = component_definition.NewMeta(wrappedComponent)
+		//m.SetName(name)
 		//m.UseProxy(wrappedComponent)
+		m, err = f.genProxyComponent(m, name, wrappedComponent)
+		if err != nil {
+			return nil, err
+		}
 		logger.Debugf("component '%s' initialization finished, detected a new instance '%s' proxy, return proxy component", name, m.Type.String())
 	} else {
 		f.logger().Debugf("component '%s' initialization finished", name)

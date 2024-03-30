@@ -40,7 +40,3 @@ type WirePrimary interface {
 type LazyInitComponent interface {
 	LazyInit()
 }
-
-type DependentOn interface {
-	DependentOn() []string
-}

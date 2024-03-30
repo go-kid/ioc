@@ -3,7 +3,7 @@ package support
 import "github.com/go-kid/ioc/component_definition"
 
 type SingletonRegistry interface {
-	RegisterSingleton(name string, singleton any)
+	RegisterSingleton(singleton any)
 	GetSingleton(name string) (any, error)
 	ContainsSingleton(name string) bool
 	GetSingletonNames() []string

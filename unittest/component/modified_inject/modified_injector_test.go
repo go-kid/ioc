@@ -4,7 +4,7 @@ import (
 	"github.com/go-kid/ioc"
 	"github.com/go-kid/ioc/app"
 	"github.com/go-kid/ioc/component_definition"
-	"github.com/go-kid/ioc/factory"
+	"github.com/go-kid/ioc/factory/support"
 	"github.com/stretchr/testify/assert"
 	"reflect"
 	"strconv"
@@ -26,22 +26,7 @@ func (m *MyInjector) Condition(d *component_definition.Node) bool {
 	return d.Tag == "mul"
 }
 
-type scanCompPostProcessor struct {
-}
-
-func (s *scanCompPostProcessor) PostProcessDefinitionRegistry(registry factory.DefinitionRegistry, component any, componentName string) error {
-	meta := registry.GetMetaOrRegister(componentName, func() *component_definition.Meta {
-		return component_definition.NewMeta(component)
-	})
-	for _, field := range meta.Fields {
-		if tagVal, ok := field.StructField.Tag.Lookup("mul"); ok {
-			meta.SetNodes(component_definition.NewNode(field, component_definition.NodeTypeComponent, "mul", tagVal))
-		}
-	}
-	return nil
-}
-
-func (m *MyInjector) Candidates(_ factory.DefinitionRegistry, d *component_definition.Node) ([]*component_definition.Meta, error) {
+func (m *MyInjector) Candidates(_ support.DefinitionRegistry, d *component_definition.Node) ([]*component_definition.Meta, error) {
 	n, err := strconv.ParseInt(d.TagVal, 10, 64)
 	if err != nil {
 		return nil, err
@@ -51,6 +36,21 @@ func (m *MyInjector) Candidates(_ factory.DefinitionRegistry, d *component_defin
 	}))
 	d.SetArg(component_definition.ArgRequired, []string{"false"})
 	return nil, nil
+}
+
+type scanCompPostProcessor struct {
+}
+
+func (s *scanCompPostProcessor) PostProcessDefinitionRegistry(registry support.DefinitionRegistry, component any, componentName string) error {
+	meta := registry.GetMetaOrRegister(componentName, func() *component_definition.Meta {
+		return component_definition.NewMeta(component)
+	})
+	for _, field := range meta.Fields {
+		if tagVal, ok := field.StructField.Tag.Lookup("mul"); ok {
+			meta.SetNodes(component_definition.NewNode(field, component_definition.NodeTypeComponent, "mul", tagVal))
+		}
+	}
+	return nil
 }
 
 func TestModifiedInjector(t *testing.T) {

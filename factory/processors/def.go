@@ -23,7 +23,7 @@ type InstantiationAwareComponentPostProcessor interface {
 
 type SmartInstantiationAwareBeanPostProcessor interface {
 	InstantiationAwareComponentPostProcessor
-	GetEarlyBeanReference(meta *component_definition.Meta, componentName string) (*component_definition.Meta, error)
+	GetEarlyBeanReference(component any, componentName string) (any, error)
 }
 
 type ComponentInitializedPostProcessor interface {

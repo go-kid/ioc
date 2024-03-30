@@ -19,13 +19,12 @@ type App struct {
 	enableApplicationRunner bool
 	ApplicationRunners      []definition.ApplicationRunner `wire:",required=false"`
 	CloserComponents        []definition.CloserComponent   `wire:",required=false"`
-	//App                     *App                           `wire:"ApplicationContext"`
 }
 
 func NewApp(ops ...SettingOption) *App {
 	var s = &App{
 		Configure:               configure.Default(),
-		registry:                factory.GlobalRegistry(),
+		registry:                support.NewRegistry(),
 		Factory:                 factory.Default(),
 		enableApplicationRunner: true,
 	}
@@ -51,7 +50,7 @@ func (s *App) initiate() error {
 	}
 	s.Factory.SetRegistry(s.registry)
 	s.Factory.SetConfigure(s.Configure)
-	//s.registry.RegisterSingleton("ApplicationContext", s)
+	s.registry.RegisterSingleton(s)
 	return nil
 }
 

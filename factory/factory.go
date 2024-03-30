@@ -28,6 +28,8 @@ type defaultFactory struct {
 	initializedPostProcessors                   []processors.ComponentInitializedPostProcessor
 	injectionRules                              []InjectionRule
 	allowCircularReferences                     bool
+	postProcessorRegistrationDelegate           *PostProcessorRegistrationDelegate
+	registeredComponents                        map[string]any
 }
 
 func Default() Factory {
@@ -35,9 +37,9 @@ func Default() Factory {
 		definitionRegistry:         support.DefaultDefinitionRegistry(),
 		singletonComponentRegistry: support.DefaultSingletonComponentRegistry(),
 		definitionRegistryPostProcessors: []processors.DefinitionRegistryPostProcessor{
-			&definition_registry_post_processors.PropTagScanProcessor{},
-			&definition_registry_post_processors.ValueTagScanProcessor{},
-			&definition_registry_post_processors.WireTagScanProcessor{},
+			definition_registry_post_processors.NewPropTagScanProcessor(),
+			definition_registry_post_processors.NewValueTagScanProcessor(),
+			definition_registry_post_processors.NewWireTagScanProcessor(),
 		},
 		allowCircularReferences: true,
 	}
@@ -56,7 +58,7 @@ func Default() Factory {
 
 func (f *defaultFactory) PrepareComponents() error {
 	singletonNames := f.singletonRegistry.GetSingletonNames()
-	var singletons = make(map[string]any, len(singletonNames))
+	f.registeredComponents = make(map[string]any, len(singletonNames))
 	for _, name := range singletonNames {
 		singleton, err := f.singletonRegistry.GetSingleton(name)
 		if err != nil {
@@ -64,6 +66,7 @@ func (f *defaultFactory) PrepareComponents() error {
 		}
 		switch singleton.(type) {
 		case processors.ComponentPostProcessor:
+			f.registerBeanPostProcessors(singleton.(processors.ComponentPostProcessor))
 			if _, ok := singleton.(processors.InstantiationAwareComponentPostProcessor); ok {
 				f.hasInstantiationAwareComponentPostProcessor = true
 			}
@@ -78,37 +81,32 @@ func (f *defaultFactory) PrepareComponents() error {
 		case processors.ComponentInitializedPostProcessor:
 			f.initializedPostProcessors = append(f.initializedPostProcessors, singleton.(processors.ComponentInitializedPostProcessor))
 		default:
-			singletons[name] = singleton
+			f.registeredComponents[name] = singleton
 		}
 	}
 
-	for name, singleton := range singletons {
-		err := f.postProcessDefinitionRegistry(name, singleton)
-		if err != nil {
-			return err
-		}
-	}
-
-	if len(f.factoryPostProcessors) != 0 {
-		for _, fp := range f.factoryPostProcessors {
-			err := fp.PostProcessComponentFactory(f)
-			if err != nil {
-				return err
-			}
-		}
+	err := f.postProcessorRegistrationDelegate.invokeBeanFactoryPostProcessors(f, f.factoryPostProcessors)
+	if err != nil {
+		return err
 	}
 
 	return nil
 }
 
-func (f *defaultFactory) postProcessDefinitionRegistry(name string, component any) error {
-	for _, processor := range f.definitionRegistryPostProcessors {
-		err := processor.PostProcessDefinitionRegistry(f.definitionRegistry, component, name)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+func (f *defaultFactory) registerBeanPostProcessors(postProcessor processors.ComponentPostProcessor) {
+	f.postProcessorRegistrationDelegate.RegisterComponentPostProcessors(postProcessor)
+}
+
+func (f *defaultFactory) GetRegisteredComponents() map[string]any {
+	return f.registeredComponents
+}
+
+func (f *defaultFactory) AddDefinitionRegistryPostProcessors(processors ...processors.DefinitionRegistryPostProcessor) {
+	f.definitionRegistryPostProcessors = append(f.definitionRegistryPostProcessors, processors...)
+}
+
+func (f *defaultFactory) GetDefinitionRegistryPostProcessors() []processors.DefinitionRegistryPostProcessor {
+	return f.definitionRegistryPostProcessors
 }
 
 func (f *defaultFactory) SetRegistry(r support.SingletonRegistry) {

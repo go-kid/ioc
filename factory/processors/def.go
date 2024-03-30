@@ -18,7 +18,7 @@ type InstantiationAwareComponentPostProcessor interface {
 	ComponentPostProcessor
 	PostProcessBeforeInstantiation(m *component_definition.Meta, componentName string) (*component_definition.Meta, error)
 	PostProcessAfterInstantiation(component any, componentName string) (bool, error)
-	PostProcessProperties(properties []*component_definition.Node, component any, componentName string) ([]*component_definition.Meta, error)
+	PostProcessProperties(properties []*component_definition.Node, component any, componentName string) ([]*component_definition.Node, error)
 }
 
 type SmartInstantiationAwareBeanPostProcessor interface {

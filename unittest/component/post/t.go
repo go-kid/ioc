@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/go-kid/ioc"
 	"github.com/go-kid/ioc/app"
-	"github.com/go-kid/ioc/component_definition"
+	"github.com/go-kid/ioc/factory/processors"
 )
 
 type Service interface {
@@ -47,37 +47,13 @@ func (s *serviceAAOP) SayName() {
 }
 
 type postProcessor struct {
-}
-
-func (p *postProcessor) PostProcessBeforeInstantiation(m *component_definition.Meta, componentName string) (*component_definition.Meta, error) {
-	return nil, nil
-}
-
-func (p *postProcessor) PostProcessAfterInstantiation(component any, componentName string) (bool, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (p *postProcessor) PostProcessProperties(properties []*component_definition.Node, component any, componentName string) ([]*component_definition.Meta, error) {
-	//TODO implement me
-	panic("implement me")
+	processors.DefaultInstantiationAwareComponentPostProcessor
 }
 
 func (p *postProcessor) GetEarlyBeanReference(component any, componentName string) (any, error) {
 	if s, ok := component.(*ServiceA); ok {
 		return &serviceAAOP{s}, nil
 	}
-	return component, nil
-}
-
-func (p *postProcessor) PostProcessBeforeInitialization(component any, componentName string) (any, error) {
-	return component, nil
-}
-
-func (p *postProcessor) PostProcessAfterInitialization(component any, componentName string) (any, error) {
-	//if s, ok := component.(*ServiceA); ok {
-	//	return &serviceAAOP{s: s}, nil
-	//}
 	return component, nil
 }
 

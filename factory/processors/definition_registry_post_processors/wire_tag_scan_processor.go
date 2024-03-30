@@ -3,27 +3,19 @@ package definition_registry_post_processors
 import (
 	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/definition"
-	"github.com/go-kid/ioc/factory/support"
+	"github.com/go-kid/ioc/factory/processors"
 )
 
-// WireTagScanProcessor @DefinitionRegistryPostProcessor
-type WireTagScanProcessor struct {
+type wireTagScanProcessor struct {
+	processors.DefaultTagScanDefinitionRegistryPostProcessor
 }
 
-func (d *WireTagScanProcessor) PostProcessDefinitionRegistry(registry support.DefinitionRegistry, component any, componentName string) error {
-	meta := registry.GetMetaOrRegister(componentName, func() *component_definition.Meta {
-		return component_definition.NewMeta(component)
-	})
-	var (
-		nodeType = component_definition.NodeTypeComponent
-		tag      = definition.InjectTag
-	)
-	var nodes []*component_definition.Node
-	for _, field := range meta.Fields {
-		if tagVal, ok := field.StructField.Tag.Lookup(tag); ok {
-			nodes = append(nodes, component_definition.NewNode(field, nodeType, tag, tagVal))
-		}
+func NewWireTagScanProcessor() processors.DefinitionRegistryPostProcessor {
+	return &wireTagScanProcessor{
+		processors.DefaultTagScanDefinitionRegistryPostProcessor{
+			NodeType:       component_definition.NodeTypeComponent,
+			Tag:            definition.InjectTag,
+			ExtractHandler: nil,
+		},
 	}
-	meta.SetNodes(nodes...)
-	return nil
 }

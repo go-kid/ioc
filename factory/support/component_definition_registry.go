@@ -24,7 +24,7 @@ func (r *defaultDefinitionRegistry) RegisterMeta(m *component_definition.Meta) {
 func (r *defaultDefinitionRegistry) GetMetas(opts ...Option) []*component_definition.Meta {
 	var metas = make([]*component_definition.Meta, 0)
 	r.metaMaps.Range(func(k string, m *component_definition.Meta) bool {
-		if Accept(m, opts...) {
+		if And(opts...)(m) {
 			metas = append(metas, m)
 		}
 		return true

@@ -3,6 +3,7 @@ package support
 import (
 	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/util/reflectx"
+	"github.com/go-kid/ioc/util/strconv2"
 	"reflect"
 )
 
@@ -28,16 +29,6 @@ func And(opts ...Option) Option {
 		}
 		return true
 	}
-}
-
-func Accept(m *component_definition.Meta, opts ...Option) bool {
-	return And(opts...)(m)
-	//for _, opt := range opts {
-	//	if !opt(m) {
-	//		return false
-	//	}
-	//}
-	//return true
 }
 
 func Type(typ reflect.Type) Option {
@@ -77,7 +68,11 @@ func FuncNameAndResult(fn, result string) Option {
 			if len(results) < 1 {
 				return result == ""
 			} else {
-				return results[0].String() == result
+				parseAny, err := strconv2.ParseAny(result)
+				if err != nil {
+					parseAny = result
+				}
+				return results[0].Interface() == parseAny
 			}
 		}
 		return false

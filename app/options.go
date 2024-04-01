@@ -66,12 +66,6 @@ func DisableApplicationRunner() SettingOption {
 	}
 }
 
-func AddInjectionRules(rules ...factory.InjectionRule) SettingOption {
-	return func(s *App) {
-		s.Factory.AddInjectionRules(rules...)
-	}
-}
-
 func LogLevel(lv syslog.Lv) SettingOption {
 	return func(s *App) {
 		syslog.Level(lv)

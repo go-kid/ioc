@@ -8,13 +8,36 @@ import (
 
 type Option func(m *component_definition.Meta) bool
 
-func Accept(m *component_definition.Meta, opts ...Option) bool {
-	for _, opt := range opts {
-		if !opt(m) {
-			return false
+func Or(opts ...Option) Option {
+	return func(m *component_definition.Meta) bool {
+		for _, opt := range opts {
+			if opt(m) {
+				return true
+			}
 		}
+		return false
 	}
-	return true
+}
+
+func And(opts ...Option) Option {
+	return func(m *component_definition.Meta) bool {
+		for _, opt := range opts {
+			if !opt(m) {
+				return false
+			}
+		}
+		return true
+	}
+}
+
+func Accept(m *component_definition.Meta, opts ...Option) bool {
+	return And(opts...)(m)
+	//for _, opt := range opts {
+	//	if !opt(m) {
+	//		return false
+	//	}
+	//}
+	//return true
 }
 
 func Type(typ reflect.Type) Option {
@@ -37,14 +60,17 @@ func Interface(a any) Option {
 
 func FuncName(fn string) Option {
 	return func(m *component_definition.Meta) bool {
-		return m.Value.MethodByName(fn).IsValid()
+		if mt, ok := m.Type.MethodByName(fn); ok {
+			return mt.Type.NumOut() == 0 && m.Value.MethodByName(fn).IsValid()
+		}
+		return false
 	}
 }
 
 func FuncNameAndResult(fn, result string) Option {
 	return func(m *component_definition.Meta) bool {
 		if method := m.Value.MethodByName(fn); method.IsValid() {
-			if result == "-" {
+			if result == "*" {
 				return true
 			}
 			results := method.Call(nil)

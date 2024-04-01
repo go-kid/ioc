@@ -8,10 +8,7 @@ import (
 	"github.com/go-kid/ioc/factory/processors"
 	"github.com/go-kid/ioc/factory/support"
 	"github.com/go-kid/ioc/syslog"
-	"github.com/go-kid/ioc/util/reflectx"
 	"github.com/go-kid/ioc/util/sort2"
-	"github.com/samber/lo"
-	"reflect"
 )
 
 type defaultFactory struct {
@@ -21,7 +18,6 @@ type defaultFactory struct {
 	configure                         configure.Configure
 	definitionRegistryPostProcessors  []processors.DefinitionRegistryPostProcessor
 	factoryPostProcessors             []ComponentFactoryPostProcessor
-	injectionRules                    []InjectionRule
 	allowCircularReferences           bool
 	postProcessorRegistrationDelegate *PostProcessorRegistrationDelegate
 	registeredComponents              map[string]any
@@ -34,16 +30,6 @@ func Default() Factory {
 		postProcessorRegistrationDelegate: &PostProcessorRegistrationDelegate{},
 		allowCircularReferences:           true,
 	}
-	f.AddInjectionRules(
-		new(specifyInjector),
-		new(unSpecifyPtrInjector),
-		new(unSpecifyPtrSliceInjector),
-		new(unSpecifyInterfaceInjector),
-		new(unSpecifyInterfaceSliceInjector),
-		new(customizedPtrInjector),
-		new(customizedInterfaceInjector),
-		new(customizedInterfaceSliceInjector),
-	)
 	return f
 }
 
@@ -55,16 +41,16 @@ func (f *defaultFactory) PrepareComponents() error {
 		if err != nil {
 			return err
 		}
-		switch singleton.(type) {
-		case processors.ComponentPostProcessor:
-			f.registerBeanPostProcessors(singleton.(processors.ComponentPostProcessor))
-		case processors.DefinitionRegistryPostProcessor:
-			f.definitionRegistryPostProcessors = append(f.definitionRegistryPostProcessors, singleton.(processors.DefinitionRegistryPostProcessor))
-		case ComponentFactoryPostProcessor:
-			f.factoryPostProcessors = append(f.factoryPostProcessors, singleton.(ComponentFactoryPostProcessor))
-		default:
-			f.registeredComponents[name] = singleton
+		if p, ok := singleton.(processors.ComponentPostProcessor); ok {
+			f.registerBeanPostProcessors(p)
 		}
+		if p, ok := singleton.(processors.DefinitionRegistryPostProcessor); ok {
+			f.definitionRegistryPostProcessors = append(f.definitionRegistryPostProcessors, p)
+		}
+		if p, ok := singleton.(ComponentFactoryPostProcessor); ok {
+			f.factoryPostProcessors = append(f.factoryPostProcessors, p)
+		}
+		f.registeredComponents[name] = singleton
 	}
 
 	err := f.postProcessorRegistrationDelegate.InvokeBeanFactoryPostProcessors(f, f.factoryPostProcessors)
@@ -95,11 +81,12 @@ func (f *defaultFactory) SetConfigure(c configure.Configure) {
 	f.configure = c
 }
 
-func (f *defaultFactory) AddInjectionRules(rules ...InjectionRule) {
-	f.injectionRules = append(f.injectionRules, rules...)
-	sort2.Slice(f.injectionRules, func(i, j InjectionRule) bool {
-		return i.Priority() < j.Priority()
-	})
+func (f *defaultFactory) GetConfigure() configure.Configure {
+	return f.configure
+}
+
+func (f *defaultFactory) GetDefinitionRegistry() support.DefinitionRegistry {
+	return f.definitionRegistry
 }
 
 func (f *defaultFactory) Refresh() error {
@@ -272,23 +259,20 @@ func (f *defaultFactory) populateComponent(name string, meta *component_definiti
 	if nodes := meta.GetComponentNodes(); len(nodes) > 0 {
 		f.logger().Tracef("inject dependencies for '%s'", name)
 		for _, node := range meta.GetComponentNodes() {
-			f.logger().Tracef("get dependencies for %s", node.ID())
-			dependencies, err := f.getDependencies(meta.ID(), node)
-			if err != nil {
-				return err
-			}
-			var injects []*component_definition.Meta
-			for _, dependency := range dependencies {
-				f.logger().Tracef("found dependency '%s' for '%s', start to get or create", dependency.Name(), name)
-				component, err := f.doGetComponent(dependency.Name())
+			if dependencies := node.Injects; len(dependencies) != 0 {
+				var injects []*component_definition.Meta
+				for _, dependency := range node.Injects {
+					f.logger().Tracef("found dependency '%s' for '%s', start to get or create", dependency.Name(), name)
+					component, err := f.doGetComponent(dependency.Name())
+					if err != nil {
+						return err
+					}
+					injects = append(injects, component)
+				}
+				err = node.Inject(injects)
 				if err != nil {
 					return err
 				}
-				injects = append(injects, component)
-			}
-			err = node.Inject(injects)
-			if err != nil {
-				return err
 			}
 		}
 		f.logger().Tracef("finished inject dependencies for '%s'", name)
@@ -317,101 +301,97 @@ func (f *defaultFactory) genProxyComponent(origin *component_definition.Meta, na
 	return component_definition.CreateProxy(origin, name, newComponent)
 }
 
-const diErrOutput = "DI report error by processor: %s\n" +
-	"caused instance: %s\n" +
-	"caused field: %s\n" +
-	"caused by: %v\n"
-
-func (f *defaultFactory) getDependencies(metaID string, d *component_definition.Node) ([]*component_definition.Meta, error) {
-	inj, find := lo.Find(f.injectionRules, func(item InjectionRule) bool {
-		return item.Condition(d)
-	})
-	if !find {
-		return nil, fmt.Errorf(diErrOutput, "nil", metaID, d.ID(), "inject condition not found")
-	}
-	defer func() {
-		if err := recover(); err != nil {
-			f.logger().Panicf(diErrOutput, inj.RuleName(), metaID, d.ID(), err)
-		}
-	}()
-	candidates, err := inj.Candidates(f.definitionRegistry, d)
-	if err != nil {
-		return nil, fmt.Errorf(diErrOutput, inj.RuleName(), metaID, d.ID(), err)
-	}
-	//err = d.Inject(candidates)
-	//if err != nil {
-	//	return fmt.Errorf(diErrOutput, inj.RuleName(), metaID, d.ID(), err)
-	//}
-	candidates, err = filterDependencies(d, candidates)
-	if err != nil {
-		if len(candidates) == 0 {
-			if d.Args().Has(component_definition.ArgRequired, "true") {
-				return nil, fmt.Errorf(diErrOutput, inj.RuleName(), metaID, d.ID(), err)
-			}
-			return nil, nil
-		}
-		return nil, fmt.Errorf(diErrOutput, inj.RuleName(), metaID, d.ID(), err)
-	}
-	return candidates, nil
-}
-
-var (
-	primaryInterface = new(definition.WirePrimary)
-)
-
-func filterDependencies(n *component_definition.Node, metas []*component_definition.Meta) ([]*component_definition.Meta, error) {
-	//remove nil meta
-	result := filter(metas, func(m *component_definition.Meta) bool {
-		return m != nil
-	})
-	if len(result) == 0 {
-		return nil, fmt.Errorf("%s not found available components", n.ID())
-	}
-	//filter qualifier
-	qualifierName, isQualifier := n.Args().Find(component_definition.ArgQualifier)
-	if isQualifier {
-		result = filter(result, func(m *component_definition.Meta) bool {
-			qualifier, ok := m.Raw.(definition.WireQualifier)
-			return ok && n.Args().Has(component_definition.ArgQualifier, qualifier.Qualifier())
-		})
-		if len(result) == 0 {
-			return nil, fmt.Errorf("field %s: no component found for qualifier %s", n.ID(), qualifierName)
-		}
-	}
-
-	//filter primary for single type
-	if len(result) > 1 && n.Type.Kind() != reflect.Slice && n.Type.Kind() != reflect.Array {
-		var candidate = result[0]
-
-		for _, m := range result {
-			//Primary interface first
-			if reflectx.IsTypeImplement(m.Type, primaryInterface) {
-				candidate = m
-				break
-			}
-			//non naming component is preferred in multiple candidates
-			if !m.IsAlias() {
-				candidate = m
-			}
-		}
-		result = []*component_definition.Meta{candidate}
-	}
-	return result, nil
-}
-
-func filter(metas []*component_definition.Meta, f func(m *component_definition.Meta) bool) []*component_definition.Meta {
-	var result = make([]*component_definition.Meta, 0, len(metas))
-	for _, m := range metas {
-		if f(m) {
-			result = append(result, m)
-		}
-	}
-	return result
-}
-
-func (f *defaultFactory) GetDefinitionRegistry() support.DefinitionRegistry {
-	return f.definitionRegistry
-}
+//const diErrOutput = "DI report error by processor: %s\n" +
+//	"caused instance: %s\n" +
+//	"caused field: %s\n" +
+//	"caused by: %v\n"
+//
+//func (f *defaultFactory) getDependencies(metaID string, d *component_definition.Node) ([]*component_definition.Meta, error) {
+//	inj, find := lo.Find(f.injectionRules, func(item InjectionRule) bool {
+//		return item.Condition(d)
+//	})
+//	if !find {
+//		return nil, fmt.Errorf(diErrOutput, "nil", metaID, d.ID(), "inject condition not found")
+//	}
+//	defer func() {
+//		if err := recover(); err != nil {
+//			f.logger().Panicf(diErrOutput, inj.RuleName(), metaID, d.ID(), err)
+//		}
+//	}()
+//	candidates, err := inj.Candidates(f.definitionRegistry, d)
+//	if err != nil {
+//		return nil, fmt.Errorf(diErrOutput, inj.RuleName(), metaID, d.ID(), err)
+//	}
+//	//err = d.Inject(candidates)
+//	//if err != nil {
+//	//	return fmt.Errorf(diErrOutput, inj.RuleName(), metaID, d.ID(), err)
+//	//}
+//	candidates, err = filterDependencies(d, candidates)
+//	if err != nil {
+//		if len(candidates) == 0 {
+//			if d.Args().Has(component_definition.ArgRequired, "true") {
+//				return nil, fmt.Errorf(diErrOutput, inj.RuleName(), metaID, d.ID(), err)
+//			}
+//			return nil, nil
+//		}
+//		return nil, fmt.Errorf(diErrOutput, inj.RuleName(), metaID, d.ID(), err)
+//	}
+//	return candidates, nil
+//}
+//
+//var (
+//	primaryInterface = new(definition.WirePrimary)
+//)
+//
+//func filterDependencies(n *component_definition.Node, metas []*component_definition.Meta) ([]*component_definition.Meta, error) {
+//	//remove nil meta
+//	result := filter(metas, func(m *component_definition.Meta) bool {
+//		return m != nil
+//	})
+//	if len(result) == 0 {
+//		return nil, fmt.Errorf("%s not found available components", n.ID())
+//	}
+//	//filter qualifier
+//	qualifierName, isQualifier := n.Args().Find(component_definition.ArgQualifier)
+//	if isQualifier {
+//		result = filter(result, func(m *component_definition.Meta) bool {
+//			qualifier, ok := m.Raw.(definition.WireQualifier)
+//			return ok && n.Args().Has(component_definition.ArgQualifier, qualifier.Qualifier())
+//		})
+//		if len(result) == 0 {
+//			return nil, fmt.Errorf("field %s: no component found for qualifier %s", n.ID(), qualifierName)
+//		}
+//	}
+//
+//	//filter primary for single type
+//	if len(result) > 1 && n.Type.Kind() != reflect.Slice && n.Type.Kind() != reflect.Array {
+//		var candidate = result[0]
+//
+//		for _, m := range result {
+//			//Primary interface first
+//			if reflectx.IsTypeImplement(m.Type, primaryInterface) {
+//				candidate = m
+//				break
+//			}
+//			//non naming component is preferred in multiple candidates
+//			if !m.IsAlias() {
+//				candidate = m
+//			}
+//		}
+//		result = []*component_definition.Meta{candidate}
+//	}
+//	return result, nil
+//}
+//
+//func filter(metas []*component_definition.Meta, f func(m *component_definition.Meta) bool) []*component_definition.Meta {
+//	var result = make([]*component_definition.Meta, 0, len(metas))
+//	for _, m := range metas {
+//		if f(m) {
+//			result = append(result, m)
+//		}
+//	}
+//	return result
+//}
 
 func (f *defaultFactory) logger() syslog.Logger {
 	return syslog.GetLogger().Pref("ComponentFactory")

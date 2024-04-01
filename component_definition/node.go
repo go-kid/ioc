@@ -21,7 +21,6 @@ func NewNode(field *Field, nodeType NodeType, tag, tagVal string) *Node {
 		NodeType: nodeType,
 		Tag:      tag,
 		TagVal:   parsedTagVal,
-		Injects:  nil,
 		args:     arg,
 	}
 }

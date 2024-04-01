@@ -52,5 +52,5 @@ func (c *validateAwarePostProcessors) PostProcessProperties(properties []*compon
 			}
 		}
 	}
-	return properties, nil
+	return nil, nil
 }

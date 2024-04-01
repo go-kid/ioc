@@ -1,10 +1,8 @@
-package customized_inject
+package func_inject
 
 import (
 	"github.com/go-kid/ioc"
 	"github.com/go-kid/ioc/app"
-	"github.com/go-kid/ioc/component_definition"
-	"github.com/go-kid/ioc/factory/support"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -41,36 +39,27 @@ func (b *ValuedInitComp) Comp() string {
 	return "A"
 }
 
+type ValuedInitCompB struct {
+	InterfaceImplComponent
+}
+
+func (b *ValuedInitCompB) Comp() string {
+	return "B"
+}
+
 type InterfaceImplComponent struct {
 	Name string
 }
 
 func (b *InterfaceImplComponent) SimpleInterface() {}
 
-type scanCompPostProcessor struct {
-}
-
-func (s *scanCompPostProcessor) PostProcessDefinitionRegistry(registry support.DefinitionRegistry, component any, componentName string) error {
-	meta := registry.GetMetaOrRegister(componentName, func() *component_definition.Meta {
-		return component_definition.NewMeta(component)
-	})
-	for _, field := range meta.Fields {
-		if tagVal, ok := field.StructField.Tag.Lookup("Comp"); ok {
-			meta.SetNodes(component_definition.NewNode(field, component_definition.NodeTypeComponent, "Comp", tagVal))
-		}
-	}
-	return nil
-}
-
 func TestCustomizedTagInject(t *testing.T) {
-	sp := &scanCompPostProcessor{}
 	t.Run("No_Value_Pointer", func(t *testing.T) {
 		var tApp = &struct {
-			T *NoValueComp `Comp:""`
+			T *NoValueComp `func:"Comp"`
 		}{}
 		ioc.RunTest(t,
 			app.SetComponents(
-				sp,
 				&NoValueComp{"NoValueComp"},
 				&ValuedComp{"ValuedComp"},
 				tApp,
@@ -79,11 +68,10 @@ func TestCustomizedTagInject(t *testing.T) {
 	})
 	t.Run("Valued_Pointer", func(t *testing.T) {
 		var tApp = &struct {
-			T *ValuedComp `Comp:"A"`
+			T *ValuedComp `func:"Comp,returns=A"`
 		}{}
 		ioc.RunTest(t,
 			app.SetComponents(
-				sp,
 				&NoValueComp{"NoValueComp"},
 				&ValuedComp{"ValuedComp"},
 				tApp,
@@ -92,11 +80,10 @@ func TestCustomizedTagInject(t *testing.T) {
 	})
 	t.Run("No_Value_Interface", func(t *testing.T) {
 		var tApp = &struct {
-			T Interface `Comp:""`
+			T Interface `func:"Comp"`
 		}{}
 		ioc.RunTest(t,
 			app.SetComponents(
-				sp,
 				&NoValueComp{"NoValueComp"},
 				&ValuedComp{"ValuedComp"},
 				&NoValueInitComp{InterfaceImplComponent{"NoValueInitComp"}},
@@ -107,11 +94,10 @@ func TestCustomizedTagInject(t *testing.T) {
 	})
 	t.Run("Valued_Interface", func(t *testing.T) {
 		var tApp = &struct {
-			T Interface `Comp:"A"`
+			T Interface `func:"Comp,returns=A"`
 		}{}
 		ioc.RunTest(t,
 			app.SetComponents(
-				sp,
 				&NoValueComp{"NoValueComp"},
 				&ValuedComp{"ValuedComp"},
 				&NoValueInitComp{InterfaceImplComponent{"NoValueInitComp"}},
@@ -122,11 +108,10 @@ func TestCustomizedTagInject(t *testing.T) {
 	})
 	t.Run("Ignore_Valued_Interface", func(t *testing.T) {
 		var tApp = &struct {
-			T Interface `Comp:"-"`
+			T Interface `func:"Comp,returns=*"`
 		}{}
 		ioc.RunTest(t,
 			app.SetComponents(
-				sp,
 				&ValuedInitComp{InterfaceImplComponent{"ValuedInitComp"}},
 				tApp,
 			))
@@ -134,11 +119,10 @@ func TestCustomizedTagInject(t *testing.T) {
 	})
 	t.Run("No_Value_Slice", func(t *testing.T) {
 		var tApp = &struct {
-			T []Interface `Comp:""`
+			T []Interface `func:"Comp"`
 		}{}
 		ioc.RunTest(t,
 			app.SetComponents(
-				sp,
 				&NoValueInitComp{InterfaceImplComponent{"NoValueInitComp"}},
 				&ValuedInitComp{InterfaceImplComponent{"ValuedInitComp"}},
 				tApp,
@@ -148,11 +132,10 @@ func TestCustomizedTagInject(t *testing.T) {
 	})
 	t.Run("Valued_Slice", func(t *testing.T) {
 		var tApp = &struct {
-			T []Interface `Comp:"A"`
+			T []Interface `func:"Comp,returns=A"`
 		}{}
 		ioc.RunTest(t,
 			app.SetComponents(
-				sp,
 				&NoValueInitComp{InterfaceImplComponent{"NoValueInitComp"}},
 				&ValuedInitComp{InterfaceImplComponent{"ValuedInitComp"}},
 				tApp,
@@ -162,13 +145,25 @@ func TestCustomizedTagInject(t *testing.T) {
 	})
 	t.Run("Ignore_Valued_Slice", func(t *testing.T) {
 		var tApp = &struct {
-			T []Interface `Comp:"-"`
+			T []Interface `func:"Comp,returns=*"`
 		}{}
 		ioc.RunTest(t,
 			app.SetComponents(
-				sp,
 				&NoValueInitComp{InterfaceImplComponent{"NoValueInitComp"}},
 				&ValuedInitComp{InterfaceImplComponent{"ValuedInitComp"}},
+				tApp,
+			))
+		assert.Equal(t, 2, len(tApp.T))
+	})
+	t.Run("Multi_Valued_slice", func(t *testing.T) {
+		var tApp = &struct {
+			T []Interface `func:"Comp,returns=A B"`
+		}{}
+		ioc.RunTest(t,
+			app.SetComponents(
+				&NoValueInitComp{InterfaceImplComponent{"NoValueInitComp"}},
+				&ValuedInitComp{InterfaceImplComponent{"ValuedInitComp"}},
+				&ValuedInitCompB{InterfaceImplComponent{"ValuedInitCompB"}},
 				tApp,
 			))
 		assert.Equal(t, 2, len(tApp.T))

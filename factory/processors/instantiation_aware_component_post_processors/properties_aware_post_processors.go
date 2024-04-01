@@ -5,6 +5,7 @@ import (
 	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/definition"
+	"github.com/go-kid/ioc/factory"
 	"github.com/go-kid/ioc/factory/processors"
 	"github.com/go-kid/ioc/util/reflectx"
 )
@@ -12,11 +13,16 @@ import (
 type propertiesAwarePostProcessors struct {
 	processors.DefaultInstantiationAwareComponentPostProcessor
 	definition.PriorityComponent
-	Configure configure.Configure `wire:""`
+	Configure configure.Configure
 }
 
 func NewPropertiesAwarePostProcessors() processors.InstantiationAwareComponentPostProcessor {
 	return &propertiesAwarePostProcessors{}
+}
+
+func (c *propertiesAwarePostProcessors) PostProcessComponentFactory(factory factory.Factory) error {
+	c.Configure = factory.GetConfigure()
+	return nil
 }
 
 func (c *propertiesAwarePostProcessors) PostProcessAfterInstantiation(component any, componentName string) (bool, error) {
@@ -42,5 +48,5 @@ func (c *propertiesAwarePostProcessors) PostProcessProperties(properties []*comp
 			return nil, fmt.Errorf("population 'prop' value %s to %s failed: %v", prop.TagVal, prop.Type.String(), err)
 		}
 	}
-	return properties, nil
+	return nil, nil
 }

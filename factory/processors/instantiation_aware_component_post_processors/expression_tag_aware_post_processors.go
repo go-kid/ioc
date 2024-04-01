@@ -6,6 +6,7 @@ import (
 	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/definition"
+	"github.com/go-kid/ioc/factory"
 	"github.com/go-kid/ioc/factory/processors"
 	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/strconv2"
@@ -16,7 +17,7 @@ import (
 type expressionTagAwarePostProcessors struct {
 	processors.DefaultInstantiationAwareComponentPostProcessor
 	definition.PriorityComponent
-	Configure configure.Configure `wire:""`
+	Configure configure.Configure
 	expReg    *regexp.Regexp
 }
 
@@ -24,6 +25,11 @@ func NewExpressionTagAwarePostProcessors() processors.InstantiationAwareComponen
 	return &expressionTagAwarePostProcessors{
 		expReg: regexp.MustCompile("\\$\\{\\w+(\\.\\w+)*(:[^{}]*)?}"),
 	}
+}
+
+func (c *expressionTagAwarePostProcessors) PostProcessComponentFactory(factory factory.Factory) error {
+	c.Configure = factory.GetConfigure()
+	return nil
 }
 
 func (c *expressionTagAwarePostProcessors) PostProcessAfterInstantiation(component any, componentName string) (bool, error) {
@@ -72,7 +78,7 @@ func (c *expressionTagAwarePostProcessors) PostProcessProperties(properties []*c
 		}
 		syslog.Tracef("execute tag expression '%s' -> '%s'", rawTagVal, prop.TagVal)
 	}
-	return properties, nil
+	return nil, nil
 }
 
 func marshalTagVal(expVal any) (string, error) {

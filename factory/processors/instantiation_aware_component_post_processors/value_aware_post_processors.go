@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-kid/ioc/component_definition"
-	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/definition"
 	"github.com/go-kid/ioc/factory/processors"
 	"github.com/go-kid/ioc/util/reflectx"
@@ -14,8 +13,7 @@ import (
 type valueAwarePostProcessors struct {
 	processors.DefaultInstantiationAwareComponentPostProcessor
 	definition.PriorityComponent
-	Configure configure.Configure `wire:""`
-	hm        reflectx.Interceptor
+	hm reflectx.Interceptor
 }
 
 func NewValueAwarePostProcessors() processors.InstantiationAwareComponentPostProcessor {
@@ -55,5 +53,5 @@ func (c *valueAwarePostProcessors) PostProcessProperties(properties []*component
 			return nil, fmt.Errorf("population 'value' value %s to %s failed: %v", prop.TagVal, prop.Type.String(), err)
 		}
 	}
-	return properties, nil
+	return nil, nil
 }

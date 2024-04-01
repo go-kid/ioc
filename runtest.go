@@ -14,3 +14,12 @@ func RunTest(t *testing.T, ops ...SettingOption) *App {
 	}
 	return s
 }
+
+func RunErrorTest(t *testing.T, ops ...SettingOption) *App {
+	s := NewApp(ops...)
+	err := s.Run()
+	if t != nil {
+		assert.Error(t, err)
+	}
+	return s
+}

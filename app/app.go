@@ -54,16 +54,19 @@ func (s *App) initiate() error {
 	s.Factory.SetConfigure(s.Configure)
 	var initiateComponent = []any{
 		s,
-		s.Factory.GetDefinitionRegistry(),
 		definition_registry_post_processors.NewPropTagScanProcessor(),
 		definition_registry_post_processors.NewValueTagScanProcessor(),
 		definition_registry_post_processors.NewWireTagScanProcessor(),
+		definition_registry_post_processors.NewFuncTagScanProcessor(),
 		instantiation_aware_component_post_processors.NewExpressionTagAwarePostProcessors(),
 		instantiation_aware_component_post_processors.NewPropertiesAwarePostProcessors(),
 		instantiation_aware_component_post_processors.NewValueAwarePostProcessors(),
 		instantiation_aware_component_post_processors.NewValidateAwarePostProcessors(),
 		instantiation_aware_component_post_processors.NewRequiredArgValidatePostProcessors(),
 		instantiation_aware_component_post_processors.NewDependencyNameAwarePostProcessors(),
+		instantiation_aware_component_post_processors.NewDependencyTypeAwarePostProcessors(),
+		instantiation_aware_component_post_processors.NewDependencyValidatePostProcessors(),
+		instantiation_aware_component_post_processors.NewDependencyFunctionAwarePostProcessors(),
 	}
 	for _, c := range initiateComponent {
 		s.registry.RegisterSingleton(c)

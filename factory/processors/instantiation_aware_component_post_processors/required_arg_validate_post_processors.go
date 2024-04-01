@@ -34,5 +34,5 @@ func (c *requiredArgValidatePostProcessors) PostProcessProperties(properties []*
 			continue
 		}
 	}
-	return properties, nil
+	return nil, nil
 }

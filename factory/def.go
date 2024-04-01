@@ -14,19 +14,12 @@ type Factory interface {
 	GetDefinitionRegistryPostProcessors() []processors.DefinitionRegistryPostProcessor
 	SetRegistry(r support.SingletonRegistry)
 	SetConfigure(c configure.Configure)
-	AddInjectionRules(rules ...InjectionRule)
 	PrepareComponents() error
 	Refresh() error
 	GetComponents(opts ...support.Option) ([]any, error)
 	GetComponentByName(name string) (any, error)
+	GetConfigure() configure.Configure
 	GetDefinitionRegistry() support.DefinitionRegistry
-}
-
-type InjectionRule interface {
-	RuleName() string
-	Priority() int
-	Condition(d *component_definition.Node) bool
-	Candidates(r support.DefinitionRegistry, d *component_definition.Node) ([]*component_definition.Meta, error)
 }
 
 type ComponentFactoryPostProcessor interface {

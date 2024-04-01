@@ -47,6 +47,16 @@ func (f *PostProcessorRegistrationDelegate) InvokeBeanFactoryPostProcessors(fact
 		}
 	}
 
+	sort2.Slice(f.priorityOrderedComponentPostProcessors, func(i processors.ComponentPostProcessor, j processors.ComponentPostProcessor) bool {
+		return i.(definition.PriorityOrdered).Order() < j.(definition.PriorityOrdered).Order()
+	})
+	f.componentPostProcessors = append(f.componentPostProcessors, f.priorityOrderedComponentPostProcessors...)
+	sort2.Slice(f.orderedComponentPostProcessors, func(i processors.ComponentPostProcessor, j processors.ComponentPostProcessor) bool {
+		return i.(definition.Ordered).Order() < j.(definition.Ordered).Order()
+	})
+	f.componentPostProcessors = append(f.componentPostProcessors, f.orderedComponentPostProcessors...)
+	f.componentPostProcessors = append(f.componentPostProcessors, f.otherComponentPostProcessors...)
+
 	for name, component := range factory.GetRegisteredComponents() {
 		err := f.applyDefinitionRegistryPostProcessors(factory, component, name)
 		if err != nil {
@@ -54,31 +64,6 @@ func (f *PostProcessorRegistrationDelegate) InvokeBeanFactoryPostProcessors(fact
 		}
 	}
 
-	var postProcessors []processors.ComponentPostProcessor
-	sort2.Slice(f.priorityOrderedComponentPostProcessors, func(i processors.ComponentPostProcessor, j processors.ComponentPostProcessor) bool {
-		return i.(definition.PriorityOrdered).Order() < j.(definition.PriorityOrdered).Order()
-	})
-	postProcessors = append(postProcessors, f.priorityOrderedComponentPostProcessors...)
-	sort2.Slice(f.orderedComponentPostProcessors, func(i processors.ComponentPostProcessor, j processors.ComponentPostProcessor) bool {
-		return i.(definition.Ordered).Order() < j.(definition.Ordered).Order()
-	})
-	postProcessors = append(postProcessors, f.orderedComponentPostProcessors...)
-	postProcessors = append(postProcessors, f.otherComponentPostProcessors...)
-
-	componentPostProcessors := make([]processors.ComponentPostProcessor, len(postProcessors))
-	for i, component := range postProcessors {
-		name := component_definition.GetComponentName(component)
-		err := f.applyDefinitionRegistryPostProcessors(factory, component, name)
-		if err != nil {
-			return err
-		}
-		processor, err := factory.GetComponentByName(name)
-		if err != nil {
-			return err
-		}
-		componentPostProcessors[i] = processor.(processors.ComponentPostProcessor)
-	}
-	f.componentPostProcessors = componentPostProcessors
 	return nil
 }
 

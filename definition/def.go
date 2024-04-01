@@ -16,6 +16,15 @@ type Ordered interface {
 	Order() int
 }
 
+type Priority interface {
+	Priority()
+}
+
+type PriorityOrdered interface {
+	Priority
+	Ordered
+}
+
 type ApplicationRunner interface {
 	Ordered
 	Run() error
@@ -37,6 +46,6 @@ type WirePrimary interface {
 	Primary()
 }
 
-type LazyInitComponent interface {
+type LazyInit interface {
 	LazyInit()
 }

@@ -27,7 +27,6 @@ func (d *DefaultTagScanDefinitionRegistryPostProcessor) PostProcessDefinitionReg
 			}
 		}
 	}
-
 	meta.SetNodes(nodes...)
 	return nil
 }

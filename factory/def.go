@@ -11,7 +11,6 @@ type MetaFunc func(m *component_definition.Meta) error
 
 type Factory interface {
 	GetRegisteredComponents() map[string]any
-	AddDefinitionRegistryPostProcessors(processors ...processors.DefinitionRegistryPostProcessor)
 	GetDefinitionRegistryPostProcessors() []processors.DefinitionRegistryPostProcessor
 	SetRegistry(r support.SingletonRegistry)
 	SetConfigure(c configure.Configure)

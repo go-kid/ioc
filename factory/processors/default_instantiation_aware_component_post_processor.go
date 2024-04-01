@@ -8,12 +8,12 @@ type DefaultInstantiationAwareComponentPostProcessor struct {
 	DefaultComponentPostProcessor
 }
 
-func (d *DefaultInstantiationAwareComponentPostProcessor) PostProcessBeforeInstantiation(m *component_definition.Meta, componentName string) (*component_definition.Meta, error) {
+func (d *DefaultInstantiationAwareComponentPostProcessor) PostProcessBeforeInstantiation(m *component_definition.Meta, componentName string) (any, error) {
 	return nil, nil
 }
 
 func (d *DefaultInstantiationAwareComponentPostProcessor) PostProcessAfterInstantiation(component any, componentName string) (bool, error) {
-	return true, nil
+	return false, nil
 }
 
 func (d *DefaultInstantiationAwareComponentPostProcessor) PostProcessProperties(properties []*component_definition.Node, component any, componentName string) ([]*component_definition.Node, error) {

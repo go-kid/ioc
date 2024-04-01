@@ -6,13 +6,12 @@ import (
 	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/definition"
 	"github.com/go-kid/ioc/factory/processors"
-	"github.com/go-kid/ioc/factory/processors/definition_registry_post_processors"
 	"github.com/go-kid/ioc/factory/support"
 	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/reflectx"
+	"github.com/go-kid/ioc/util/sort2"
 	"github.com/samber/lo"
 	"reflect"
-	"sort"
 )
 
 type defaultFactory struct {
@@ -30,13 +29,8 @@ type defaultFactory struct {
 
 func Default() Factory {
 	f := &defaultFactory{
-		definitionRegistry:         support.DefaultDefinitionRegistry(),
-		singletonComponentRegistry: support.DefaultSingletonComponentRegistry(),
-		definitionRegistryPostProcessors: []processors.DefinitionRegistryPostProcessor{
-			definition_registry_post_processors.NewPropTagScanProcessor(),
-			definition_registry_post_processors.NewValueTagScanProcessor(),
-			definition_registry_post_processors.NewWireTagScanProcessor(),
-		},
+		definitionRegistry:                support.DefaultDefinitionRegistry(),
+		singletonComponentRegistry:        support.DefaultSingletonComponentRegistry(),
 		postProcessorRegistrationDelegate: &PostProcessorRegistrationDelegate{},
 		allowCircularReferences:           true,
 	}
@@ -89,10 +83,6 @@ func (f *defaultFactory) GetRegisteredComponents() map[string]any {
 	return f.registeredComponents
 }
 
-func (f *defaultFactory) AddDefinitionRegistryPostProcessors(processors ...processors.DefinitionRegistryPostProcessor) {
-	f.definitionRegistryPostProcessors = append(f.definitionRegistryPostProcessors, processors...)
-}
-
 func (f *defaultFactory) GetDefinitionRegistryPostProcessors() []processors.DefinitionRegistryPostProcessor {
 	return f.definitionRegistryPostProcessors
 }
@@ -107,8 +97,8 @@ func (f *defaultFactory) SetConfigure(c configure.Configure) {
 
 func (f *defaultFactory) AddInjectionRules(rules ...InjectionRule) {
 	f.injectionRules = append(f.injectionRules, rules...)
-	sort.Slice(f.injectionRules, func(i, j int) bool {
-		return f.injectionRules[i].Priority() < f.injectionRules[j].Priority()
+	sort2.Slice(f.injectionRules, func(i, j InjectionRule) bool {
+		return i.Priority() < j.Priority()
 	})
 }
 
@@ -118,15 +108,15 @@ func (f *defaultFactory) Refresh() error {
 
 	for _, meta := range f.definitionRegistry.GetMetas() {
 		switch meta.Raw.(type) {
-		case definition.LazyInitComponent:
+		case definition.LazyInit:
 			continue
 		default:
 			names = append(names, meta.Name())
 		}
 	}
 
-	sort.Slice(names, func(i, j int) bool {
-		return names[i] < names[j]
+	sort2.Slice(names, func(i, j string) bool {
+		return i < j
 	})
 	for _, name := range names {
 		f.logger().Tracef("refresh component with name '%s'", name)
@@ -193,7 +183,11 @@ func (f *defaultFactory) createComponent(name string) (*component_definition.Met
 		return nil, err
 	}
 	if instantiation != nil {
-		return instantiation, nil
+		if instantiation != meta.Raw {
+			return component_definition.CreateProxy(meta, name, instantiation)
+		} else {
+			return meta, nil
+		}
 	}
 
 	instance, err := f.doCreateComponent(name, meta)
@@ -271,14 +265,18 @@ func (f *defaultFactory) doCreateComponent(name string, meta *component_definiti
 }
 
 func (f *defaultFactory) populateComponent(name string, meta *component_definition.Meta) error {
-	f.logger().Tracef("start populate component '%s'", name)
-	if len(meta.GetConfigurationNodes()) != 0 {
-		f.logger().Tracef("populate properties for '%s'", name)
-		err := f.configure.PopulateProperties(meta)
-		if err != nil {
-			return err
-		}
+	err := f.postProcessorRegistrationDelegate.ResolveAfterInstantiation(meta, name)
+	if err != nil {
+		return err
 	}
+	//f.logger().Tracef("start populate component '%s'", name)
+	//if len(meta.GetConfigurationNodes()) != 0 {
+	//	f.logger().Tracef("populate properties for '%s'", name)
+	//	err := f.configure.PopulateProperties(meta.GetConfigurationNodes())
+	//	if err != nil {
+	//		return err
+	//	}
+	//}
 	if nodes := meta.GetComponentNodes(); len(nodes) > 0 {
 		f.logger().Tracef("inject dependencies for '%s'", name)
 		for _, node := range meta.GetComponentNodes() {

@@ -66,24 +66,6 @@ func DisableApplicationRunner() SettingOption {
 	}
 }
 
-//func SetScanner(sc scanner.Scanner) SettingOption {
-//	return func(s *App) {
-//		s.Scanner = sc
-//	}
-//}
-
-//func AddScanPolicies(policies ...scanner.ScanPolicy) SettingOption {
-//	return func(s *App) {
-//		s.Scanner.AddScanPolicies(policies...)
-//	}
-//}
-
-func AddPopulateProcessors(processors ...configure.PopulateProcessor) SettingOption {
-	return func(s *App) {
-		s.Configure.AddPopulateProcessors(processors...)
-	}
-}
-
 func AddInjectionRules(rules ...factory.InjectionRule) SettingOption {
 	return func(s *App) {
 		s.Factory.AddInjectionRules(rules...)

@@ -19,10 +19,8 @@ type Configure interface {
 	Binder
 	AddLoaders(loaders ...Loader)
 	SetLoaders(loaders ...Loader)
-	AddPopulateProcessors(processors ...PopulateProcessor)
 	SetBinder(binder Binder)
 	Initialize() error
-	PopulateProperties(metas ...*component_definition.Meta) error
 }
 
 type PopulateProcessor interface {

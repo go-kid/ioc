@@ -6,9 +6,11 @@ import (
 	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/definition"
 	"github.com/go-kid/ioc/factory"
+	"github.com/go-kid/ioc/factory/processors/definition_registry_post_processors"
+	"github.com/go-kid/ioc/factory/processors/instantiation_aware_component_post_processors"
 	"github.com/go-kid/ioc/factory/support"
 	"github.com/go-kid/ioc/syslog"
-	"sort"
+	"github.com/go-kid/ioc/util/sort2"
 	"sync"
 )
 
@@ -50,7 +52,21 @@ func (s *App) initiate() error {
 	}
 	s.Factory.SetRegistry(s.registry)
 	s.Factory.SetConfigure(s.Configure)
-	s.registry.RegisterSingleton(s)
+	//s.registry.RegisterSingleton(s)
+	var initiateComponent = []any{
+		s,
+		definition_registry_post_processors.NewPropTagScanProcessor(),
+		definition_registry_post_processors.NewValueTagScanProcessor(),
+		definition_registry_post_processors.NewWireTagScanProcessor(),
+		instantiation_aware_component_post_processors.NewExpressionTagAwarePostProcessors(),
+		instantiation_aware_component_post_processors.NewPropertiesAwarePostProcessors(),
+		instantiation_aware_component_post_processors.NewValueAwarePostProcessors(),
+		instantiation_aware_component_post_processors.NewValidateAwarePostProcessors(),
+		instantiation_aware_component_post_processors.NewRequiredArgValidatePostProcessors(),
+	}
+	for _, c := range initiateComponent {
+		s.registry.RegisterSingleton(c)
+	}
 	return nil
 }
 
@@ -131,8 +147,8 @@ func (s *App) callRunners() error {
 		return nil
 	}
 	s.logger().Tracef("find %d application runner(s), start sort", len(runners))
-	sort.Slice(runners, func(i, j int) bool {
-		return runners[i].Order() < runners[j].Order()
+	sort2.Slice(runners, func(i, j definition.ApplicationRunner) bool {
+		return i.Order() < j.Order()
 	})
 	for i := range runners {
 		runner := runners[i]

@@ -7,9 +7,13 @@ import (
 	"github.com/go-kid/ioc/factory/processors"
 	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/reflectx"
+	"github.com/go-kid/ioc/util/sort2"
 )
 
 type PostProcessorRegistrationDelegate struct {
+	priorityOrderedComponentPostProcessors      []processors.ComponentPostProcessor
+	orderedComponentPostProcessors              []processors.ComponentPostProcessor
+	otherComponentPostProcessors                []processors.ComponentPostProcessor
 	componentPostProcessors                     []processors.ComponentPostProcessor
 	hasInstantiationAwareComponentPostProcessor bool
 	hasDestructionAwareComponentPostProcessor   bool
@@ -25,11 +29,18 @@ func (f *PostProcessorRegistrationDelegate) RegisterComponentPostProcessors(ps p
 	case processors.ComponentInitializedPostProcessor:
 		f.hasComponentInitializedPostProcessor = true
 	}
-	f.componentPostProcessors = append(f.componentPostProcessors, ps.(processors.ComponentPostProcessor))
+	switch ps.(type) {
+	case definition.PriorityOrdered:
+		f.priorityOrderedComponentPostProcessors = append(f.priorityOrderedComponentPostProcessors, ps)
+	case definition.Ordered:
+		f.orderedComponentPostProcessors = append(f.orderedComponentPostProcessors, ps)
+	default:
+		f.otherComponentPostProcessors = append(f.otherComponentPostProcessors, ps)
+	}
 }
 
-func (f *PostProcessorRegistrationDelegate) InvokeBeanFactoryPostProcessors(factory Factory, processors []ComponentFactoryPostProcessor) error {
-	for _, processor := range processors {
+func (f *PostProcessorRegistrationDelegate) InvokeBeanFactoryPostProcessors(factory Factory, factoryProcessors []ComponentFactoryPostProcessor) error {
+	for _, processor := range factoryProcessors {
 		err := processor.PostProcessComponentFactory(factory)
 		if err != nil {
 			return err
@@ -37,11 +48,45 @@ func (f *PostProcessorRegistrationDelegate) InvokeBeanFactoryPostProcessors(fact
 	}
 
 	for name, component := range factory.GetRegisteredComponents() {
-		for _, processor := range factory.GetDefinitionRegistryPostProcessors() {
-			err := processor.PostProcessDefinitionRegistry(factory.GetDefinitionRegistry(), component, name)
-			if err != nil {
-				return err
-			}
+		err := f.applyDefinitionRegistryPostProcessors(factory, component, name)
+		if err != nil {
+			return err
+		}
+	}
+
+	var postProcessors []processors.ComponentPostProcessor
+	sort2.Slice(f.priorityOrderedComponentPostProcessors, func(i processors.ComponentPostProcessor, j processors.ComponentPostProcessor) bool {
+		return i.(definition.PriorityOrdered).Order() < j.(definition.PriorityOrdered).Order()
+	})
+	postProcessors = append(postProcessors, f.priorityOrderedComponentPostProcessors...)
+	sort2.Slice(f.orderedComponentPostProcessors, func(i processors.ComponentPostProcessor, j processors.ComponentPostProcessor) bool {
+		return i.(definition.Ordered).Order() < j.(definition.Ordered).Order()
+	})
+	postProcessors = append(postProcessors, f.orderedComponentPostProcessors...)
+	postProcessors = append(postProcessors, f.otherComponentPostProcessors...)
+
+	componentPostProcessors := make([]processors.ComponentPostProcessor, len(postProcessors))
+	for i, component := range postProcessors {
+		name := component_definition.GetComponentName(component)
+		err := f.applyDefinitionRegistryPostProcessors(factory, component, name)
+		if err != nil {
+			return err
+		}
+		processor, err := factory.GetComponentByName(name)
+		if err != nil {
+			return err
+		}
+		componentPostProcessors[i] = processor.(processors.ComponentPostProcessor)
+	}
+	f.componentPostProcessors = componentPostProcessors
+	return nil
+}
+
+func (f *PostProcessorRegistrationDelegate) applyDefinitionRegistryPostProcessors(factory Factory, component any, name string) error {
+	for _, processor := range factory.GetDefinitionRegistryPostProcessors() {
+		err := processor.PostProcessDefinitionRegistry(factory.GetDefinitionRegistry(), component, name)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
@@ -154,8 +199,8 @@ func (f *PostProcessorRegistrationDelegate) ProcessInitializedComponentInitializ
 	return nil
 }
 
-func (f *PostProcessorRegistrationDelegate) ResolveBeforeInstantiation(meta *component_definition.Meta, name string) (*component_definition.Meta, error) {
-	var component *component_definition.Meta
+func (f *PostProcessorRegistrationDelegate) ResolveBeforeInstantiation(meta *component_definition.Meta, name string) (any, error) {
+	var component any
 	var err error
 	if f.hasInstantiationAwareComponentPostProcessor {
 		component, err = f.applyPostProcessBeforeInstantiation(meta, name)
@@ -163,7 +208,7 @@ func (f *PostProcessorRegistrationDelegate) ResolveBeforeInstantiation(meta *com
 			return nil, err
 		}
 		if component != nil {
-			component, err = f.applyPostProcessAfterInstantiation(component, name)
+			component, err = f.applyPostProcessAfterInitialization(component, name)
 			if err != nil {
 				return nil, err
 			}
@@ -172,8 +217,8 @@ func (f *PostProcessorRegistrationDelegate) ResolveBeforeInstantiation(meta *com
 	return component, nil
 }
 
-func (f *PostProcessorRegistrationDelegate) applyPostProcessBeforeInstantiation(meta *component_definition.Meta, name string) (*component_definition.Meta, error) {
-	var component *component_definition.Meta
+func (f *PostProcessorRegistrationDelegate) applyPostProcessBeforeInstantiation(meta *component_definition.Meta, name string) (any, error) {
+	var component any
 	var err error
 	for _, processor := range f.componentPostProcessors {
 		if ipb, ok := processor.(processors.InstantiationAwareComponentPostProcessor); ok {
@@ -182,26 +227,30 @@ func (f *PostProcessorRegistrationDelegate) applyPostProcessBeforeInstantiation(
 				return nil, err
 			}
 			if component != nil {
-				break
+				return component, nil
 			}
 		}
 	}
 	return component, nil
 }
 
-func (f *PostProcessorRegistrationDelegate) applyPostProcessAfterInstantiation(meta *component_definition.Meta, name string) (*component_definition.Meta, error) {
+func (f *PostProcessorRegistrationDelegate) ResolveAfterInstantiation(meta *component_definition.Meta, name string) error {
 	for _, processor := range f.componentPostProcessors {
 		if ipb, ok := processor.(processors.InstantiationAwareComponentPostProcessor); ok {
 			ok, err := ipb.PostProcessAfterInstantiation(meta.Raw, name)
 			if err != nil {
-				return nil, err
+				return err
 			}
-			if !ok {
-				break
+			if ok {
+				_, err := ipb.PostProcessProperties(meta.GetAllNodes(), meta.Raw, name)
+				if err != nil {
+					return err
+				}
+				//meta.SetNodes(properties...)
 			}
 		}
 	}
-	return meta, nil
+	return nil
 }
 
 func (f *PostProcessorRegistrationDelegate) GetEarlyBeanReference(name string, m any) (any, error) {

@@ -3,21 +3,23 @@ package post_processor
 import (
 	"github.com/go-kid/ioc"
 	"github.com/go-kid/ioc/app"
+	"github.com/go-kid/ioc/factory/processors"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 type PostProcessor struct {
+	processors.DefaultComponentPostProcessor
 }
 
-func (p *PostProcessor) PostProcessBeforeInitialization(component interface{}) error {
+func (p *PostProcessor) PostProcessBeforeInitialized(component interface{}) error {
 	if c, ok := component.(*Component); ok {
 		c.BeforeInitFlag = true
 	}
 	return nil
 }
 
-func (p *PostProcessor) PostProcessAfterInitialization(component interface{}) error {
+func (p *PostProcessor) PostProcessAfterInitialized(component interface{}) error {
 	if c, ok := component.(*Component); ok {
 		c.AfterInitFlag = true
 	}

@@ -27,8 +27,9 @@ type SmartInstantiationAwareBeanPostProcessor interface {
 }
 
 type ComponentInitializedPostProcessor interface {
-	PostProcessBeforeInitialization(component any) error
-	PostProcessAfterInitialization(component any) error
+	ComponentPostProcessor
+	PostProcessBeforeInitialized(component any) error
+	PostProcessAfterInitialized(component any) error
 }
 
 type DestructionAwareComponentPostProcessor interface {

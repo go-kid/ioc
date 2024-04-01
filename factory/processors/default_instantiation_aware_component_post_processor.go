@@ -13,7 +13,7 @@ func (d *DefaultInstantiationAwareComponentPostProcessor) PostProcessBeforeInsta
 }
 
 func (d *DefaultInstantiationAwareComponentPostProcessor) PostProcessAfterInstantiation(component any, componentName string) (bool, error) {
-	return false, nil
+	return true, nil
 }
 
 func (d *DefaultInstantiationAwareComponentPostProcessor) PostProcessProperties(properties []*component_definition.Node, component any, componentName string) ([]*component_definition.Node, error) {

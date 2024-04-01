@@ -16,20 +16,16 @@ import (
 )
 
 type defaultFactory struct {
-	singletonRegistry                           support.SingletonRegistry
-	definitionRegistry                          support.DefinitionRegistry
-	singletonComponentRegistry                  support.SingletonComponentRegistry
-	configure                                   configure.Configure
-	definitionRegistryPostProcessors            []processors.DefinitionRegistryPostProcessor
-	factoryPostProcessors                       []ComponentFactoryPostProcessor
-	postProcessors                              []processors.ComponentPostProcessor
-	hasInstantiationAwareComponentPostProcessor bool
-	hasDestructionAwareComponentPostProcessor   bool
-	initializedPostProcessors                   []processors.ComponentInitializedPostProcessor
-	injectionRules                              []InjectionRule
-	allowCircularReferences                     bool
-	postProcessorRegistrationDelegate           *PostProcessorRegistrationDelegate
-	registeredComponents                        map[string]any
+	singletonRegistry                 support.SingletonRegistry
+	definitionRegistry                support.DefinitionRegistry
+	singletonComponentRegistry        support.SingletonComponentRegistry
+	configure                         configure.Configure
+	definitionRegistryPostProcessors  []processors.DefinitionRegistryPostProcessor
+	factoryPostProcessors             []ComponentFactoryPostProcessor
+	injectionRules                    []InjectionRule
+	allowCircularReferences           bool
+	postProcessorRegistrationDelegate *PostProcessorRegistrationDelegate
+	registeredComponents              map[string]any
 }
 
 func Default() Factory {
@@ -41,7 +37,8 @@ func Default() Factory {
 			definition_registry_post_processors.NewValueTagScanProcessor(),
 			definition_registry_post_processors.NewWireTagScanProcessor(),
 		},
-		allowCircularReferences: true,
+		postProcessorRegistrationDelegate: &PostProcessorRegistrationDelegate{},
+		allowCircularReferences:           true,
 	}
 	f.AddInjectionRules(
 		new(specifyInjector),
@@ -67,25 +64,16 @@ func (f *defaultFactory) PrepareComponents() error {
 		switch singleton.(type) {
 		case processors.ComponentPostProcessor:
 			f.registerBeanPostProcessors(singleton.(processors.ComponentPostProcessor))
-			if _, ok := singleton.(processors.InstantiationAwareComponentPostProcessor); ok {
-				f.hasInstantiationAwareComponentPostProcessor = true
-			}
-			if _, ok := singleton.(processors.DestructionAwareComponentPostProcessor); ok {
-				f.hasDestructionAwareComponentPostProcessor = true
-			}
-			f.postProcessors = append(f.postProcessors, singleton.(processors.ComponentPostProcessor))
 		case processors.DefinitionRegistryPostProcessor:
 			f.definitionRegistryPostProcessors = append(f.definitionRegistryPostProcessors, singleton.(processors.DefinitionRegistryPostProcessor))
 		case ComponentFactoryPostProcessor:
 			f.factoryPostProcessors = append(f.factoryPostProcessors, singleton.(ComponentFactoryPostProcessor))
-		case processors.ComponentInitializedPostProcessor:
-			f.initializedPostProcessors = append(f.initializedPostProcessors, singleton.(processors.ComponentInitializedPostProcessor))
 		default:
 			f.registeredComponents[name] = singleton
 		}
 	}
 
-	err := f.postProcessorRegistrationDelegate.invokeBeanFactoryPostProcessors(f, f.factoryPostProcessors)
+	err := f.postProcessorRegistrationDelegate.InvokeBeanFactoryPostProcessors(f, f.factoryPostProcessors)
 	if err != nil {
 		return err
 	}
@@ -196,22 +184,16 @@ func (f *defaultFactory) doGetComponent(name string) (*component_definition.Meta
 
 func (f *defaultFactory) createComponent(name string) (*component_definition.Meta, error) {
 	meta := f.definitionRegistry.GetMetaByName(name)
+	if meta == nil {
+		return nil, fmt.Errorf("component definition with name '%s' not found", name)
+	}
 
-	if f.hasInstantiationAwareComponentPostProcessor {
-		if meta == nil {
-			return nil, fmt.Errorf("component definition with name '%s' not found", name)
-		}
-		for _, processor := range f.postProcessors {
-			if ipb, ok := processor.(processors.InstantiationAwareComponentPostProcessor); ok {
-				component, err := ipb.PostProcessBeforeInstantiation(meta, name)
-				if err != nil {
-					return nil, err
-				}
-				if component != nil {
-					return component, nil
-				}
-			}
-		}
+	instantiation, err := f.postProcessorRegistrationDelegate.ResolveBeforeInstantiation(meta, name)
+	if err != nil {
+		return nil, err
+	}
+	if instantiation != nil {
+		return instantiation, nil
 	}
 
 	instance, err := f.doCreateComponent(name, meta)
@@ -239,9 +221,19 @@ func (f *defaultFactory) doCreateComponent(name string, meta *component_definiti
 		return nil, err
 	}
 
-	exposedComponent, err = f.initializeComponent(name, meta)
+	instance := meta.Raw
+	wrappedInstance, err := f.postProcessorRegistrationDelegate.InitializeComponent(name, instance)
 	if err != nil {
 		return nil, err
+	}
+	if wrappedInstance != instance {
+		exposedComponent, err = f.genProxyComponent(meta, name, wrappedInstance)
+		if err != nil {
+			return nil, err
+		}
+		f.logger().Debugf("component '%s' initialization finished, detected a new instance '%s' proxy, return proxy component", name, exposedComponent.Type.String())
+	} else {
+		f.logger().Debugf("component '%s' initialization finished", name)
 	}
 
 	if earlySingletonExposure {
@@ -270,7 +262,7 @@ func (f *defaultFactory) doCreateComponent(name string, meta *component_definiti
 			}
 		}
 	}
-	err = f.processInitializedComponentInitialization(meta)
+	err = f.postProcessorRegistrationDelegate.ProcessInitializedComponentInitialization(meta)
 	if err != nil {
 		return nil, err
 	}
@@ -318,15 +310,9 @@ func (f *defaultFactory) populateComponent(name string, meta *component_definiti
 func (f *defaultFactory) getEarlyBeanReference(name string, m *component_definition.Meta) (*component_definition.Meta, error) {
 	var exposedComponent = m.Raw
 	var err error
-	if f.hasInstantiationAwareComponentPostProcessor {
-		for _, processor := range f.postProcessors {
-			if ibp, ok := processor.(processors.SmartInstantiationAwareBeanPostProcessor); ok {
-				exposedComponent, err = ibp.GetEarlyBeanReference(exposedComponent, name)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
+	exposedComponent, err = f.postProcessorRegistrationDelegate.GetEarlyBeanReference(name, exposedComponent)
+	if err != nil {
+		return nil, err
 	}
 	if exposedComponent != m.Raw {
 		m, err = f.genProxyComponent(m, name, exposedComponent)
@@ -339,115 +325,6 @@ func (f *defaultFactory) getEarlyBeanReference(name string, m *component_definit
 
 func (f *defaultFactory) genProxyComponent(origin *component_definition.Meta, name string, newComponent any) (*component_definition.Meta, error) {
 	return component_definition.CreateProxy(origin, name, newComponent)
-}
-
-func (f *defaultFactory) initializeComponent(name string, m *component_definition.Meta) (*component_definition.Meta, error) {
-	f.logger().Tracef("start initialize component '%s'", name)
-	logger := f.logger()
-	var wrappedComponent = m.Raw
-	var err error
-	logger.Tracef("start to apply post process before component '%s' initialization", name)
-	wrappedComponent, err = f.applyPostProcessBeforeInitialization(wrappedComponent, name)
-	if err != nil {
-		return nil, err
-	}
-	err = f.invokeInitMethods(name, wrappedComponent)
-	if err != nil {
-		return nil, err
-	}
-	logger.Tracef("start to apply post process after component '%s' initialization", name)
-	wrappedComponent, err = f.applyPostProcessAfterInitialization(wrappedComponent, name)
-	if err != nil {
-		return nil, err
-	}
-	if wrappedComponent != m.Raw {
-		//m = component_definition.NewMeta(wrappedComponent)
-		//m.SetName(name)
-		//m.UseProxy(wrappedComponent)
-		m, err = f.genProxyComponent(m, name, wrappedComponent)
-		if err != nil {
-			return nil, err
-		}
-		logger.Debugf("component '%s' initialization finished, detected a new instance '%s' proxy, return proxy component", name, m.Type.String())
-	} else {
-		f.logger().Debugf("component '%s' initialization finished", name)
-	}
-	return m, nil
-}
-
-func (f *defaultFactory) invokeInitMethods(name string, component any) error {
-	if ic, ok := component.(definition.InitializingComponent); ok {
-		f.logger().Tracef("invoking afterPropertiesSet() method for component '%s'", name)
-		err := ic.AfterPropertiesSet()
-		if err != nil {
-			return fmt.Errorf("invoking afterPropertiesSet() method for component '%s' error: %s", name, err)
-		}
-	}
-	return nil
-}
-
-func (f *defaultFactory) applyPostProcessBeforeInitialization(c any, name string) (any, error) {
-	var (
-		result = c
-		err    error
-	)
-	var current any
-	for _, processor := range f.postProcessors {
-		current, err = processor.PostProcessBeforeInitialization(result, name)
-		if err != nil {
-			return nil, fmt.Errorf("component post processor %s apply post process before initialization error: %v", reflectx.Id(processor), err)
-		}
-		if current == nil {
-			return result, nil
-		}
-		result = current
-	}
-	return result, nil
-}
-
-func (f *defaultFactory) applyPostProcessAfterInitialization(c any, name string) (any, error) {
-	var (
-		result = c
-		err    error
-	)
-	var current any
-	for _, processor := range f.postProcessors {
-		current, err = processor.PostProcessAfterInitialization(result, name)
-		if err != nil {
-			return nil, fmt.Errorf("component post processor %s apply post process after initialization error: %v", reflectx.Id(processor), err)
-		}
-		if current == nil {
-			return result, nil
-		}
-		result = current
-	}
-	return result, nil
-}
-
-func (f *defaultFactory) processInitializedComponentInitialization(meta *component_definition.Meta) error {
-	f.logger().Tracef("post process before initialize component '%s'", meta.Name())
-	for _, processor := range f.initializedPostProcessors {
-		err := processor.PostProcessBeforeInitialization(meta.Raw)
-		if err != nil {
-			return err
-		}
-	}
-	if c, ok := meta.Raw.(definition.InitializeComponent); ok {
-		f.logger().Tracef("invoking init method for component '%s'", meta.Name())
-		err := c.Init()
-		if err != nil {
-			return err
-		}
-	}
-	f.logger().Tracef("post process after initialize component '%s'", meta.Name())
-	for _, processor := range f.initializedPostProcessors {
-		err := processor.PostProcessAfterInitialization(meta.Raw)
-		if err != nil {
-			return err
-		}
-	}
-	f.logger().Debugf("initialize component '%s' finished", meta.Name())
-	return nil
 }
 
 const diErrOutput = "DI report error by processor: %s\n" +

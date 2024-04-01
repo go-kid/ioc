@@ -1,28 +1,34 @@
 package factory
 
-import "github.com/go-kid/ioc/factory/processors"
+import (
+	"fmt"
+	"github.com/go-kid/ioc/component_definition"
+	"github.com/go-kid/ioc/definition"
+	"github.com/go-kid/ioc/factory/processors"
+	"github.com/go-kid/ioc/syslog"
+	"github.com/go-kid/ioc/util/reflectx"
+)
 
 type PostProcessorRegistrationDelegate struct {
-	componentPostProcessors                       []processors.ComponentPostProcessor
-	instantiationAwareComponentPostProcessor      []processors.InstantiationAwareComponentPostProcessor
-	smartInstantiationAwareBeanPostProcessor      []processors.SmartInstantiationAwareBeanPostProcessor
-	defaultTagScanDefinitionRegistryPostProcessor []processors.DefaultTagScanDefinitionRegistryPostProcessor
-	hasInstantiationAwareComponentPostProcessor   bool
-	hasDestructionAwareComponentPostProcessor     bool
+	componentPostProcessors                     []processors.ComponentPostProcessor
+	hasInstantiationAwareComponentPostProcessor bool
+	hasDestructionAwareComponentPostProcessor   bool
+	hasComponentInitializedPostProcessor        bool
 }
 
-func (p *PostProcessorRegistrationDelegate) RegisterComponentPostProcessors(ps processors.ComponentPostProcessor) {
-
-	if _, ok := ps.(processors.InstantiationAwareComponentPostProcessor); ok {
-		p.hasInstantiationAwareComponentPostProcessor = true
+func (f *PostProcessorRegistrationDelegate) RegisterComponentPostProcessors(ps processors.ComponentPostProcessor) {
+	switch ps.(type) {
+	case processors.InstantiationAwareComponentPostProcessor:
+		f.hasInstantiationAwareComponentPostProcessor = true
+	case processors.DestructionAwareComponentPostProcessor:
+		f.hasDestructionAwareComponentPostProcessor = true
+	case processors.ComponentInitializedPostProcessor:
+		f.hasComponentInitializedPostProcessor = true
 	}
-	if _, ok := ps.(processors.DestructionAwareComponentPostProcessor); ok {
-		p.hasDestructionAwareComponentPostProcessor = true
-	}
-	p.componentPostProcessors = append(p.componentPostProcessors, ps.(processors.ComponentPostProcessor))
+	f.componentPostProcessors = append(f.componentPostProcessors, ps.(processors.ComponentPostProcessor))
 }
 
-func (p *PostProcessorRegistrationDelegate) invokeBeanFactoryPostProcessors(factory Factory, processors []ComponentFactoryPostProcessor) error {
+func (f *PostProcessorRegistrationDelegate) InvokeBeanFactoryPostProcessors(factory Factory, processors []ComponentFactoryPostProcessor) error {
 	for _, processor := range processors {
 		err := processor.PostProcessComponentFactory(factory)
 		if err != nil {
@@ -39,4 +45,177 @@ func (p *PostProcessorRegistrationDelegate) invokeBeanFactoryPostProcessors(fact
 		}
 	}
 	return nil
+}
+
+func (f *PostProcessorRegistrationDelegate) InitializeComponent(name string, m any) (any, error) {
+	f.logger().Tracef("start initialize component '%s'", name)
+	var wrappedComponent = m
+	var err error
+	f.logger().Tracef("start to apply post process before component '%s' initialization", name)
+	wrappedComponent, err = f.applyPostProcessBeforeInitialization(wrappedComponent, name)
+	if err != nil {
+		return nil, err
+	}
+	err = f.invokeInitMethods(name, wrappedComponent)
+	if err != nil {
+		return nil, err
+	}
+	f.logger().Tracef("start to apply post process after component '%s' initialization", name)
+	wrappedComponent, err = f.applyPostProcessAfterInitialization(wrappedComponent, name)
+	if err != nil {
+		return nil, err
+	}
+	return wrappedComponent, nil
+}
+
+func (f *PostProcessorRegistrationDelegate) invokeInitMethods(name string, component any) error {
+	if ic, ok := component.(definition.InitializingComponent); ok {
+		f.logger().Tracef("invoking afterPropertiesSet() method for component '%s'", name)
+		err := ic.AfterPropertiesSet()
+		if err != nil {
+			return fmt.Errorf("invoking afterPropertiesSet() method for component '%s' error: %s", name, err)
+		}
+	}
+	return nil
+}
+
+func (f *PostProcessorRegistrationDelegate) applyPostProcessBeforeInitialization(c any, name string) (any, error) {
+	var (
+		result = c
+		err    error
+	)
+	var current any
+	for _, processor := range f.componentPostProcessors {
+		current, err = processor.PostProcessBeforeInitialization(result, name)
+		if err != nil {
+			return nil, fmt.Errorf("component post processor %s apply post process before initialization error: %v", reflectx.Id(processor), err)
+		}
+		if current == nil {
+			return result, nil
+		}
+		result = current
+	}
+	return result, nil
+}
+
+func (f *PostProcessorRegistrationDelegate) applyPostProcessAfterInitialization(c any, name string) (any, error) {
+	var (
+		result = c
+		err    error
+	)
+	var current any
+	for _, processor := range f.componentPostProcessors {
+		current, err = processor.PostProcessAfterInitialization(result, name)
+		if err != nil {
+			return nil, fmt.Errorf("component post processor %s apply post process after initialization error: %v", reflectx.Id(processor), err)
+		}
+		if current == nil {
+			return result, nil
+		}
+		result = current
+	}
+	return result, nil
+}
+
+func (f *PostProcessorRegistrationDelegate) logger() syslog.Logger {
+	return syslog.GetLogger().Pref("PostProcessorDelegate")
+}
+
+func (f *PostProcessorRegistrationDelegate) ProcessInitializedComponentInitialization(meta *component_definition.Meta) error {
+	if f.hasComponentInitializedPostProcessor {
+		f.logger().Tracef("post process before initialize component '%s'", meta.Name())
+		for _, processor := range f.componentPostProcessors {
+			if pb, ok := processor.(processors.ComponentInitializedPostProcessor); ok {
+				err := pb.PostProcessBeforeInitialized(meta.Raw)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	if c, ok := meta.Raw.(definition.InitializeComponent); ok {
+		f.logger().Tracef("invoking init method for component '%s'", meta.Name())
+		err := c.Init()
+		if err != nil {
+			return err
+		}
+	}
+	if f.hasComponentInitializedPostProcessor {
+		f.logger().Tracef("post process after initialize component '%s'", meta.Name())
+		for _, processor := range f.componentPostProcessors {
+			if pb, ok := processor.(processors.ComponentInitializedPostProcessor); ok {
+				err := pb.PostProcessAfterInitialized(meta.Raw)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (f *PostProcessorRegistrationDelegate) ResolveBeforeInstantiation(meta *component_definition.Meta, name string) (*component_definition.Meta, error) {
+	var component *component_definition.Meta
+	var err error
+	if f.hasInstantiationAwareComponentPostProcessor {
+		component, err = f.applyPostProcessBeforeInstantiation(meta, name)
+		if err != nil {
+			return nil, err
+		}
+		if component != nil {
+			component, err = f.applyPostProcessAfterInstantiation(component, name)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return component, nil
+}
+
+func (f *PostProcessorRegistrationDelegate) applyPostProcessBeforeInstantiation(meta *component_definition.Meta, name string) (*component_definition.Meta, error) {
+	var component *component_definition.Meta
+	var err error
+	for _, processor := range f.componentPostProcessors {
+		if ipb, ok := processor.(processors.InstantiationAwareComponentPostProcessor); ok {
+			component, err = ipb.PostProcessBeforeInstantiation(meta, name)
+			if err != nil {
+				return nil, err
+			}
+			if component != nil {
+				break
+			}
+		}
+	}
+	return component, nil
+}
+
+func (f *PostProcessorRegistrationDelegate) applyPostProcessAfterInstantiation(meta *component_definition.Meta, name string) (*component_definition.Meta, error) {
+	for _, processor := range f.componentPostProcessors {
+		if ipb, ok := processor.(processors.InstantiationAwareComponentPostProcessor); ok {
+			ok, err := ipb.PostProcessAfterInstantiation(meta.Raw, name)
+			if err != nil {
+				return nil, err
+			}
+			if !ok {
+				break
+			}
+		}
+	}
+	return meta, nil
+}
+
+func (f *PostProcessorRegistrationDelegate) GetEarlyBeanReference(name string, m any) (any, error) {
+	var exposedComponent = m
+	var err error
+	if f.hasInstantiationAwareComponentPostProcessor {
+		for _, processor := range f.componentPostProcessors {
+			if ibp, ok := processor.(processors.SmartInstantiationAwareBeanPostProcessor); ok {
+				exposedComponent, err = ibp.GetEarlyBeanReference(exposedComponent, name)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+	return exposedComponent, nil
 }

@@ -3,7 +3,7 @@ package post_processor
 import (
 	"github.com/go-kid/ioc"
 	"github.com/go-kid/ioc/app"
-	"github.com/go-kid/ioc/processors"
+	"github.com/go-kid/ioc/factory/processors"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )

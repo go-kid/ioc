@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/go-kid/ioc"
 	"github.com/go-kid/ioc/app"
-	"github.com/go-kid/ioc/processors"
+	"github.com/go-kid/ioc/factory/processors"
 )
 
 type Service interface {

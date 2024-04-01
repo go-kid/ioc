@@ -5,7 +5,7 @@ import (
 	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/definition"
-	"github.com/go-kid/ioc/processors"
+	"github.com/go-kid/ioc/factory/processors"
 	"github.com/go-kid/ioc/util/reflectx"
 )
 

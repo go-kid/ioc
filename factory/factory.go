@@ -5,8 +5,8 @@ import (
 	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/definition"
-	"github.com/go-kid/ioc/factory/processors"
 	"github.com/go-kid/ioc/factory/support"
+	"github.com/go-kid/ioc/processors"
 	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/reflectx"
 	"github.com/go-kid/ioc/util/sort2"
@@ -269,14 +269,6 @@ func (f *defaultFactory) populateComponent(name string, meta *component_definiti
 	if err != nil {
 		return err
 	}
-	//f.logger().Tracef("start populate component '%s'", name)
-	//if len(meta.GetConfigurationNodes()) != 0 {
-	//	f.logger().Tracef("populate properties for '%s'", name)
-	//	err := f.configure.PopulateProperties(meta.GetConfigurationNodes())
-	//	if err != nil {
-	//		return err
-	//	}
-	//}
 	if nodes := meta.GetComponentNodes(); len(nodes) > 0 {
 		f.logger().Tracef("inject dependencies for '%s'", name)
 		for _, node := range meta.GetComponentNodes() {

@@ -3,7 +3,7 @@ package definition_registry_post_processors
 import (
 	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/definition"
-	"github.com/go-kid/ioc/factory/processors"
+	"github.com/go-kid/ioc/processors"
 )
 
 type propTagScanProcessor struct {

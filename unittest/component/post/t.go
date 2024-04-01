@@ -61,12 +61,14 @@ func main() {
 	a := &ServiceA{Name: "service A"}
 	b := &ServiceB{Name: "service B"}
 	c := &ServiceC{Name: "service C"}
-	run, err := ioc.Run(app.LogTrace, app.SetComponents(
-		a,
-		b,
-		c,
-		&postProcessor{},
-	))
+	run, err := ioc.Run(
+		//app.LogTrace,
+		app.SetComponents(
+			a,
+			b,
+			c,
+			&postProcessor{},
+		))
 	if err != nil {
 		panic(err)
 	}

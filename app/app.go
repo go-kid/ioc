@@ -52,9 +52,9 @@ func (s *App) initiate() error {
 	}
 	s.Factory.SetRegistry(s.registry)
 	s.Factory.SetConfigure(s.Configure)
-	//s.registry.RegisterSingleton(s)
 	var initiateComponent = []any{
 		s,
+		s.Factory.GetDefinitionRegistry(),
 		definition_registry_post_processors.NewPropTagScanProcessor(),
 		definition_registry_post_processors.NewValueTagScanProcessor(),
 		definition_registry_post_processors.NewWireTagScanProcessor(),
@@ -63,6 +63,7 @@ func (s *App) initiate() error {
 		instantiation_aware_component_post_processors.NewValueAwarePostProcessors(),
 		instantiation_aware_component_post_processors.NewValidateAwarePostProcessors(),
 		instantiation_aware_component_post_processors.NewRequiredArgValidatePostProcessors(),
+		instantiation_aware_component_post_processors.NewDependencyNameAwarePostProcessors(),
 	}
 	for _, c := range initiateComponent {
 		s.registry.RegisterSingleton(c)

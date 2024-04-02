@@ -87,14 +87,13 @@ func (s *App) run() error {
 	if err := s.initConfiguration(); err != nil {
 		return err
 	}
-	s.logger().Info("configuration is loaded")
 
 	/* set default init behavior */
+	s.logger().Info("start initializing component factory...")
 	err := s.initFactory()
 	if err != nil {
 		return err
 	}
-	s.logger().Info("component factory is ready")
 	/* factory ready */
 
 	/* begin inject dependencies */
@@ -102,19 +101,16 @@ func (s *App) run() error {
 	if err := s.refresh(); err != nil {
 		return err
 	}
-	s.logger().Info("all components is refreshed")
 	/* dependency injection ready */
-
-	s.logger().Info("application is issued")
 
 	/* begin call runners */
 	if s.enableApplicationRunner {
-		s.logger().Info("start starting runners...")
+		s.logger().Info("start call up runners...")
 		if err := s.callRunners(); err != nil {
 			return err
 		}
 	}
-
+	s.logger().Info("app run up")
 	/* finished */
 	return nil
 }
@@ -167,6 +163,7 @@ func (s *App) callRunners() error {
 }
 
 func (s *App) Close() {
+	s.logger().Infof("close closer components")
 	if len(s.CloserComponents) != 0 {
 		wg := sync.WaitGroup{}
 		wg.Add(len(s.CloserComponents))
@@ -180,7 +177,8 @@ func (s *App) Close() {
 			}(m)
 		}
 		wg.Wait()
-		s.logger().Infof("close all closer components")
+	} else {
+		s.logger().Trace("find 0 closer component, skip")
 	}
 }
 

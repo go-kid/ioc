@@ -57,7 +57,7 @@ func (f *defaultFactory) PrepareComponents() error {
 	if err != nil {
 		return err
 	}
-
+	f.logger().Info("prepare components finished")
 	return nil
 }
 
@@ -112,6 +112,8 @@ func (f *defaultFactory) Refresh() error {
 			return err
 		}
 	}
+
+	f.logger().Info("refresh components finished")
 	return nil
 }
 

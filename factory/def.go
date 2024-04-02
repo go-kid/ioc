@@ -1,14 +1,24 @@
 package factory
 
 import (
-	"github.com/go-kid/ioc/injector"
-	"github.com/go-kid/ioc/registry"
-	"github.com/go-kid/ioc/scanner/meta"
+	"github.com/go-kid/ioc/configure"
+	"github.com/go-kid/ioc/factory/processors"
+	"github.com/go-kid/ioc/factory/support"
 )
 
-type MetaFunc func(m *meta.Meta) error
-
 type Factory interface {
-	SetIfNilPostInitFunc(fn MetaFunc)
-	Initialize(r registry.Registry, i injector.Injector, metas ...*meta.Meta) error
+	GetRegisteredComponents() map[string]any
+	GetDefinitionRegistryPostProcessors() []processors.DefinitionRegistryPostProcessor
+	SetRegistry(r support.SingletonRegistry)
+	SetConfigure(c configure.Configure)
+	PrepareComponents() error
+	Refresh() error
+	GetComponents(opts ...support.Option) ([]any, error)
+	GetComponentByName(name string) (any, error)
+	GetConfigure() configure.Configure
+	GetDefinitionRegistry() support.DefinitionRegistry
+}
+
+type ComponentFactoryPostProcessor interface {
+	PostProcessComponentFactory(factory Factory) error
 }

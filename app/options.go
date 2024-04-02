@@ -4,31 +4,29 @@ import (
 	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/configure/loader"
 	"github.com/go-kid/ioc/factory"
-	"github.com/go-kid/ioc/injector"
-	"github.com/go-kid/ioc/registry"
-	"github.com/go-kid/ioc/scanner"
+	"github.com/go-kid/ioc/factory/support"
 	"github.com/go-kid/ioc/syslog"
 )
 
 type SettingOption func(s *App)
 
-func Options(opts ...SettingOption) SettingOption {
+func SetRegistry(r support.SingletonRegistry) SettingOption {
 	return func(s *App) {
-		for _, opt := range opts {
-			opt(s)
+		s.registry = r
+	}
+}
+
+func SetComponents(cs ...any) SettingOption {
+	return func(s *App) {
+		for _, c := range cs {
+			s.registry.RegisterSingleton(c)
 		}
 	}
 }
 
-func SetRegistry(r registry.Registry) SettingOption {
+func SetConfigure(c configure.Configure) SettingOption {
 	return func(s *App) {
-		s.Registry = r
-	}
-}
-
-func SetComponents(c ...interface{}) SettingOption {
-	return func(s *App) {
-		s.Registry.Register(c...)
+		s.Configure = c
 	}
 }
 
@@ -68,30 +66,6 @@ func DisableApplicationRunner() SettingOption {
 	}
 }
 
-func DisableComponentInitialization() SettingOption {
-	return func(s *App) {
-		s.enableComponentInit = false
-	}
-}
-
-func SetScanner(sc scanner.Scanner) SettingOption {
-	return func(s *App) {
-		s.Scanner = sc
-	}
-}
-
-func AddScanPolicies(policies ...scanner.ScanPolicy) SettingOption {
-	return func(s *App) {
-		s.Scanner.AddScanPolicies(policies...)
-	}
-}
-
-func AddCustomizedInjectors(injectors ...injector.InjectProcessor) SettingOption {
-	return func(s *App) {
-		s.Injector.AddCustomizedInjectors(injectors...)
-	}
-}
-
 func LogLevel(lv syslog.Lv) SettingOption {
 	return func(s *App) {
 		syslog.Level(lv)
@@ -106,6 +80,7 @@ func SetLogger(l syslog.Logger) SettingOption {
 
 var (
 	LogTrace = func(s *App) { syslog.Level(syslog.LvTrace) }
+	LogDebug = func(s *App) { syslog.Level(syslog.LvDebug) }
 	LogWarn  = func(s *App) { syslog.Level(syslog.LvWarn) }
 	LogError = func(s *App) { syslog.Level(syslog.LvError) }
 )

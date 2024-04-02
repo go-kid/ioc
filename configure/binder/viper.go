@@ -2,11 +2,8 @@ package binder
 
 import (
 	"bytes"
-	"fmt"
-	"github.com/go-kid/ioc/scanner/meta"
-	"github.com/go-kid/ioc/syslog"
+	"github.com/pkg/errors"
 	"github.com/spf13/viper"
-	"reflect"
 )
 
 type ViperBinder struct {
@@ -29,12 +26,15 @@ func NewViperBinder(configType string) *ViperBinder {
 func (d *ViperBinder) SetConfig(c []byte) error {
 	err := d.Viper.MergeConfig(bytes.NewBuffer(c))
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "viper merge config: %s", string(c))
 	}
 	return nil
 }
 
 func (d *ViperBinder) Get(path string) any {
+	if path == "" {
+		return d.Viper.AllSettings()
+	}
 	return d.Viper.Get(path)
 }
 
@@ -42,32 +42,15 @@ func (d *ViperBinder) Set(path string, val any) {
 	d.Viper.Set(path, val)
 }
 
-func (d *ViperBinder) PropInject(properties []*meta.Node) error {
-	for _, prop := range properties {
-		syslog.Tracef("viper binder start bind config %s, prefix: %s", prop.ID(), prop.TagVal)
-		var fieldType = prop.Type
-		var isPtrType = false
-		if fieldType.Kind() == reflect.Ptr {
-			fieldType = fieldType.Elem()
-			isPtrType = true
-		}
-		var val = reflect.New(fieldType)
-		err := d.unmarshall(prop.TagVal, val.Interface())
-		if err != nil {
-			return fmt.Errorf("viper binder bind config %s, prefix: %s error: %v", prop.ID(), prop.TagVal, err)
-		}
-		if isPtrType {
-			prop.Value.Set(val)
-		} else {
-			prop.Value.Set(val.Elem())
-		}
+func (d *ViperBinder) Unmarshall(key string, a any) error {
+	var err error
+	if key == "" {
+		err = d.Viper.Unmarshal(a)
+	} else {
+		err = d.Viper.UnmarshalKey(key, a)
+	}
+	if err != nil {
+		return errors.Wrapf(err, "viper unmarshal '%s'", key)
 	}
 	return nil
-}
-
-func (d *ViperBinder) unmarshall(key string, a interface{}) error {
-	if key == "" {
-		return d.Viper.Unmarshal(a)
-	}
-	return d.Viper.UnmarshalKey(key, a)
 }

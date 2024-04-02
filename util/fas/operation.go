@@ -1,6 +1,8 @@
 package fas
 
-import "reflect"
+import (
+	"reflect"
+)
 
 // TernaryOp is ternary operation like max = a > b ? a : b
 func TernaryOp[T any](condition bool, a, b T) T {
@@ -49,4 +51,14 @@ func IsNil(a any) bool {
 		return true
 	}
 	return false
+}
+
+func Filter[T any](x []T, f func(i T) bool) []T {
+	var result = make([]T, 0, len(x))
+	for _, i := range x {
+		if f(i) {
+			result = append(result, i)
+		}
+	}
+	return result
 }

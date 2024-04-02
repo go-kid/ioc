@@ -20,7 +20,8 @@ Host: "{{.app.name}}.{{.app.name}}-{{.app.env}}.svc.cluster{{.app.port}}"
 `)
 
 type expressionTestApp struct {
-	C *expressionConfig `prop:""`
+	C    *expressionConfig `prop:""`
+	Name string            `prop:"App.name"`
 }
 
 type expressionConfig struct {

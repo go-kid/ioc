@@ -1,9 +1,8 @@
 package special_inject_condition
 
 import (
+	"github.com/go-kid/ioc"
 	"github.com/go-kid/ioc/app"
-	"github.com/go-kid/ioc/registry"
-	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -43,8 +42,7 @@ func TestSelfInject(t *testing.T) {
 			T2
 		}
 		st := &T3{}
-		err := RunTest(app.SetComponents(st), app.LogTrace)
-		assert.Error(t, err)
+		ioc.RunErrorTest(t, app.SetComponents(st), app.LogTrace)
 	})
 	t.Run("SelfInjectByNamingInterface", func(t *testing.T) {
 		type T struct {
@@ -58,8 +56,7 @@ func TestSelfInject(t *testing.T) {
 			T2
 		}
 		st := &T3{T2: T2{T: T{implSelfInject: implSelfInject{SpecifyNameComponent{Component{Name: "t1"}}}}}}
-		err := RunTest(app.SetComponents(st), app.LogTrace)
-		assert.Error(t, err)
+		ioc.RunErrorTest(t, app.SetComponents(st), app.LogTrace)
 	})
 	t.Run("SelfInjectByInterfaceSlice", func(t *testing.T) {
 		type T struct {
@@ -73,8 +70,7 @@ func TestSelfInject(t *testing.T) {
 			T2
 		}
 		st := &T3{}
-		err := RunTest(app.SetComponents(st))
-		assert.Error(t, err)
+		ioc.RunErrorTest(t, app.SetComponents(st))
 	})
 	t.Run("SelfInjectByPtr", func(t *testing.T) {
 		type T struct {
@@ -82,8 +78,7 @@ func TestSelfInject(t *testing.T) {
 			PointerSelf *T `wire:""`
 		}
 		st := &T{}
-		err := RunTest(app.SetComponents(st))
-		assert.Error(t, err)
+		ioc.RunErrorTest(t, app.SetComponents(st))
 	})
 	t.Run("SelfInjectByPtrSlice", func(t *testing.T) {
 		type T struct {
@@ -91,12 +86,6 @@ func TestSelfInject(t *testing.T) {
 			SliceSelf []*T `wire:""`
 		}
 		st := &T{}
-		err := RunTest(app.SetComponents(st))
-		assert.Error(t, err)
+		ioc.RunErrorTest(t, app.SetComponents(st))
 	})
-}
-
-func RunTest(ops ...app.SettingOption) error {
-	s := app.NewApp(append([]app.SettingOption{app.SetRegistry(registry.NewRegistry())}, ops...)...)
-	return s.Run()
 }

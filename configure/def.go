@@ -1,7 +1,7 @@
 package configure
 
 import (
-	"github.com/go-kid/ioc/scanner/meta"
+	"github.com/go-kid/ioc/component_definition"
 )
 
 type Loader interface {
@@ -12,7 +12,7 @@ type Binder interface {
 	SetConfig(c []byte) error
 	Get(path string) any
 	Set(path string, val any)
-	PropInject(properties []*meta.Node) error
+	Unmarshall(key string, a any) error
 }
 
 type Configure interface {
@@ -20,6 +20,11 @@ type Configure interface {
 	AddLoaders(loaders ...Loader)
 	SetLoaders(loaders ...Loader)
 	SetBinder(binder Binder)
-	Initialize(metas ...*meta.Meta) error
-	Populate(metas ...*meta.Meta) error
+	Initialize() error
+}
+
+type PopulateProcessor interface {
+	Order() int
+	Filter(d *component_definition.Property) bool
+	Populate(r Binder, d *component_definition.Property) error
 }

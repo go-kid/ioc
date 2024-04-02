@@ -51,6 +51,14 @@ func Level(lv Lv) {
 	_logger = _logger.Level(lv)
 }
 
+func Pref(pref any) Logger {
+	return _logger.Pref(pref)
+}
+
 func SetLogger(l Logger) {
 	_logger = l
+}
+
+func GetLogger() Logger {
+	return _logger
 }

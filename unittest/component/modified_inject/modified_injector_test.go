@@ -3,9 +3,8 @@ package modified_inject
 import (
 	"github.com/go-kid/ioc"
 	"github.com/go-kid/ioc/app"
-	"github.com/go-kid/ioc/registry"
-	"github.com/go-kid/ioc/scanner"
-	"github.com/go-kid/ioc/scanner/meta"
+	"github.com/go-kid/ioc/component_definition"
+	"github.com/go-kid/ioc/factory/processors"
 	"github.com/stretchr/testify/assert"
 	"reflect"
 	"strconv"
@@ -13,29 +12,36 @@ import (
 )
 
 type MyInjector struct {
+	processors.DefaultInstantiationAwareComponentPostProcessor
 }
 
-func (m *MyInjector) Priority() int {
-	return 0
+func (m *MyInjector) Order() int {
+	return 100
 }
 
-func (m *MyInjector) RuleName() string {
-	return "My_Injector"
+func (m *MyInjector) PostProcessAfterInstantiation(component any, componentName string) (bool, error) {
+	return true, nil
 }
 
-func (m *MyInjector) Filter(d *meta.Node) bool {
-	return d.Tag == "mul"
-}
-
-func (m *MyInjector) Inject(_ registry.Registry, d *meta.Node) error {
-	n, err := strconv.ParseInt(d.TagVal, 10, 64)
-	if err != nil {
-		return err
+func (m *MyInjector) PostProcessProperties(properties []*component_definition.Property, component any, componentName string) ([]*component_definition.Property, error) {
+	for _, d := range properties {
+		if d.Tag != "mul" {
+			continue
+		}
+		n, err := strconv.ParseInt(d.TagVal, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		d.Value.Set(reflect.ValueOf(func(i int64) int64 {
+			return n * i
+		}))
+		d.SetArg(component_definition.ArgRequired, []string{"false"})
 	}
-	d.Value.Set(reflect.ValueOf(func(i int64) int64 {
-		return n * i
-	}))
-	return nil
+	return nil, nil
+}
+
+type scanCompPostProcessor struct {
+	processors.DefaultTagScanDefinitionRegistryPostProcessor
 }
 
 func TestModifiedInjector(t *testing.T) {
@@ -43,9 +49,14 @@ func TestModifiedInjector(t *testing.T) {
 		Mul func(i int64) int64 `mul:"2"`
 	}{}
 	ioc.RunTest(t,
-		app.AddScanPolicies(scanner.NewComponentScanPolicy("mul", nil)),
-		app.AddCustomizedInjectors(new(MyInjector)),
-		app.SetComponents(tApp))
+		app.SetComponents(tApp,
+			&MyInjector{},
+			&scanCompPostProcessor{
+				processors.DefaultTagScanDefinitionRegistryPostProcessor{
+					NodeType: "function",
+					Tag:      "mul",
+				},
+			}))
 	mul := tApp.Mul(2)
 	assert.Equal(t, int64(4), mul)
 }

@@ -1,13 +1,10 @@
 package factory
 
 import (
-	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/factory/processors"
 	"github.com/go-kid/ioc/factory/support"
 )
-
-type MetaFunc func(m *component_definition.Meta) error
 
 type Factory interface {
 	GetRegisteredComponents() map[string]any

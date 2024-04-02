@@ -7,19 +7,17 @@ import (
 )
 
 func RunTest(t *testing.T, ops ...SettingOption) *App {
-	s := NewApp(ops...)
-	err := s.Run()
+	app, err := Run(ops...)
 	if t != nil {
 		assert.NoError(t, err)
 	}
-	return s
+	return app
 }
 
 func RunErrorTest(t *testing.T, ops ...SettingOption) *App {
-	s := NewApp(ops...)
-	err := s.Run()
+	app, err := Run(ops...)
 	if t != nil {
 		assert.Error(t, err)
 	}
-	return s
+	return app
 }

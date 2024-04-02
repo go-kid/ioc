@@ -1,10 +1,10 @@
 package support
 
 import (
-	"fmt"
 	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/sync2"
+	"github.com/pkg/errors"
 )
 
 /*
@@ -21,7 +21,7 @@ func (r *registry) GetSingleton(name string) (any, error) {
 	if loaded {
 		return c, nil
 	}
-	return nil, fmt.Errorf("singleton component %s not exist", name)
+	return nil, errors.Errorf("singleton '%s' not exist", name)
 }
 
 func (r *registry) ContainsSingleton(name string) bool {

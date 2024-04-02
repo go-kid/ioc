@@ -1,6 +1,7 @@
 package loader
 
 import (
+	"github.com/pkg/errors"
 	"os"
 )
 
@@ -11,5 +12,9 @@ func NewFileLoader(file string) FileLoader {
 }
 
 func (c FileLoader) LoadConfig() ([]byte, error) {
-	return os.ReadFile(string(c))
+	bytes, err := os.ReadFile(string(c))
+	if err != nil {
+		return nil, errors.Wrapf(err, "read file: %s", string(c))
+	}
+	return bytes, nil
 }

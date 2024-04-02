@@ -1,7 +1,6 @@
 package instantiation_aware_component_post_processors
 
 import (
-	"fmt"
 	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/definition"
 	"github.com/go-kid/ioc/factory"
@@ -49,14 +48,12 @@ func (d *dependencyFunctionAwarePostProcessors) PostProcessProperties(properties
 			continue
 		}
 		if args, ok := prop.Args().Find("returns"); ok {
-			fmt.Println(prop.TagVal, "args", args)
 			var options []support.Option
 			for _, arg := range args {
 				options = append(options, support.FuncNameAndResult(prop.TagVal, arg))
 			}
 			funcOption = support.Or(options...)
 		} else {
-			fmt.Println(prop.TagVal)
 			funcOption = support.FuncName(prop.TagVal)
 		}
 		dm := d.Registry.GetMetas(typeOption, funcOption)

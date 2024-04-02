@@ -201,10 +201,8 @@ test:
 				S string `value:"${t:}${t2:}${t3:}"`
 			}
 			t2 := &T{}
-			err := app.NewApp(
-				app.SetConfigLoader(loader.NewRawLoader(config)),
-				app.SetComponents(t2)).Run()
-			assert.Error(t, err)
+			ioc.RunErrorTest(t, app.SetConfigLoader(loader.NewRawLoader(config)),
+				app.SetComponents(t2))
 		})
 		t.Run("Optional", func(t *testing.T) {
 			type T struct {
@@ -258,27 +256,21 @@ func TestValueTagValidate(t *testing.T) {
 				C *C `value:"{\"s\":\"abc\"},validate"`
 			}
 			t2 := &T{}
-			err := app.NewApp(
-				app.SetComponents(t2)).Run()
-			assert.Error(t, err)
+			ioc.RunErrorTest(t, app.SetComponents(t2))
 		})
 		t.Run("Var", func(t *testing.T) {
 			type T struct {
 				S string `value:"abc,validate=eq=abcd"`
 			}
 			t2 := &T{}
-			err := app.NewApp(
-				app.SetComponents(t2)).Run()
-			assert.Error(t, err)
+			ioc.RunErrorTest(t, app.SetComponents(t2))
 		})
 		t.Run("Multi-Vars", func(t *testing.T) {
 			type T struct {
 				S string `value:"abc,validate=eq=abc number=true"`
 			}
 			t2 := &T{}
-			err := app.NewApp(
-				app.SetComponents(t2)).Run()
-			assert.Error(t, err)
+			ioc.RunErrorTest(t, app.SetComponents(t2))
 		})
 	})
 }

@@ -2,6 +2,7 @@ package binder
 
 import (
 	"bytes"
+	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 )
 
@@ -25,7 +26,7 @@ func NewViperBinder(configType string) *ViperBinder {
 func (d *ViperBinder) SetConfig(c []byte) error {
 	err := d.Viper.MergeConfig(bytes.NewBuffer(c))
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "viper merge config: %s", string(c))
 	}
 	return nil
 }
@@ -42,8 +43,14 @@ func (d *ViperBinder) Set(path string, val any) {
 }
 
 func (d *ViperBinder) Unmarshall(key string, a any) error {
+	var err error
 	if key == "" {
-		return d.Viper.Unmarshal(a)
+		err = d.Viper.Unmarshal(a)
+	} else {
+		err = d.Viper.UnmarshalKey(key, a)
 	}
-	return d.Viper.UnmarshalKey(key, a)
+	if err != nil {
+		return errors.Wrapf(err, "viper unmarshal '%s'", key)
+	}
+	return nil
 }

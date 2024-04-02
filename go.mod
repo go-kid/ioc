@@ -3,7 +3,9 @@ module github.com/go-kid/ioc
 go 1.20
 
 require (
+	github.com/expr-lang/expr v1.16.3
 	github.com/go-playground/validator/v10 v10.19.0
+	github.com/pkg/errors v0.9.1
 	github.com/samber/lo v1.38.1
 	github.com/spf13/viper v1.15.0
 	github.com/stretchr/testify v1.8.4

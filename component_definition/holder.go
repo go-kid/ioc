@@ -43,7 +43,7 @@ func (s *Holder) Walk(f func(source *Holder) error) error {
 	for n != nil {
 		err := f(n)
 		if err != nil {
-			return nil
+			return err
 		}
 		n = n.Holder
 	}

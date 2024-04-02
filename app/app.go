@@ -1,8 +1,6 @@
 package app
 
 import (
-	"errors"
-	"fmt"
 	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/definition"
 	"github.com/go-kid/ioc/factory"
@@ -11,6 +9,7 @@ import (
 	"github.com/go-kid/ioc/factory/support"
 	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/sort2"
+	"github.com/pkg/errors"
 	"sync"
 )
 
@@ -35,7 +34,7 @@ func NewApp(ops ...SettingOption) *App {
 	}
 	err := s.initiate()
 	if err != nil {
-		s.logger().Fatal(err)
+		s.logger().Fatalf("%+v", err)
 	}
 	return s
 }
@@ -76,7 +75,7 @@ func (s *App) initiate() error {
 
 func (s *App) Run() error {
 	if err := s.run(); err != nil {
-		s.logger().Errorf("framework run failed: %v", err)
+		s.logger().Errorf("framework run failed: %+v", err)
 		return err
 	}
 	return nil
@@ -86,14 +85,14 @@ func (s *App) run() error {
 	/* begin load and bind configuration */
 	s.logger().Info("start initializing configuration...")
 	if err := s.initConfiguration(); err != nil {
-		return fmt.Errorf("init config failed: %v", err)
+		return err
 	}
 	s.logger().Info("configuration is loaded")
 
 	/* set default init behavior */
 	err := s.initFactory()
 	if err != nil {
-		return fmt.Errorf("init component factory failed: %v", err)
+		return err
 	}
 	s.logger().Info("component factory is ready")
 	/* factory ready */
@@ -101,7 +100,7 @@ func (s *App) run() error {
 	/* begin inject dependencies */
 	s.logger().Info("start refreshing components...")
 	if err := s.refresh(); err != nil {
-		return fmt.Errorf("refresh components failed: %v", err)
+		return err
 	}
 	s.logger().Info("all components is refreshed")
 	/* dependency injection ready */
@@ -112,7 +111,7 @@ func (s *App) run() error {
 	if s.enableApplicationRunner {
 		s.logger().Info("start starting runners...")
 		if err := s.callRunners(); err != nil {
-			return fmt.Errorf("start runners failed: %v", err)
+			return err
 		}
 	}
 
@@ -123,7 +122,7 @@ func (s *App) run() error {
 func (s *App) initConfiguration() error {
 	err := s.Configure.Initialize()
 	if err != nil {
-		return fmt.Errorf("initialize configure failed: %v", err)
+		return err
 	}
 	return nil
 }
@@ -131,7 +130,7 @@ func (s *App) initConfiguration() error {
 func (s *App) initFactory() error {
 	err := s.Factory.PrepareComponents()
 	if err != nil {
-		return fmt.Errorf("prepare components error: %v", err)
+		return err
 	}
 	return nil
 }
@@ -139,7 +138,7 @@ func (s *App) initFactory() error {
 func (s *App) refresh() error {
 	err := s.Factory.Refresh()
 	if err != nil {
-		return fmt.Errorf("initialize component failed: %v", err)
+		return err
 	}
 	return nil
 }
@@ -159,7 +158,7 @@ func (s *App) callRunners() error {
 		s.logger().Tracef("start runner %T [%d/%d]", runner, i+1, len(runners))
 		err := runner.Run()
 		if err != nil {
-			return fmt.Errorf("start runner %T failed: %v", runner, err)
+			return errors.Wrapf(err, "invoking Run() for runner '%T'", runner)
 		}
 	}
 	s.ApplicationRunners = nil
@@ -175,7 +174,8 @@ func (s *App) Close() {
 			go func(m definition.CloserComponent) {
 				defer wg.Done()
 				if err := m.Close(); err != nil {
-					s.logger().Errorf("Error closing %T", m)
+					err = errors.Wrapf(err, "invoking Close() for closer '%T'", m)
+					s.logger().Errorf("%+v", err)
 				}
 			}(m)
 		}

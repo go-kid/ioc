@@ -1,7 +1,7 @@
 package properties
 
 import (
-	"errors"
+	"github.com/pkg/errors"
 	"reflect"
 	"strings"
 )

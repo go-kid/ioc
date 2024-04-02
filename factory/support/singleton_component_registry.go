@@ -1,7 +1,6 @@
 package support
 
 import (
-	"fmt"
 	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/list"
@@ -82,7 +81,7 @@ func (r *defaultSingletonComponentRegistry) GetSingletonOrCreateByFactory(name s
 	r.logger().Tracef("create instance of singleton '%s'", name)
 	singleton, err := factory.GetComponent()
 	if err != nil {
-		return nil, fmt.Errorf("create instance of singleton '%s' error: %v", name, err)
+		return nil, err
 	}
 	r.logger().Tracef("singleton '%s' finished creating", name)
 	r.singletonCurrentlyInCreation.Remove(name)

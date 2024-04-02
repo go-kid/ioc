@@ -1,13 +1,13 @@
 package factory
 
 import (
-	"fmt"
 	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/definition"
 	"github.com/go-kid/ioc/factory/processors"
 	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/reflectx"
 	"github.com/go-kid/ioc/util/sort2"
+	"github.com/pkg/errors"
 )
 
 type PostProcessorRegistrationDelegate struct {
@@ -71,7 +71,7 @@ func (f *PostProcessorRegistrationDelegate) applyDefinitionRegistryPostProcessor
 	for _, processor := range factory.GetDefinitionRegistryPostProcessors() {
 		err := processor.PostProcessDefinitionRegistry(factory.GetDefinitionRegistry(), component, name)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "apply %T.PostProcessDefinitionRegistry() for component '%s'", processor, name)
 		}
 	}
 	return nil
@@ -103,7 +103,7 @@ func (f *PostProcessorRegistrationDelegate) invokeInitMethods(name string, compo
 		f.logger().Tracef("invoking afterPropertiesSet() method for component '%s'", name)
 		err := ic.AfterPropertiesSet()
 		if err != nil {
-			return fmt.Errorf("invoking afterPropertiesSet() method for component '%s' error: %s", name, err)
+			return errors.Wrapf(err, "invoking AfterPropertiesSet() method for component '%s'", name)
 		}
 	}
 	return nil
@@ -118,7 +118,7 @@ func (f *PostProcessorRegistrationDelegate) applyPostProcessBeforeInitialization
 	for _, processor := range f.componentPostProcessors {
 		current, err = processor.PostProcessBeforeInitialization(result, name)
 		if err != nil {
-			return nil, fmt.Errorf("component post processor %s apply post process before initialization error: %v", reflectx.Id(processor), err)
+			return nil, errors.Wrapf(err, "component post processor %s apply post process before initialization", reflectx.Id(processor))
 		}
 		if current == nil {
 			return result, nil
@@ -137,7 +137,7 @@ func (f *PostProcessorRegistrationDelegate) applyPostProcessAfterInitialization(
 	for _, processor := range f.componentPostProcessors {
 		current, err = processor.PostProcessAfterInitialization(result, name)
 		if err != nil {
-			return nil, fmt.Errorf("component post processor %s apply post process after initialization error: %v", reflectx.Id(processor), err)
+			return nil, errors.Wrapf(err, "component post processor %s apply post process after initialization", reflectx.Id(processor))
 		}
 		if current == nil {
 			return result, nil
@@ -158,7 +158,7 @@ func (f *PostProcessorRegistrationDelegate) ProcessInitializedComponentInitializ
 			if pb, ok := processor.(processors.ComponentInitializedPostProcessor); ok {
 				err := pb.PostProcessBeforeInitialized(meta.Raw)
 				if err != nil {
-					return err
+					return errors.Wrapf(err, "apply %T.PostProcessBeforeInitialized() for component '%s'", processor, meta.Name())
 				}
 			}
 		}
@@ -167,7 +167,7 @@ func (f *PostProcessorRegistrationDelegate) ProcessInitializedComponentInitializ
 		f.logger().Tracef("invoking init method for component '%s'", meta.Name())
 		err := c.Init()
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "invoking Init() for '%s'", meta.Name())
 		}
 	}
 	if f.hasComponentInitializedPostProcessor {
@@ -176,7 +176,7 @@ func (f *PostProcessorRegistrationDelegate) ProcessInitializedComponentInitializ
 			if pb, ok := processor.(processors.ComponentInitializedPostProcessor); ok {
 				err := pb.PostProcessAfterInitialized(meta.Raw)
 				if err != nil {
-					return err
+					return errors.Wrapf(err, "apply %T.PostProcessAfterInitialized() for component '%s'", processor, meta.Name())
 				}
 			}
 		}
@@ -209,7 +209,7 @@ func (f *PostProcessorRegistrationDelegate) applyPostProcessBeforeInstantiation(
 		if ipb, ok := processor.(processors.InstantiationAwareComponentPostProcessor); ok {
 			component, err = ipb.PostProcessBeforeInstantiation(meta, name)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrapf(err, "apply %T.PostProcessBeforeInstantiation() for component '%s'", ipb, name)
 			}
 			if component != nil {
 				return component, nil
@@ -224,12 +224,12 @@ func (f *PostProcessorRegistrationDelegate) ResolveAfterInstantiation(meta *comp
 		if ipb, ok := processor.(processors.InstantiationAwareComponentPostProcessor); ok {
 			ok, err := ipb.PostProcessAfterInstantiation(meta.Raw, name)
 			if err != nil {
-				return err
+				return errors.Wrapf(err, "apply %T.PostProcessAfterInstantiation() for component '%s'", ipb, name)
 			}
 			if ok {
 				_, err := ipb.PostProcessProperties(meta.GetAllProperties(), meta.Raw, name)
 				if err != nil {
-					return err
+					return errors.Wrapf(err, "apply %T.PostProcessProperties() for component '%s'", ipb, name)
 				}
 				//meta.SetProperties(properties...)
 			}
@@ -246,7 +246,7 @@ func (f *PostProcessorRegistrationDelegate) GetEarlyBeanReference(name string, m
 			if ibp, ok := processor.(processors.SmartInstantiationAwareBeanPostProcessor); ok {
 				exposedComponent, err = ibp.GetEarlyBeanReference(exposedComponent, name)
 				if err != nil {
-					return nil, err
+					return nil, errors.Wrapf(err, "apply %T.GetEarlyBeanReference() for component '%s'", ibp, name)
 				}
 			}
 		}

@@ -2,6 +2,7 @@ package component_definition
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	"reflect"
 )
 
@@ -53,7 +54,7 @@ func (n *Property) Inject(metas []*Meta) error {
 	isRequired := n.args.Has(ArgRequired, "true")
 	if len(metas) == 0 {
 		if isRequired {
-			return fmt.Errorf("%s not found available components", n.ID())
+			return errors.Errorf("inject %s: not found available components", n.ID())
 		}
 		return nil
 	}
@@ -64,7 +65,7 @@ func (n *Property) Inject(metas []*Meta) error {
 	})
 	if len(metas) == 0 {
 		if isRequired {
-			return fmt.Errorf("field %s %s: self inject not allowed", n.ID(), n.Holder.Stack())
+			return errors.Errorf("inject %s:%s: self inject not allowed", n.ID(), n.Holder.Stack())
 		}
 		return nil
 	}

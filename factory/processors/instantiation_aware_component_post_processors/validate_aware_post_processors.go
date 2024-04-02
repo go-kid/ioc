@@ -27,7 +27,7 @@ func (c *validateAwarePostProcessors) PostProcessAfterInstantiation(component an
 }
 
 func (c *validateAwarePostProcessors) Order() int {
-	return 1
+	return OrderValidate
 }
 
 func (c *validateAwarePostProcessors) PostProcessProperties(properties []*component_definition.Property, component any, componentName string) ([]*component_definition.Property, error) {

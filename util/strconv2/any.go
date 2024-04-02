@@ -4,11 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
-)
-
-var (
-	intReg   = regexp.MustCompile("^\\d+$")
-	floatReg = regexp.MustCompile("^\\d+\\.\\d+$")
+	"strings"
 )
 
 func ParseAny(val string) (any, error) {
@@ -17,22 +13,38 @@ func ParseAny(val string) (any, error) {
 	switch true {
 	case val == "":
 		typeVal = ""
-	case val == "true":
+	case strings.ToLower(val) == "true":
 		typeVal = true
-	case val == "false":
+	case strings.ToLower(val) == "false":
 		typeVal = false
-	case intReg.MatchString(val):
+	case isInt(val):
 		typeVal, err = strconv.ParseInt(val, 10, 64)
-	case floatReg.MatchString(val):
+	case isFloat(val):
 		typeVal, err = strconv.ParseFloat(val, 64)
 	case isMap(val):
 		typeVal, err = ParseAnyMap(val)
 	case isSlice(val):
 		typeVal, err = ParseAnySlice(val)
+	case strings.HasPrefix(val, "'") && strings.HasSuffix(val, "'"),
+		strings.HasPrefix(val, "\"") && strings.HasSuffix(val, "\""):
+		typeVal = val[1 : len(val)-1]
 	default:
 		typeVal = val
 	}
 	return typeVal, err
+}
+
+var (
+	intReg   = regexp.MustCompile("^\\d+$")
+	floatReg = regexp.MustCompile("^\\d+\\.\\d+$")
+)
+
+func isInt(v string) bool {
+	return intReg.MatchString(v)
+}
+
+func isFloat(v string) bool {
+	return floatReg.MatchString(v)
 }
 
 func Parse[T any](val string) (T, error) {

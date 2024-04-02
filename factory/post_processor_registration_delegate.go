@@ -43,7 +43,7 @@ func (f *PostProcessorRegistrationDelegate) InvokeBeanFactoryPostProcessors(fact
 	for _, processor := range factoryProcessors {
 		err := processor.PostProcessComponentFactory(factory)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "apply %T.PostProcessComponentFactory() for factory %T", processor, factory)
 		}
 	}
 

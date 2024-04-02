@@ -80,6 +80,7 @@ func SetLogger(l syslog.Logger) SettingOption {
 
 var (
 	LogTrace = func(s *App) { syslog.Level(syslog.LvTrace) }
+	LogDebug = func(s *App) { syslog.Level(syslog.LvDebug) }
 	LogWarn  = func(s *App) { syslog.Level(syslog.LvWarn) }
 	LogError = func(s *App) { syslog.Level(syslog.LvError) }
 )

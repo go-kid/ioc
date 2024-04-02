@@ -37,7 +37,7 @@ func (c *valueAwarePostProcessors) PostProcessAfterInstantiation(component any, 
 }
 
 func (c *valueAwarePostProcessors) Order() int {
-	return 1
+	return PriorityOrderPopulateProperties
 }
 
 func (c *valueAwarePostProcessors) PostProcessProperties(properties []*component_definition.Property, component any, componentName string) ([]*component_definition.Property, error) {

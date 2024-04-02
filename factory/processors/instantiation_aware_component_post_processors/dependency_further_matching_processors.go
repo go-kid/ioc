@@ -10,23 +10,23 @@ import (
 	"reflect"
 )
 
-type dependencyValidatePostProcessors struct {
+type dependencyFurtherMatchingPostProcessors struct {
 	processors.DefaultInstantiationAwareComponentPostProcessor
 }
 
-func NewDependencyValidatePostProcessors() processors.InstantiationAwareComponentPostProcessor {
-	return &dependencyValidatePostProcessors{}
+func NewDependencyFurtherMatchingProcessors() processors.InstantiationAwareComponentPostProcessor {
+	return &dependencyFurtherMatchingPostProcessors{}
 }
 
-func (d *dependencyValidatePostProcessors) PostProcessAfterInstantiation(component any, componentName string) (bool, error) {
+func (d *dependencyFurtherMatchingPostProcessors) PostProcessAfterInstantiation(component any, componentName string) (bool, error) {
 	return true, nil
 }
 
-func (d *dependencyValidatePostProcessors) Order() int {
-	return 102
+func (d *dependencyFurtherMatchingPostProcessors) Order() int {
+	return OrderDependencyFurtherMatching
 }
 
-func (d *dependencyValidatePostProcessors) PostProcessProperties(properties []*component_definition.Property, component any, componentName string) ([]*component_definition.Property, error) {
+func (d *dependencyFurtherMatchingPostProcessors) PostProcessProperties(properties []*component_definition.Property, component any, componentName string) ([]*component_definition.Property, error) {
 	for _, prop := range properties {
 		if prop.PropertyType != component_definition.PropertyTypeComponent {
 			continue

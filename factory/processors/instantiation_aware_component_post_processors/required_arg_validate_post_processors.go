@@ -19,7 +19,7 @@ func (c *requiredArgValidatePostProcessors) PostProcessAfterInstantiation(compon
 }
 
 func (c *requiredArgValidatePostProcessors) Order() int {
-	return 0
+	return OrderValidate
 }
 
 func (c *requiredArgValidatePostProcessors) PostProcessProperties(properties []*component_definition.Property, component any, componentName string) ([]*component_definition.Property, error) {

@@ -30,7 +30,7 @@ func (c *propertiesAwarePostProcessors) PostProcessAfterInstantiation(component 
 }
 
 func (c *propertiesAwarePostProcessors) Order() int {
-	return 2
+	return PriorityOrderPopulateProperties
 }
 
 func (c *propertiesAwarePostProcessors) PostProcessProperties(properties []*component_definition.Property, component any, componentName string) ([]*component_definition.Property, error) {

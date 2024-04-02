@@ -57,6 +57,7 @@ func (s *App) initiate() error {
 		definition_registry_post_processors.NewValueTagScanProcessor(),
 		definition_registry_post_processors.NewWireTagScanProcessor(),
 		definition_registry_post_processors.NewFuncTagScanProcessor(),
+		instantiation_aware_component_post_processors.NewConfigQuoteAwarePostProcessors(),
 		instantiation_aware_component_post_processors.NewExpressionTagAwarePostProcessors(),
 		instantiation_aware_component_post_processors.NewPropertiesAwarePostProcessors(),
 		instantiation_aware_component_post_processors.NewValueAwarePostProcessors(),
@@ -64,7 +65,7 @@ func (s *App) initiate() error {
 		instantiation_aware_component_post_processors.NewRequiredArgValidatePostProcessors(),
 		instantiation_aware_component_post_processors.NewDependencyNameAwarePostProcessors(),
 		instantiation_aware_component_post_processors.NewDependencyTypeAwarePostProcessors(),
-		instantiation_aware_component_post_processors.NewDependencyValidatePostProcessors(),
+		instantiation_aware_component_post_processors.NewDependencyFurtherMatchingProcessors(),
 		instantiation_aware_component_post_processors.NewDependencyFunctionAwarePostProcessors(),
 	}
 	for _, c := range initiateComponent {

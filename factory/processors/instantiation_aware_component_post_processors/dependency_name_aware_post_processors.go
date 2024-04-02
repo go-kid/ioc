@@ -28,7 +28,7 @@ func (d *dependencyNameAwarePostProcessors) PostProcessAfterInstantiation(compon
 }
 
 func (d *dependencyNameAwarePostProcessors) Order() int {
-	return 100
+	return OrderDependencyAware
 }
 
 func (d *dependencyNameAwarePostProcessors) PostProcessProperties(properties []*component_definition.Property, component any, componentName string) ([]*component_definition.Property, error) {

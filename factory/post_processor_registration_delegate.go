@@ -227,11 +227,11 @@ func (f *PostProcessorRegistrationDelegate) ResolveAfterInstantiation(meta *comp
 				return err
 			}
 			if ok {
-				_, err := ipb.PostProcessProperties(meta.GetAllNodes(), meta.Raw, name)
+				_, err := ipb.PostProcessProperties(meta.GetAllProperties(), meta.Raw, name)
 				if err != nil {
 					return err
 				}
-				//meta.SetNodes(properties...)
+				//meta.SetProperties(properties...)
 			}
 		}
 	}

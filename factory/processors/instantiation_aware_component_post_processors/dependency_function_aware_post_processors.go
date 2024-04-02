@@ -32,7 +32,7 @@ func (d *dependencyFunctionAwarePostProcessors) Order() int {
 	return 100
 }
 
-func (d *dependencyFunctionAwarePostProcessors) PostProcessProperties(properties []*component_definition.Node, component any, componentName string) ([]*component_definition.Node, error) {
+func (d *dependencyFunctionAwarePostProcessors) PostProcessProperties(properties []*component_definition.Property, component any, componentName string) ([]*component_definition.Property, error) {
 	for _, prop := range properties {
 		if prop.Tag != definition.FuncTag {
 			continue

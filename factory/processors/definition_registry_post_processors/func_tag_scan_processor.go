@@ -13,7 +13,7 @@ type funcTagScanProcessor struct {
 func NewFuncTagScanProcessor() processors.DefinitionRegistryPostProcessor {
 	return &funcTagScanProcessor{
 		processors.DefaultTagScanDefinitionRegistryPostProcessor{
-			NodeType:       component_definition.NodeTypeComponent,
+			NodeType:       component_definition.PropertyTypeComponent,
 			Tag:            definition.FuncTag,
 			ExtractHandler: nil,
 		},

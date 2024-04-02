@@ -12,7 +12,7 @@ type propTagScanProcessor struct {
 
 func NewPropTagScanProcessor() processors.DefinitionRegistryPostProcessor {
 	return &propTagScanProcessor{processors.DefaultTagScanDefinitionRegistryPostProcessor{
-		NodeType: component_definition.NodeTypeConfiguration,
+		NodeType: component_definition.PropertyTypeConfiguration,
 		Tag:      definition.PropTag,
 		ExtractHandler: func(meta *component_definition.Meta, field *component_definition.Field) (tagVal string, ok bool) {
 			if configuration, infer := field.Value.Interface().(definition.Configuration); infer {

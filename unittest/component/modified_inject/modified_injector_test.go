@@ -23,7 +23,7 @@ func (m *MyInjector) PostProcessAfterInstantiation(component any, componentName 
 	return true, nil
 }
 
-func (m *MyInjector) PostProcessProperties(properties []*component_definition.Node, component any, componentName string) ([]*component_definition.Node, error) {
+func (m *MyInjector) PostProcessProperties(properties []*component_definition.Property, component any, componentName string) ([]*component_definition.Property, error) {
 	for _, d := range properties {
 		if d.Tag != "mul" {
 			continue

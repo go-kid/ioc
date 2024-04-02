@@ -30,9 +30,9 @@ func (c *validateAwarePostProcessors) Order() int {
 	return 1
 }
 
-func (c *validateAwarePostProcessors) PostProcessProperties(properties []*component_definition.Node, component any, componentName string) ([]*component_definition.Node, error) {
+func (c *validateAwarePostProcessors) PostProcessProperties(properties []*component_definition.Property, component any, componentName string) ([]*component_definition.Property, error) {
 	for _, prop := range properties {
-		if prop.NodeType != component_definition.NodeTypeConfiguration {
+		if prop.PropertyType != component_definition.PropertyTypeConfiguration {
 			continue
 		}
 		if ts, ok := prop.Args().Find(ArgValidate); ok {

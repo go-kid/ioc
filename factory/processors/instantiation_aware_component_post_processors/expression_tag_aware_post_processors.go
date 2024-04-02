@@ -40,7 +40,7 @@ func (c *expressionTagAwarePostProcessors) Order() int {
 	return 0
 }
 
-func (c *expressionTagAwarePostProcessors) PostProcessProperties(properties []*component_definition.Node, component any, componentName string) ([]*component_definition.Node, error) {
+func (c *expressionTagAwarePostProcessors) PostProcessProperties(properties []*component_definition.Property, component any, componentName string) ([]*component_definition.Property, error) {
 	for _, prop := range properties {
 		if !c.expReg.MatchString(prop.TagVal) {
 			continue

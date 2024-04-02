@@ -5,27 +5,27 @@ import (
 	"reflect"
 )
 
-type Node struct {
+type Property struct {
 	*Field
-	NodeType NodeType
-	Tag      string
-	TagVal   string
-	Injects  []*Meta
-	args     TagArg
+	PropertyType PropertyType
+	Tag          string
+	TagVal       string
+	Injects      []*Meta
+	args         TagArg
 }
 
-func NewNode(field *Field, nodeType NodeType, tag, tagVal string) *Node {
-	parsedTagVal, arg := defaultNodeArgs().Parse(tagVal)
-	return &Node{
-		Field:    field,
-		NodeType: nodeType,
-		Tag:      tag,
-		TagVal:   parsedTagVal,
-		args:     arg,
+func NewProperty(field *Field, propType PropertyType, tag, tagVal string) *Property {
+	parsedTagVal, arg := defaultPropertyArgs().Parse(tagVal)
+	return &Property{
+		Field:        field,
+		PropertyType: propType,
+		Tag:          tag,
+		TagVal:       parsedTagVal,
+		args:         arg,
 	}
 }
 
-func defaultNodeArgs() TagArg {
+func defaultPropertyArgs() TagArg {
 	return TagArg{
 		ArgRequired: {"true"},
 	}
@@ -41,15 +41,15 @@ func filter(metas []*Meta, f func(m *Meta) bool) []*Meta {
 	return result
 }
 
-func (n *Node) ID() string {
-	return fmt.Sprintf("%s.Tag(%s:'%s').Type(%s)", n.Field.ID(), n.Tag, n.TagVal, n.NodeType)
+func (n *Property) ID() string {
+	return fmt.Sprintf("%s.Tag(%s:'%s').Type(%s)", n.Field.ID(), n.Tag, n.TagVal, n.PropertyType)
 }
 
-func (n *Node) String() string {
+func (n *Property) String() string {
 	return n.ID()
 }
 
-func (n *Node) Inject(metas []*Meta) error {
+func (n *Property) Inject(metas []*Meta) error {
 	isRequired := n.args.Has(ArgRequired, "true")
 	if len(metas) == 0 {
 		if isRequired {
@@ -86,24 +86,24 @@ func (n *Node) Inject(metas []*Meta) error {
 	return nil
 }
 
-func (n *Node) Args() TagArg {
+func (n *Property) Args() TagArg {
 	return n.args
 }
 
-func (n *Node) SetArg(t ArgType, val []string) {
+func (n *Property) SetArg(t ArgType, val []string) {
 	n.args[t] = val
 }
-func (n *Node) AppendArg(t ArgType, val []string) {
+func (n *Property) AppendArg(t ArgType, val []string) {
 	n.args[t] = append(n.args[t], val...)
 }
 
-func (n *Node) SetArgs(a TagArg) {
+func (n *Property) SetArgs(a TagArg) {
 	for argType, val := range a {
 		n.SetArg(argType, val)
 	}
 }
 
-func (n *Node) AppendArgs(a TagArg) {
+func (n *Property) AppendArgs(a TagArg) {
 	for argType, val := range a {
 		n.AppendArg(argType, val)
 	}

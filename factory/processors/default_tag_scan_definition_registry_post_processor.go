@@ -6,7 +6,7 @@ import (
 )
 
 type DefaultTagScanDefinitionRegistryPostProcessor struct {
-	NodeType       component_definition.NodeType
+	NodeType       component_definition.PropertyType
 	Tag            string
 	ExtractHandler func(meta *component_definition.Meta, field *component_definition.Field) (tagVal string, ok bool)
 }
@@ -15,18 +15,18 @@ func (d *DefaultTagScanDefinitionRegistryPostProcessor) PostProcessDefinitionReg
 	meta := registry.GetMetaOrRegister(componentName, func() *component_definition.Meta {
 		return component_definition.NewMeta(component)
 	})
-	var nodes []*component_definition.Node
+	var properties []*component_definition.Property
 	for _, field := range meta.Fields {
 		if tagVal, ok := field.StructField.Tag.Lookup(d.Tag); ok {
-			nodes = append(nodes, component_definition.NewNode(field, d.NodeType, d.Tag, tagVal))
+			properties = append(properties, component_definition.NewProperty(field, d.NodeType, d.Tag, tagVal))
 			continue
 		}
 		if d.ExtractHandler != nil {
 			if tagVal, ok := d.ExtractHandler(meta, field); ok {
-				nodes = append(nodes, component_definition.NewNode(field, d.NodeType, d.Tag, tagVal))
+				properties = append(properties, component_definition.NewProperty(field, d.NodeType, d.Tag, tagVal))
 			}
 		}
 	}
-	meta.SetNodes(nodes...)
+	meta.SetProperties(properties...)
 	return nil
 }

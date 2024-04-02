@@ -256,9 +256,9 @@ func (f *defaultFactory) populateComponent(name string, meta *component_definiti
 	if err != nil {
 		return err
 	}
-	if nodes := meta.GetComponentNodes(); len(nodes) > 0 {
+	if properties := meta.GetComponentProperties(); len(properties) > 0 {
 		f.logger().Tracef("inject dependencies for '%s'", name)
-		for _, node := range meta.GetComponentNodes() {
+		for _, node := range meta.GetComponentProperties() {
 			if dependencies := node.Injects; len(dependencies) != 0 {
 				var injects []*component_definition.Meta
 				for _, dependency := range node.Injects {
@@ -306,7 +306,7 @@ func (f *defaultFactory) genProxyComponent(origin *component_definition.Meta, na
 //	"caused field: %s\n" +
 //	"caused by: %v\n"
 //
-//func (f *defaultFactory) getDependencies(metaID string, d *component_definition.Node) ([]*component_definition.Meta, error) {
+//func (f *defaultFactory) getDependencies(metaID string, d *component_definition.Property) ([]*component_definition.Meta, error) {
 //	inj, find := lo.Find(f.injectionRules, func(item InjectionRule) bool {
 //		return item.Condition(d)
 //	})
@@ -343,7 +343,7 @@ func (f *defaultFactory) genProxyComponent(origin *component_definition.Meta, na
 //	primaryInterface = new(definition.WirePrimary)
 //)
 //
-//func filterDependencies(n *component_definition.Node, metas []*component_definition.Meta) ([]*component_definition.Meta, error) {
+//func filterDependencies(n *component_definition.Property, metas []*component_definition.Meta) ([]*component_definition.Meta, error) {
 //	//remove nil meta
 //	result := filter(metas, func(m *component_definition.Meta) bool {
 //		return m != nil

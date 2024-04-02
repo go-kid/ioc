@@ -13,7 +13,7 @@ type wireTagScanProcessor struct {
 func NewWireTagScanProcessor() processors.DefinitionRegistryPostProcessor {
 	return &wireTagScanProcessor{
 		processors.DefaultTagScanDefinitionRegistryPostProcessor{
-			NodeType:       component_definition.NodeTypeComponent,
+			NodeType:       component_definition.PropertyTypeComponent,
 			Tag:            definition.InjectTag,
 			ExtractHandler: nil,
 		},

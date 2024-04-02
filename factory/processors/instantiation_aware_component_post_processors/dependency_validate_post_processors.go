@@ -26,9 +26,9 @@ func (d *dependencyValidatePostProcessors) Order() int {
 	return 102
 }
 
-func (d *dependencyValidatePostProcessors) PostProcessProperties(properties []*component_definition.Node, component any, componentName string) ([]*component_definition.Node, error) {
+func (d *dependencyValidatePostProcessors) PostProcessProperties(properties []*component_definition.Property, component any, componentName string) ([]*component_definition.Property, error) {
 	for _, prop := range properties {
-		if prop.NodeType != component_definition.NodeTypeComponent {
+		if prop.PropertyType != component_definition.PropertyTypeComponent {
 			continue
 		}
 		dependencies, err := filterDependencies(prop, prop.Injects)
@@ -50,7 +50,7 @@ var (
 	primaryInterface = new(definition.WirePrimary)
 )
 
-func filterDependencies(n *component_definition.Node, metas []*component_definition.Meta) ([]*component_definition.Meta, error) {
+func filterDependencies(n *component_definition.Property, metas []*component_definition.Meta) ([]*component_definition.Meta, error) {
 	//remove nil meta
 	result := fas.Filter(metas, func(m *component_definition.Meta) bool {
 		return m != nil

@@ -31,7 +31,7 @@ func (d *dependencyTypeAwarePostProcessors) Order() int {
 	return 101
 }
 
-func (d *dependencyTypeAwarePostProcessors) PostProcessProperties(properties []*component_definition.Node, component any, componentName string) ([]*component_definition.Node, error) {
+func (d *dependencyTypeAwarePostProcessors) PostProcessProperties(properties []*component_definition.Property, component any, componentName string) ([]*component_definition.Property, error) {
 	for _, prop := range properties {
 		if prop.Tag != definition.InjectTag {
 			continue

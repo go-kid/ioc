@@ -7,11 +7,11 @@ import (
 	"reflect"
 )
 
-type NodeType string
+type PropertyType string
 
 const (
-	NodeTypeConfiguration NodeType = "configuration"
-	NodeTypeComponent     NodeType = "component"
+	PropertyTypeConfiguration PropertyType = "configuration"
+	PropertyTypeComponent     PropertyType = "component"
 )
 
 type Meta struct {
@@ -26,19 +26,19 @@ type Meta struct {
 	dependentSet *sync2.Map[string, struct{}]
 	Dependent    []*Meta
 
-	nodeGroup map[NodeType][]*Node
+	propertyGroup map[PropertyType][]*Property
 }
 
 func NewMeta(c any) *Meta {
 	base := NewBase(c)
 	name, alias := GetComponentNameWithAlias(c)
 	m := &Meta{
-		Base:         base,
-		name:         name,
-		alias:        alias,
-		Raw:          c,
-		dependentSet: sync2.New[string, struct{}](),
-		nodeGroup:    make(map[NodeType][]*Node),
+		Base:          base,
+		name:          name,
+		alias:         alias,
+		Raw:           c,
+		dependentSet:  sync2.New[string, struct{}](),
+		propertyGroup: make(map[PropertyType][]*Property),
 	}
 	m.scanFields(NewHolder(m))
 	return m
@@ -86,43 +86,43 @@ func (m *Meta) GetDependents() (names []string) {
 	return
 }
 
-func (m *Meta) SetNodes(nodes ...*Node) {
-	for _, node := range nodes {
-		m.nodeGroup[node.NodeType] = append(m.nodeGroup[node.NodeType], node)
+func (m *Meta) SetProperties(properties ...*Property) {
+	for _, prop := range properties {
+		m.propertyGroup[prop.PropertyType] = append(m.propertyGroup[prop.PropertyType], prop)
 	}
 }
 
-func (m *Meta) GetNodes(t NodeType) []*Node {
-	return m.nodeGroup[t]
+func (m *Meta) GetProperties(t PropertyType) []*Property {
+	return m.propertyGroup[t]
 }
 
-func (m *Meta) GetComponentNodes() []*Node {
-	return m.GetNodes(NodeTypeComponent)
+func (m *Meta) GetComponentProperties() []*Property {
+	return m.GetProperties(PropertyTypeComponent)
 }
 
-func (m *Meta) GetConfigurationNodes() []*Node {
-	return m.GetNodes(NodeTypeConfiguration)
+func (m *Meta) GetConfigurationProperties() []*Property {
+	return m.GetProperties(PropertyTypeConfiguration)
 }
 
-func (m *Meta) GetAllNodes() []*Node {
-	var nodes []*Node
-	for _, groupNodes := range m.nodeGroup {
-		nodes = append(nodes, groupNodes...)
+func (m *Meta) GetAllProperties() []*Property {
+	var props []*Property
+	for _, groupNodes := range m.propertyGroup {
+		props = append(props, groupNodes...)
 	}
-	return nodes
+	return props
 }
 
 func (m *Meta) UseProxy(origin any) {
 	m.ProxyMeta = &Meta{
-		Base:         m.Base,
-		ProxyMeta:    nil,
-		name:         m.name,
-		alias:        m.alias,
-		Raw:          m.Raw,
-		Fields:       m.Fields,
-		dependentSet: m.dependentSet,
-		Dependent:    m.Dependent,
-		nodeGroup:    m.nodeGroup,
+		Base:          m.Base,
+		ProxyMeta:     nil,
+		name:          m.name,
+		alias:         m.alias,
+		Raw:           m.Raw,
+		Fields:        m.Fields,
+		dependentSet:  m.dependentSet,
+		Dependent:     m.Dependent,
+		propertyGroup: m.propertyGroup,
 	}
 	m.Base = NewBase(origin)
 	m.Raw = origin

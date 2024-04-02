@@ -16,6 +16,6 @@ func (d *DefaultInstantiationAwareComponentPostProcessor) PostProcessAfterInstan
 	return false, nil
 }
 
-func (d *DefaultInstantiationAwareComponentPostProcessor) PostProcessProperties(properties []*component_definition.Node, component any, componentName string) ([]*component_definition.Node, error) {
+func (d *DefaultInstantiationAwareComponentPostProcessor) PostProcessProperties(properties []*component_definition.Property, component any, componentName string) ([]*component_definition.Property, error) {
 	return nil, nil
 }

@@ -25,6 +25,6 @@ type Configure interface {
 
 type PopulateProcessor interface {
 	Order() int
-	Filter(d *component_definition.Node) bool
-	Populate(r Binder, d *component_definition.Node) error
+	Filter(d *component_definition.Property) bool
+	Populate(r Binder, d *component_definition.Property) error
 }

@@ -33,7 +33,7 @@ func (c *propertiesAwarePostProcessors) Order() int {
 	return 2
 }
 
-func (c *propertiesAwarePostProcessors) PostProcessProperties(properties []*component_definition.Node, component any, componentName string) ([]*component_definition.Node, error) {
+func (c *propertiesAwarePostProcessors) PostProcessProperties(properties []*component_definition.Property, component any, componentName string) ([]*component_definition.Property, error) {
 	for _, prop := range properties {
 		if prop.Tag != definition.PropTag {
 			continue

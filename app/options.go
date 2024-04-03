@@ -60,12 +60,6 @@ func SetConfigBinder(binder configure.Binder) SettingOption {
 	}
 }
 
-func DisableApplicationRunner() SettingOption {
-	return func(s *App) {
-		s.enableApplicationRunner = false
-	}
-}
-
 func LogLevel(lv syslog.Lv) SettingOption {
 	return func(s *App) {
 		syslog.Level(lv)

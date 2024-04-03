@@ -9,8 +9,8 @@ import (
 	"github.com/go-kid/ioc/factory"
 	"github.com/go-kid/ioc/factory/processors"
 	"github.com/go-kid/ioc/syslog"
+	"github.com/go-kid/ioc/util/el"
 	"github.com/go-kid/ioc/util/strconv2"
-	"regexp"
 	"strings"
 )
 
@@ -19,12 +19,12 @@ type configQuoteAwarePostProcessors struct {
 	definition.PriorityComponent
 	definition.LazyInitComponent
 	Configure configure.Configure
-	expReg    *regexp.Regexp
+	el        el.Helper
 }
 
 func NewConfigQuoteAwarePostProcessors() processors.InstantiationAwareComponentPostProcessor {
 	return &configQuoteAwarePostProcessors{
-		expReg: regexp.MustCompile("\\${[^{}]*}"),
+		el: el.NewQuote(),
 	}
 }
 
@@ -43,14 +43,12 @@ func (c *configQuoteAwarePostProcessors) Order() int {
 
 func (c *configQuoteAwarePostProcessors) PostProcessProperties(properties []*component_definition.Property, component any, componentName string) ([]*component_definition.Property, error) {
 	for _, prop := range properties {
-		if !c.expReg.MatchString(prop.TagVal) {
+		if !c.el.MatchString(prop.TagVal) {
 			continue
 		}
 		rawTagVal := prop.TagVal
 
-		matches := c.expReg.FindAllString(prop.TagVal, -1)
-		for _, s := range matches {
-			exp := s[2 : len(s)-1]
+		content, err := c.el.ReplaceAllContent(prop.TagVal, func(exp string) (string, error) {
 			//split expression key and default value
 			spExp := strings.SplitN(exp, ":", 2)
 			exp = spExp[0]
@@ -63,26 +61,30 @@ func (c *configQuoteAwarePostProcessors) PostProcessProperties(properties []*com
 			}
 			if useDefaultValue {
 				if len(spExp) != 2 {
-					return nil, fmt.Errorf("config quote value '%s' is not exist and has no default value", exp)
+					return "", fmt.Errorf("config quote value '%s' is not exist and has no default value", exp)
 				}
 				//parse tag default value
 				if defaultVal := spExp[1]; defaultVal == "" {
-					prop.TagVal = strings.Replace(prop.TagVal, s, "", 1)
-					continue
+					return "", nil
 				} else {
 					var err error
 					expVal, err = strconv2.ParseAny(defaultVal)
 					if err != nil {
-						return nil, fmt.Errorf("parse config quote default value %s error: %v", defaultVal, err)
+						return "", fmt.Errorf("parse config quote default value %s error: %v", defaultVal, err)
 					}
 				}
 			}
 			val, err := marshalTagVal(expVal)
 			if err != nil {
-				return nil, fmt.Errorf("marshal expression tag value %v error: %v", expVal, err)
+				return "", fmt.Errorf("marshal expression tag value %v error: %v", expVal, err)
 			}
-			prop.TagVal = strings.Replace(prop.TagVal, s, val, 1)
+			return val, nil
+		})
+		if err != nil {
+			return nil, err
 		}
+
+		prop.TagVal = content
 		syslog.Debugf("config quote value '%s' -> '%s'", rawTagVal, prop.TagVal)
 	}
 	return nil, nil

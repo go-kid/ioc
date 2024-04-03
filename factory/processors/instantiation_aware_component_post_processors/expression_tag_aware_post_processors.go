@@ -7,20 +7,19 @@ import (
 	"github.com/go-kid/ioc/definition"
 	"github.com/go-kid/ioc/factory/processors"
 	"github.com/go-kid/ioc/syslog"
-	"regexp"
-	"strings"
+	"github.com/go-kid/ioc/util/el"
 )
 
 type expressionTagAwarePostProcessors struct {
 	processors.DefaultInstantiationAwareComponentPostProcessor
 	definition.PriorityComponent
 	definition.LazyInitComponent
-	expReg *regexp.Regexp
+	el el.Helper
 }
 
 func NewExpressionTagAwarePostProcessors() processors.InstantiationAwareComponentPostProcessor {
 	return &expressionTagAwarePostProcessors{
-		expReg: regexp.MustCompile("#{[^{}]*}"),
+		el: el.NewExpr(),
 	}
 }
 
@@ -34,29 +33,31 @@ func (c *expressionTagAwarePostProcessors) Order() int {
 
 func (c *expressionTagAwarePostProcessors) PostProcessProperties(properties []*component_definition.Property, component any, componentName string) ([]*component_definition.Property, error) {
 	for _, prop := range properties {
-		if !c.expReg.MatchString(prop.TagVal) {
+		if !c.el.MatchString(prop.TagVal) {
 			continue
 		}
 		rawTagVal := prop.TagVal
 
-		matches := c.expReg.FindAllString(prop.TagVal, -1)
-		for _, s := range matches {
-			exp := s[2 : len(s)-1]
+		content, err := c.el.ReplaceAllContent(prop.TagVal, func(exp string) (string, error) {
 			program, err := expr.Compile(exp)
 			if err != nil {
-				return nil, fmt.Errorf("compile expression '%s' error: %v", exp, err)
+				return "", fmt.Errorf("compile expression '%s' error: %v", exp, err)
 			}
 			result, err := expr.Run(program, nil)
 			if err != nil {
-				return nil, fmt.Errorf("execute expression '%s' program error: %v", exp, err)
+				return "", fmt.Errorf("execute expression '%s' program error: %v", exp, err)
 			}
 			val, err := marshalTagVal(result)
 			if err != nil {
-				return nil, fmt.Errorf("marshal expression tag value %v error: %v", result, err)
+				return "", fmt.Errorf("marshal expression tag value %v error: %v", result, err)
 			}
-			prop.TagVal = strings.Replace(prop.TagVal, s, val, 1)
+			return val, nil
+		})
+		if err != nil {
+			return nil, err
 		}
-		syslog.Debugf("execute tag expression '%s' -> '%s'", rawTagVal, prop.TagVal)
+		prop.TagVal = content
+		syslog.Debugf("execute expression language '%s' -> '%s'", rawTagVal, prop.TagVal)
 	}
 	return nil, nil
 }

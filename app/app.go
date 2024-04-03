@@ -16,18 +16,16 @@ import (
 type App struct {
 	configure.Configure
 	factory.Factory
-	registry                support.SingletonRegistry
-	enableApplicationRunner bool
-	ApplicationRunners      []definition.ApplicationRunner `wire:",required=false"`
-	CloserComponents        []definition.CloserComponent   `wire:",required=false"`
+	registry           support.SingletonRegistry
+	ApplicationRunners []definition.ApplicationRunner `wire:",required=false"`
+	CloserComponents   []definition.CloserComponent   `wire:",required=false"`
 }
 
 func NewApp(ops ...SettingOption) *App {
 	var s = &App{
-		Configure:               configure.Default(),
-		registry:                support.NewRegistry(),
-		Factory:                 factory.Default(),
-		enableApplicationRunner: true,
+		Configure: configure.Default(),
+		registry:  support.NewRegistry(),
+		Factory:   factory.Default(),
 	}
 	for _, op := range append(ops, globalOptions...) {
 		op(s)
@@ -105,14 +103,12 @@ func (s *App) run() error {
 	/* dependency injection ready */
 
 	/* begin call runners */
-	if s.enableApplicationRunner {
-		s.logger().Info("start call up runners...")
-		if err := s.callRunners(); err != nil {
-			return err
-		}
+	s.logger().Info("start call up runners...")
+	if err := s.callRunners(); err != nil {
+		return err
 	}
-	s.logger().Info("app run up")
 	/* finished */
+	s.logger().Info("app run up")
 	return nil
 }
 

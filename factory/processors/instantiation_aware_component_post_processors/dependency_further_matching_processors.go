@@ -12,6 +12,7 @@ import (
 
 type dependencyFurtherMatchingPostProcessors struct {
 	processors.DefaultInstantiationAwareComponentPostProcessor
+	definition.LazyInitComponent
 }
 
 func NewDependencyFurtherMatchingProcessors() processors.InstantiationAwareComponentPostProcessor {

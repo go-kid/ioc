@@ -13,6 +13,7 @@ import (
 type valueAwarePostProcessors struct {
 	processors.DefaultInstantiationAwareComponentPostProcessor
 	definition.PriorityComponent
+	definition.LazyInitComponent
 	hm reflectx.Interceptor
 }
 

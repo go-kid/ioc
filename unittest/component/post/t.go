@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/go-kid/ioc"
 	"github.com/go-kid/ioc/app"
+	"github.com/go-kid/ioc/definition"
 	"github.com/go-kid/ioc/factory/processors"
 )
 
@@ -41,13 +42,14 @@ type serviceAAOP struct {
 }
 
 func (s *serviceAAOP) SayName() {
-	fmt.Println("aop before say name")
+	fmt.Printf("aop %p before say name\n", s)
 	s.Service.SayName()
-	fmt.Println("aop after say name")
+	fmt.Printf("aop %p after say name\n", s)
 }
 
 type postProcessor struct {
 	processors.DefaultInstantiationAwareComponentPostProcessor
+	definition.LazyInitComponent
 }
 
 func (p *postProcessor) GetEarlyBeanReference(component any, componentName string) (any, error) {
@@ -62,7 +64,7 @@ func main() {
 	b := &ServiceB{Name: "service B"}
 	c := &ServiceC{Name: "service C"}
 	run, err := ioc.Run(
-		//app.LogTrace,
+		app.LogTrace,
 		app.SetComponents(
 			a,
 			b,

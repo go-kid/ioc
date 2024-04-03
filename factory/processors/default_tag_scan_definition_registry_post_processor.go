@@ -2,10 +2,12 @@ package processors
 
 import (
 	"github.com/go-kid/ioc/component_definition"
+	"github.com/go-kid/ioc/definition"
 	"github.com/go-kid/ioc/factory/support"
 )
 
 type DefaultTagScanDefinitionRegistryPostProcessor struct {
+	definition.LazyInitComponent
 	NodeType       component_definition.PropertyType
 	Tag            string
 	ExtractHandler func(meta *component_definition.Meta, field *component_definition.Field) (tagVal string, ok bool)

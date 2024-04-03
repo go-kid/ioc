@@ -13,6 +13,7 @@ import (
 type propertiesAwarePostProcessors struct {
 	processors.DefaultInstantiationAwareComponentPostProcessor
 	definition.PriorityComponent
+	definition.LazyInitComponent
 	Configure configure.Configure
 }
 

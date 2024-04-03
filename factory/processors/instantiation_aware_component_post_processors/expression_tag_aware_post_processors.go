@@ -14,6 +14,7 @@ import (
 type expressionTagAwarePostProcessors struct {
 	processors.DefaultInstantiationAwareComponentPostProcessor
 	definition.PriorityComponent
+	definition.LazyInitComponent
 	expReg *regexp.Regexp
 }
 

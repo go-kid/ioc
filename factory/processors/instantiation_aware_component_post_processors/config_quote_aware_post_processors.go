@@ -17,6 +17,7 @@ import (
 type configQuoteAwarePostProcessors struct {
 	processors.DefaultInstantiationAwareComponentPostProcessor
 	definition.PriorityComponent
+	definition.LazyInitComponent
 	Configure configure.Configure
 	expReg    *regexp.Regexp
 }

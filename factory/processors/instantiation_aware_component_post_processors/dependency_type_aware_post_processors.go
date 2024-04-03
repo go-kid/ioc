@@ -11,6 +11,7 @@ import (
 
 type dependencyTypeAwarePostProcessors struct {
 	processors.DefaultInstantiationAwareComponentPostProcessor
+	definition.LazyInitComponent
 	Registry support.DefinitionRegistry
 }
 

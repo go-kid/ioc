@@ -1,18 +1,19 @@
-package binder
+package config_expression_binder
 
 import (
 	"bytes"
+	"github.com/go-kid/ioc/configure/binder"
 	"github.com/pkg/errors"
 	"text/template"
 )
 
 type ExpressionBinder struct {
-	*ViperBinder
+	*binder.ViperBinder
 }
 
 func NewExpressionBinder(configType string) *ExpressionBinder {
 	return &ExpressionBinder{
-		NewViperBinder(configType),
+		binder.NewViperBinder(configType),
 	}
 }
 

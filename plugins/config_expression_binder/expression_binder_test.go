@@ -1,9 +1,8 @@
-package configure
+package config_expression_binder
 
 import (
 	"github.com/go-kid/ioc"
 	"github.com/go-kid/ioc/app"
-	"github.com/go-kid/ioc/configure/binder"
 	"github.com/go-kid/ioc/configure/loader"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -40,7 +39,7 @@ func TestExpressionBinder(t *testing.T) {
 	var a = &expressionTestApp{}
 	ioc.RunTest(t,
 		app.SetConfigLoader(loader.NewRawLoader(expressionYaml)),
-		app.SetConfigBinder(binder.NewExpressionBinder("yaml")),
+		app.SetConfigBinder(NewExpressionBinder("yaml")),
 		app.SetComponents(a))
 	assert.Equal(t, "api.dev.xxx.com", a.C.Http.Address)
 	assert.Equal(t, "expression.expression-dev.svc.cluster:8080", a.C.Host)

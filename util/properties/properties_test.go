@@ -44,6 +44,9 @@ func TestNewFromMap(t *testing.T) {
 }
 
 func TestProperties_Expand(t *testing.T) {
+	type C struct {
+		A string
+	}
 	tests := []struct {
 		name string
 		p    Properties
@@ -54,16 +57,22 @@ func TestProperties_Expand(t *testing.T) {
 			p: Properties{
 				"a.b.c":  123,
 				"a.b.c2": "foo",
+				"a.b.c3": &C{A: "abc"},
 				"a.b2":   "bar",
+				"a.c":    &C{A: "abc"},
+				"c":      &C{A: "abc"},
 			},
 			want: map[string]any{
 				"a": map[string]any{
 					"b": map[string]any{
 						"c":  123,
 						"c2": "foo",
+						"c3": &C{A: "abc"},
 					},
 					"b2": "bar",
+					"c":  &C{A: "abc"},
 				},
+				"c": &C{A: "abc"},
 			},
 		},
 	}

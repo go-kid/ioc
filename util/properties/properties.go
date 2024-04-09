@@ -72,7 +72,12 @@ func buildMap(path string, val any, tmp map[string]any) map[string]any {
 		if tmp[key] == nil {
 			tmp[key] = make(map[string]any)
 		}
-		tmp[key] = buildMap(next, val, tmp[key].(map[string]any))
+		switch sub := tmp[key]; sub.(type) {
+		case map[string]any, Properties:
+			tmp[key] = buildMap(next, val, sub.(map[string]any))
+		default:
+			tmp[key] = sub
+		}
 	} else {
 		tmp[path] = val
 	}

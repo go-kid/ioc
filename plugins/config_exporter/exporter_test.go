@@ -9,6 +9,10 @@ import (
 	"testing"
 )
 
+type SubConfig struct {
+	Sub string `yaml:"sub"`
+}
+
 type Config struct {
 	A     string         `yaml:"a"`
 	B     int            `yaml:"b"`
@@ -22,6 +26,19 @@ func (c *Config) Prefix() string {
 	return "Demo"
 }
 
+type MergeConfig struct {
+	S     string         `yaml:"s"`
+	B     bool           `yaml:"b"`
+	M     map[string]int `yaml:"m"`
+	Slice []float64      `yaml:"slice"`
+	Sub   SubConfig      `yaml:"sub"`
+	SubP  *SubConfig     `yaml:"subP"`
+}
+
+func (c *MergeConfig) Prefix() string {
+	return "Merge"
+}
+
 type A struct {
 	ConfigA     string   `prop:"app.configA"`
 	ConfigB     string   `prop:"${app.configB}"`
@@ -30,7 +47,14 @@ type A struct {
 	ValueB      string   `value:"${app.valueB:abc}"`
 	ValueC      string   `value:"#{'a'+'b'}"`
 	Config      *Config
-	Greeting    Greeting `wire:""`
+	Merge       *MergeConfig
+	MergeS2     string            `prop:"Merge.s2"`
+	MergeM2     map[string]string `prop:"Merge.m2"`
+	MergeSlice2 []int64           `prop:"Merge.slice2"`
+	MergeSub2   SubConfig         `prop:"Merge.sub2"`
+	MergeSubP2  *SubConfig        `prop:"Merge.subP2"`
+	MergeSub    *MergeConfig      `prop:"Merge.sub"`
+	Greeting    Greeting          `wire:""`
 }
 
 func (a *A) Order() int {
@@ -64,15 +88,43 @@ func TestConfigExporter(t *testing.T) {
 
 		var exampleConfig = []byte(`Demo:
     a: string
-    b: 0
-    slice:
-        - string
     array:
         - 0
         - 0
         - 0
+    b: 0
     m:
         string: 0
+    slice:
+        - string
+Merge:
+    b: false
+    m:
+        string: 0
+    m2:
+        string: string
+    s: string
+    s2: string
+    slice:
+        - 0
+    slice2:
+        - 0
+    sub:
+        b: false
+        m:
+            string: 0
+        s: string
+        slice:
+            - 0
+        sub: string
+        subP:
+            sub: string
+    sub2:
+        sub: string
+    subP:
+        sub: string
+    subP2:
+        sub: string
 app:
     configA: string
     configB: string
@@ -83,6 +135,7 @@ app:
 `)
 		assert.Equal(t, string(exampleConfig), string(bytes))
 	})
+
 	t.Run("AppendMode", func(t *testing.T) {
 		cfg := []byte(`
 Demo:
@@ -132,6 +185,34 @@ app:
     slice:
         - hello
         - world
+Merge:
+    b: false
+    m:
+        string: 0
+    m2:
+        string: string
+    s: string
+    s2: string
+    slice:
+        - 0
+    slice2:
+        - 0
+    sub:
+        b: false
+        m:
+            string: 0
+        s: string
+        slice:
+            - 0
+        sub: string
+        subP:
+            sub: string
+    sub2:
+        sub: string
+    subP:
+        sub: string
+    subP2:
+        sub: string
 app:
     configA: string
     configB: string
@@ -143,7 +224,19 @@ app:
 		assert.Equal(t, string(exampleConfig), string(bytes))
 	})
 	t.Run("OnlyNewMode", func(t *testing.T) {
-		cfg := []byte(`
+		cfg := []byte(`Merge:
+    b: false
+    m:
+        string: 0
+    s: string
+    slice:
+        - 0
+    sub:
+        sub: "subSub"
+        subP:
+            sub: "subSubPSub"
+    subP:
+        sub: string
 Demo:
     a: this is a test
     b: 20
@@ -172,7 +265,17 @@ Demo:
 			panic(err)
 		}
 
-		var exampleConfig = []byte(`app:
+		var exampleConfig = []byte(`Merge:
+    m2:
+        string: string
+    s2: string
+    slice2:
+        - 0
+    sub2:
+        sub: string
+    subP2:
+        sub: string
+app:
     configA: string
     configB: string
     configSlice:
@@ -183,11 +286,60 @@ Demo:
 		assert.Equal(t, string(exampleConfig), string(bytes))
 	})
 	t.Run("AnnotationSourceMode", func(t *testing.T) {
-		a := &A{}
-		exporter := NewConfigExporter(AnnotationSource)
+		var cfg = []byte(`Demo:
+    a: string
+    array:
+        - 0
+        - 0
+        - 0
+    b: 0
+    m:
+        string: 0
+    slice:
+        - string
+Merge:
+    b: false
+    m:
+        string: 0
+    m2:
+        string: string
+    s: string
+    s2: string
+    slice:
+        - 0
+    slice2:
+        - 0
+    sub:
+        b: false
+        m:
+            string: 0
+        s: string
+        slice:
+            - 0
+        sub: string
+        subP:
+            sub: string
+    sub2:
+        sub: string
+    subP:
+        sub: string
+    subP2:
+        sub: string
+app:
+    configA: string
+    configB: string
+    configSlice:
+        - a
+        - b
+    valueB: abc`)
+		type A2 struct {
+			Config *Config
+		}
+		exporter := NewConfigExporter(AnnotationSource | OnlyNew)
 		_, err := ioc.Run(
 			app.LogWarn,
-			app.SetComponents(a, exporter),
+			app.SetComponents(&A{}, &A2{}, exporter),
+			app.AddConfigLoader(loader.NewRawLoader(cfg)),
 		)
 		if err != nil {
 			panic(err)
@@ -197,26 +349,11 @@ Demo:
 			panic(err)
 		}
 
-		var exampleConfig = []byte(`Demo:
-    a: string
-    b: 0
-    slice:
-        - string
-    array:
-        - 0
-        - 0
-        - 0
-    m:
-        string: 0
-app:
-    configA: string
-    configB: string
-    configSlice:
-        - a
-        - b
-    valueB: abc
-source:
+		var exampleConfig = []byte(`Source:
     Demo:
+        - github.com/go-kid/ioc/plugins/config_exporter/A
+        - github.com/go-kid/ioc/plugins/config_exporter/A2
+    Merge:
         - github.com/go-kid/ioc/plugins/config_exporter/A
     app:
         configA:

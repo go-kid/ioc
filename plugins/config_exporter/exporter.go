@@ -12,6 +12,8 @@ import (
 	"github.com/go-kid/ioc/util/properties"
 	"github.com/go-kid/ioc/util/reflectx"
 	"github.com/go-kid/ioc/util/strconv2"
+	"gopkg.in/yaml.v3"
+	"reflect"
 	"strings"
 )
 
@@ -54,8 +56,9 @@ func (d *postProcessor) Order() int {
 }
 
 type configWrap struct {
-	path string
-	raw  any
+	path    string
+	raw     any
+	rawType reflect.Type
 }
 
 func (d *postProcessor) PostProcessBeforeInstantiation(m *component_definition.Meta, componentName string) (any, error) {
@@ -71,16 +74,18 @@ func (d *postProcessor) PostProcessBeforeInstantiation(m *component_definition.M
 				exp := spExp[0]
 				if len(spExp) != 2 {
 					w = append(w, &configWrap{
-						path: exp,
-						raw:  reflectx.ZeroValue(prop.Type),
+						path:    exp,
+						raw:     reflectx.ZeroValue(prop.Type),
+						rawType: prop.Type,
 					})
 					continue
 				}
 				//parse tag default value
 				if defaultVal := spExp[1]; defaultVal == "" {
 					w = append(w, &configWrap{
-						path: exp,
-						raw:  reflectx.ZeroValue(prop.Type),
+						path:    exp,
+						raw:     reflectx.ZeroValue(prop.Type),
+						rawType: prop.Type,
 					})
 				} else {
 					expVal, err := strconv2.ParseAny(defaultVal)
@@ -88,20 +93,30 @@ func (d *postProcessor) PostProcessBeforeInstantiation(m *component_definition.M
 						return "", fmt.Errorf("parse config quote default value %s error: %v", defaultVal, err)
 					}
 					w = append(w, &configWrap{
-						path: exp,
-						raw:  expVal,
+						path:    exp,
+						raw:     expVal,
+						rawType: prop.Type,
 					})
 				}
 			}
 		} else if !d.exprEl.MatchString(prop.TagVal) && prop.Tag == definition.PropTag {
 			w = append(w, &configWrap{
-				path: prop.TagVal,
-				raw:  reflectx.ZeroValue(prop.Type),
+				path:    prop.TagVal,
+				raw:     reflectx.ZeroValue(prop.Type),
+				rawType: prop.Type,
 			})
 		}
 	}
 
 	for _, wrap := range w {
+		if d.mode.Eq(AnnotationSource) {
+			annoPath := "Source." + wrap.path
+			if sources, ok := d.pm.Get(annoPath); ok {
+				d.pm.Set(annoPath, append(sources.([]string), componentName))
+			} else {
+				d.pm.Set(annoPath, []string{componentName})
+			}
+		}
 		if origin := d.configure.Get(wrap.path); origin != nil {
 			if d.mode.Eq(OnlyNew) {
 				continue
@@ -110,19 +125,38 @@ func (d *postProcessor) PostProcessBeforeInstantiation(m *component_definition.M
 				wrap.raw = origin
 			}
 		}
-		if d.mode.Eq(AnnotationSource) {
-			annoPath := "Source." + wrap.path
-			if sources, ok := d.pm.Get(annoPath); ok {
-				d.pm.Set(annoPath, append(sources.([]string), componentName))
-			} else {
-				d.pm.Set("source."+wrap.path, []string{componentName})
+
+		switch wrap.rawType.Kind() {
+		case reflect.Pointer, reflect.Struct, reflect.Map:
+			subRaw, err := toMap(wrap.raw)
+			if err != nil {
+				return nil, err
 			}
+			subProp := properties.NewFromMap(subRaw)
+			for p, a := range subProp {
+				p := wrap.path + "." + p
+				d.pm.Set(p, a)
+			}
+		default:
+			d.pm.Set(wrap.path, wrap.raw)
 		}
-		d.pm.Set(wrap.path, wrap.raw)
 	}
 	return m.Raw, nil
 }
 
 func (d *postProcessor) GetConfig() properties.Properties {
 	return d.pm
+}
+
+func toMap(a any) (map[string]any, error) {
+	bytes, err := yaml.Marshal(a)
+	if err != nil {
+		return nil, err
+	}
+	var subRaw = make(map[string]any)
+	err = yaml.Unmarshal(bytes, subRaw)
+	if err != nil {
+		return nil, err
+	}
+	return subRaw, nil
 }

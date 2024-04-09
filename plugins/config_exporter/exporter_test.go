@@ -1,6 +1,7 @@
 package config_exporter
 
 import (
+	"fmt"
 	"github.com/go-kid/ioc"
 	"github.com/go-kid/ioc/app"
 	"github.com/go-kid/ioc/configure/loader"
@@ -73,18 +74,14 @@ type Greeting interface {
 func TestConfigExporter(t *testing.T) {
 	t.Run("DefaultMode", func(t *testing.T) {
 		a := &A{}
-		exporter := NewConfigExporter(0)
+		exporter := NewConfigExporter()
 		_, err := ioc.Run(
 			app.LogWarn,
 			app.SetComponents(a, exporter),
 		)
-		if err != nil {
-			panic(err)
-		}
-		bytes, err := yaml.Marshal(exporter.GetConfig().Expand())
-		if err != nil {
-			panic(err)
-		}
+		assert.NoError(t, err)
+		bytes, err := yaml.Marshal(exporter.GetConfig(0).Expand())
+		assert.NoError(t, err)
 
 		var exampleConfig = []byte(`Demo:
     a: string
@@ -159,19 +156,15 @@ app:
     valueB: abc
 `)
 		a := &A{}
-		exporter := NewConfigExporter(Append)
+		exporter := NewConfigExporter()
 		_, err := ioc.Run(
 			app.LogWarn,
 			app.AddConfigLoader(loader.NewRawLoader(cfg)),
 			app.SetComponents(a, exporter),
 		)
-		if err != nil {
-			panic(err)
-		}
-		bytes, err := yaml.Marshal(exporter.GetConfig().Expand())
-		if err != nil {
-			panic(err)
-		}
+		assert.NoError(t, err)
+		bytes, err := yaml.Marshal(exporter.GetConfig(Append).Expand())
+		assert.NoError(t, err)
 
 		var exampleConfig = []byte(`Demo:
     a: this is a test
@@ -251,19 +244,15 @@ Demo:
         select: 1
 `)
 		a := &A{}
-		exporter := NewConfigExporter(OnlyNew)
+		exporter := NewConfigExporter()
 		_, err := ioc.Run(
 			app.LogWarn,
 			app.AddConfigLoader(loader.NewRawLoader(cfg)),
 			app.SetComponents(a, exporter),
 		)
-		if err != nil {
-			panic(err)
-		}
-		bytes, err := yaml.Marshal(exporter.GetConfig().Expand())
-		if err != nil {
-			panic(err)
-		}
+		assert.NoError(t, err)
+		bytes, err := yaml.Marshal(exporter.GetConfig(OnlyNew).Expand())
+		assert.NoError(t, err)
 
 		var exampleConfig = []byte(`Merge:
     m2:
@@ -335,19 +324,15 @@ app:
 		type A2 struct {
 			Config *Config
 		}
-		exporter := NewConfigExporter(AnnotationSource | OnlyNew)
+		exporter := NewConfigExporter()
 		_, err := ioc.Run(
 			app.LogWarn,
 			app.SetComponents(&A{}, &A2{}, exporter),
 			app.AddConfigLoader(loader.NewRawLoader(cfg)),
 		)
-		if err != nil {
-			panic(err)
-		}
-		bytes, err := yaml.Marshal(exporter.GetConfig().Expand())
-		if err != nil {
-			panic(err)
-		}
+		assert.NoError(t, err)
+		bytes, err := yaml.Marshal(exporter.GetConfig(AnnotationSource | OnlyNew).Expand())
+		assert.NoError(t, err)
 
 		var exampleConfig = []byte(`Source:
     Demo:
@@ -366,5 +351,19 @@ app:
             - github.com/go-kid/ioc/plugins/config_exporter/A
 `)
 		assert.Equal(t, string(exampleConfig), string(bytes))
+	})
+	t.Run("AnnotationArgsMode", func(t *testing.T) {
+		type C struct {
+			A string `prop:"a.b.c,validate=eq=abc"`
+		}
+		exporter := NewConfigExporter()
+		_, err := ioc.Run(
+			app.LogWarn,
+			app.SetComponents(&C{}, exporter),
+		)
+		assert.NoError(t, err)
+		bytes, err := yaml.Marshal(exporter.GetConfig(AnnotationArgs).Expand())
+		assert.NoError(t, err)
+		fmt.Println(string(bytes))
 	})
 }

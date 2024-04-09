@@ -42,7 +42,6 @@ func zeroValue(p reflect.Type, cache map[string]reflect.Value) any {
 			slice.Index(0).Set(reflect.ValueOf(item))
 		}
 		zero.Set(slice)
-	case reflect.Interface:
 	case reflect.Map:
 		m := reflect.MakeMapWithSize(p, 1)
 		keyType := zeroValue(p.Key(), cache)
@@ -62,12 +61,16 @@ func zeroValue(p reflect.Type, cache map[string]reflect.Value) any {
 	case reflect.Struct:
 		cache[cacheKey] = zero
 		_ = ForEachFieldV2(p, zero, true, func(field reflect.StructField, value reflect.Value) error {
-			zeroVal := zeroValue(field.Type, cache)
-			value.Set(reflect.ValueOf(zeroVal))
+			if field.Tag.Get("json") == "-" ||
+				field.Tag.Get("yaml") == "-" ||
+				field.Tag.Get("mapstructure") == "-" {
+				return nil
+			}
+			if zeroVal := zeroValue(field.Type, cache); zeroVal != nil {
+				value.Set(reflect.ValueOf(zeroVal))
+			}
 			return nil
 		})
-	default:
-		zero.SetString("unsupported type:" + p.Kind().String())
 	}
 	cache[cacheKey] = zero
 	return zero.Interface()

@@ -15,6 +15,7 @@ type Config struct {
 	Slice []string       `yaml:"slice"`
 	Array [3]float64     `yaml:"array"`
 	M     map[string]int `yaml:"m"`
+	G     Greeting       `yaml:"-"`
 }
 
 func (c *Config) Prefix() string {

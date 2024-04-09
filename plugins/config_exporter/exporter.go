@@ -3,9 +3,12 @@ package config_exporter
 import (
 	"fmt"
 	"github.com/go-kid/ioc/component_definition"
+	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/definition"
+	"github.com/go-kid/ioc/factory"
 	"github.com/go-kid/ioc/factory/processors"
 	"github.com/go-kid/ioc/util/el"
+	"github.com/go-kid/ioc/util/mode"
 	"github.com/go-kid/ioc/util/properties"
 	"github.com/go-kid/ioc/util/reflectx"
 	"github.com/go-kid/ioc/util/strconv2"
@@ -16,19 +19,33 @@ type ConfigExporter interface {
 	GetConfig() properties.Properties
 }
 
+const (
+	Append           = mode.M1
+	OnlyNew          = mode.M2
+	AnnotationSource = mode.M3
+)
+
 type postProcessor struct {
 	processors.DefaultInstantiationAwareComponentPostProcessor
 	definition.PriorityComponent
-	pm      properties.Properties
-	quoteEl el.Helper
-	exprEl  el.Helper
+	configure configure.Configure
+	pm        properties.Properties
+	quoteEl   el.Helper
+	exprEl    el.Helper
+	mode      mode.Mode
 }
 
-func NewConfigExporter() ConfigExporter {
+func (d *postProcessor) PostProcessComponentFactory(factory factory.Factory) error {
+	d.configure = factory.GetConfigure()
+	return nil
+}
+
+func NewConfigExporter(mode mode.Mode) ConfigExporter {
 	return &postProcessor{
 		pm:      properties.New(),
 		quoteEl: el.NewQuote(),
 		exprEl:  el.NewExpr(),
+		mode:    mode,
 	}
 }
 
@@ -83,7 +100,24 @@ func (d *postProcessor) PostProcessBeforeInstantiation(m *component_definition.M
 			})
 		}
 	}
+
 	for _, wrap := range w {
+		if origin := d.configure.Get(wrap.path); origin != nil {
+			if d.mode.Eq(OnlyNew) {
+				continue
+			}
+			if d.mode.Eq(Append) {
+				wrap.raw = origin
+			}
+		}
+		if d.mode.Eq(AnnotationSource) {
+			annoPath := "Source." + wrap.path
+			if sources, ok := d.pm.Get(annoPath); ok {
+				d.pm.Set(annoPath, append(sources.([]string), componentName))
+			} else {
+				d.pm.Set("source."+wrap.path, []string{componentName})
+			}
+		}
 		d.pm.Set(wrap.path, wrap.raw)
 	}
 	return m.Raw, nil

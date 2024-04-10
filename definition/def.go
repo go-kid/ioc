@@ -30,7 +30,7 @@ type ApplicationRunner interface {
 	Run() error
 }
 
-type Configuration interface {
+type ConfigurationProperties interface {
 	Prefix() string
 }
 

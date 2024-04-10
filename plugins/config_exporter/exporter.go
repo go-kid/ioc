@@ -84,8 +84,6 @@ func (d *postProcessor) PostProcessBeforeInstantiation(m *component_definition.M
 						return "", fmt.Errorf("parse config quote default value %s error: %v", defaultVal, err)
 					}
 					raw = expVal
-				} else {
-					raw = reflectx.ZeroValue(prop.Type)
 				}
 				d.wraps = append(d.wraps, &ConfigWrap{
 					ComponentName: componentName,
@@ -100,7 +98,6 @@ func (d *postProcessor) PostProcessBeforeInstantiation(m *component_definition.M
 				ComponentName: componentName,
 				Property:      prop,
 				Prefix:        path,
-				RealValue:     reflectx.ZeroValue(prop.Type),
 			})
 		}
 	}
@@ -116,16 +113,17 @@ func (d *postProcessor) GetConfig(mode mode.Mode) properties.Properties {
 	pm := properties.New()
 	for _, wrap := range d.wraps {
 		value := wrap.RealValue
+		if value == nil {
+			value = reflectx.ZeroValue(wrap.Property.Type)
+		}
 		prefix := wrap.Prefix
 		if mode.Eq(AnnotationArgs) {
-			s := strings.Builder{}
-			for argType, args := range wrap.Property.Args() {
-				s.WriteString(fmt.Sprintf(",%s=%s", argType, strings.Join(args, " ")))
-			}
-			prefix = prefix + s.String()
+			wrap.Property.Args().ForEach(func(argType component_definition.ArgType, args []string) {
+				pm.Set(fmt.Sprintf("%s@Args.%s", prefix, argType), args)
+			})
 		}
 		if mode.Eq(AnnotationSource) {
-			annoPath := "Source." + prefix
+			annoPath := fmt.Sprintf("%s@Sources", prefix)
 			if sources, ok := pm.Get(annoPath); ok {
 				pm.Set(annoPath, append(sources.([]string), wrap.ComponentName))
 			} else {
@@ -146,8 +144,7 @@ func (d *postProcessor) GetConfig(mode mode.Mode) properties.Properties {
 			subRaw := toMap(value)
 			subProp := properties.NewFromMap(subRaw)
 			for p, a := range subProp {
-				p := prefix + "." + p
-				pm.Set(p, a)
+				pm.Set(prefix+"."+p, a)
 			}
 		default:
 			pm.Set(prefix, value)

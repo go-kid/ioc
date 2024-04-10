@@ -1,6 +1,7 @@
 package component_definition
 
 import (
+	"github.com/go-kid/ioc/util/sort2"
 	"strings"
 )
 
@@ -46,6 +47,19 @@ func (m TagArg) Has(argType ArgType, want string) bool {
 		}
 	}
 	return false
+}
+
+func (m TagArg) ForEach(f func(argType ArgType, args []string)) {
+	var keys []ArgType
+	for argType, _ := range m {
+		keys = append(keys, argType)
+	}
+	sort2.Slice(keys, func(i ArgType, j ArgType) bool {
+		return i < j
+	})
+	for _, key := range keys {
+		f(key, m[key])
+	}
 }
 
 func argStartIndex(tag string) int {

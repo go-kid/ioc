@@ -15,7 +15,7 @@ func NewPropTagScanProcessor() processors.DefinitionRegistryPostProcessor {
 		NodeType: component_definition.PropertyTypeConfiguration,
 		Tag:      definition.PropTag,
 		ExtractHandler: func(meta *component_definition.Meta, field *component_definition.Field) (tagVal string, ok bool) {
-			if configuration, infer := field.Value.Interface().(definition.Configuration); infer {
+			if configuration, infer := field.Value.Interface().(definition.ConfigurationProperties); infer {
 				tagVal = configuration.Prefix()
 				ok = true
 			}

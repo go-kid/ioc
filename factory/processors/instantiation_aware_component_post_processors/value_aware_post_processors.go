@@ -42,13 +42,13 @@ func (c *valueAwarePostProcessors) PostProcessProperties(properties []*component
 		}
 		if prop.TagVal == "" {
 			if prop.Args().Has(component_definition.ArgRequired, "true") {
-				return nil, fmt.Errorf("value %s is required", prop.ID())
+				return nil, fmt.Errorf("value on '%s' is required", prop.ID())
 			}
 			continue
 		}
 		err := reflectx.SetAnyValueFromString(prop.Type, prop.Value, prop.TagVal, c.hm)
 		if err != nil {
-			return nil, fmt.Errorf("population 'value' value %s to %s failed: %v", prop.TagVal, prop.Type.String(), err)
+			return nil, fmt.Errorf("populate on '%s' to %s failed: %v", prop.ID(), prop.Type.String(), err)
 		}
 	}
 	return nil, nil

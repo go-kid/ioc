@@ -60,7 +60,7 @@ func (c *propertiesAwarePostProcessors) PostProcessProperties(properties []*comp
 		configValue := c.Configure.Get(prop.TagVal)
 		if configValue == nil {
 			if prop.Args().Has(component_definition.ArgRequired, "true") {
-				return nil, fmt.Errorf("properties %s is required", prop.ID())
+				return nil, fmt.Errorf("config value on '%s' is required", prop.ID())
 			}
 			continue
 		}
@@ -72,16 +72,16 @@ func (c *propertiesAwarePostProcessors) PostProcessProperties(properties []*comp
 			}
 			decoder, err := mapstructure.NewDecoder(config)
 			if err != nil {
-				return err
+				return fmt.Errorf("create mapstructure decoder error: %v", err)
 			}
 			err = decoder.Decode(configValue)
 			if err != nil {
-				return err
+				return fmt.Errorf("mapstructure decode %+v error: %v", configValue, err)
 			}
 			return nil
 		})
 		if err != nil {
-			return nil, fmt.Errorf("population 'prop' value %s to %s failed: %v", prop.TagVal, prop.Type.String(), err)
+			return nil, fmt.Errorf("populate on '%s' to %s failed: %v", prop.ID(), prop.Type.String(), err)
 		}
 	}
 	return nil, nil

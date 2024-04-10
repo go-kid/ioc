@@ -81,11 +81,11 @@ func (c *configQuoteAwarePostProcessors) PostProcessProperties(properties []*com
 			return val, nil
 		})
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("config quote value on '%s' failed: %v", prop.ID(), err)
 		}
 
 		prop.TagVal = content
-		syslog.Debugf("config quote value '%s' -> '%s'", rawTagVal, prop.TagVal)
+		syslog.Pref("ConfigQuoteAwarePostProcessor").Debugf("config quote value on '%s'\n '%s' -> '%s'", prop.ID(), rawTagVal, prop.TagVal)
 	}
 	return nil, nil
 }

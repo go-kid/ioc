@@ -54,10 +54,10 @@ func (c *expressionTagAwarePostProcessors) PostProcessProperties(properties []*c
 			return val, nil
 		})
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("execute expression language on '%s' failed: %v", prop.ID(), err)
 		}
 		prop.TagVal = content
-		syslog.Debugf("execute expression language '%s' -> '%s'", rawTagVal, prop.TagVal)
+		syslog.Pref("ExpressionTagAwarePostProcessor").Debugf("execute expression language on '%s'\n '%s' -> '%s'", prop.ID(), rawTagVal, prop.TagVal)
 	}
 	return nil, nil
 }

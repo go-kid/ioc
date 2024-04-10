@@ -10,10 +10,13 @@ func TestValueTagValidate(t *testing.T) {
 	t.Run("Validate", func(t *testing.T) {
 		type C struct {
 			S string `json:"s" validate:"eq=abc"`
+			B bool   `validate:"required"`
 		}
 		type T struct {
-			C *C     `value:"{\"s\":\"abc\"},validate"`
-			S string `value:"abc,validate=eq=abc"`
+			C  *C      `value:"map[s:abc b:true],validate"`
+			S  string  `value:"abc,validate=eq=abc"`
+			SP *string `value:"abc,validate=eq=abc"`
+			B  bool    `value:"true,validate=required"`
 		}
 		t2 := &T{}
 		ioc.RunTest(t,

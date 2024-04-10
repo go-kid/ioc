@@ -65,11 +65,11 @@ func (m TagArg) ForEach(f func(argType ArgType, args []string)) {
 func argStartIndex(tag string) int {
 	var in = 0
 	for i, c := range tag {
-		if c == '{' || c == '[' || c == '(' || c == '<' {
+		if c == '{' || c == '[' || c == '(' {
 			in++
 			continue
 		}
-		if c == '}' || c == ']' || c == ')' || c == '>' {
+		if c == '}' || c == ']' || c == ')' {
 			in--
 			continue
 		}

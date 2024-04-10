@@ -121,7 +121,7 @@ func Test_splitKVPairs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equalf(t, tt.want, splitPart(tt.args.val), "splitKVPairs(%v)", tt.args.val)
+			assert.Equalf(t, tt.want, splitMapPart(tt.args.val), "splitKVPairs(%v)", tt.args.val)
 		})
 	}
 }

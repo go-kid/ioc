@@ -1,6 +1,7 @@
 package strconv2
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 )
@@ -16,12 +17,20 @@ import (
 //	}
 func ParseAnyMap(val string) (map[string]any, error) {
 	if isMap(val) {
+		if json.Valid([]byte(val)) {
+			result := make(map[string]any)
+			err := json.Unmarshal([]byte(val), &result)
+			if err != nil {
+				return nil, err
+			}
+			return result, nil
+		}
 		val = val[4 : len(val)-1]
 		if val == "" {
 			return map[string]any{}, nil
 		}
 		result := make(map[string]any)
-		for _, part := range splitPart(val) {
+		for _, part := range splitMapPart(val) {
 			subKV := strings.SplitN(part, ":", 2)
 			if len(subKV) != 2 {
 				return nil, fmt.Errorf("can not parse \"%s\" as map, key value not found: \"%s\"", val, part)
@@ -46,15 +55,16 @@ func ParseAnyMap(val string) (map[string]any, error) {
 		}
 		return result, nil
 	}
-	return nil, fmt.Errorf("can not parse \"%s\" as map, need map[key:value ...]", val)
+	return nil, fmt.Errorf("can not parse '%s' as map, need map[key:value ...] or json object", val)
 }
 
 func isMap(val string) bool {
-	return len(val) > 4 && val[:4] == "map[" && val[len(val)-1:] == "]"
+	return (len(val) > 4 && val[:4] == "map[" && val[len(val)-1:] == "]") ||
+		(val[:1] == "{" && val[len(val)-1:] == "}" && json.Valid([]byte(val)))
 }
 
 //aes:map[iv:abc key:123] header:[X-Request-Id X-Cross-Origin X-Allowed-Method]
-func splitPart(val string) []string {
+func splitMapPart(val string) []string {
 	var pairs []string
 	var in = 0
 	var last = 0
@@ -68,11 +78,11 @@ func splitPart(val string) []string {
 			continue
 		}
 		if q {
-			if c == '[' {
+			if c == '{' || c == '[' || c == '(' {
 				in++
 				continue
 			}
-			if c == ']' {
+			if c == '}' || c == ']' || c == ')' {
 				in--
 				if in == 0 {
 					pairs = append(pairs, val[last:i])

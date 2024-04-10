@@ -1,10 +1,12 @@
 package reflectx
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/go-kid/ioc/util/strconv2"
 	"reflect"
 	"strconv"
+	"strings"
 )
 
 var bitSizeMap = map[reflect.Kind]int{
@@ -26,6 +28,16 @@ type (
 	SetValueHandler func(reflect.Type, reflect.Value, string) error
 	Interceptor     map[reflect.Kind]SetValueHandler
 )
+
+var JsonUnmarshallHandler SetValueHandler = func(r reflect.Type, v reflect.Value, s string) error {
+	return SetValue(v, func(a any) error {
+		err := json.Unmarshal([]byte(s), a)
+		if err != nil {
+			return fmt.Errorf("unmarshall json %s to type '%s' failed: %v", s, r.String(), err)
+		}
+		return nil
+	})
+}
 
 func SetAnyValueFromString(t reflect.Type, value reflect.Value, val string, itps ...Interceptor) error {
 	for _, hm := range itps {
@@ -58,12 +70,26 @@ func SetAnyValueFromString(t reflect.Type, value reflect.Value, val string, itps
 			return err
 		}
 		value.SetFloat(f)
-	case reflect.Array, reflect.Slice:
+	case reflect.Slice:
 		vals, err := strconv2.ParseStringSlice(val)
 		if err != nil {
 			return err
 		}
-		value.Set(reflect.MakeSlice(value.Type(), len(vals), len(vals)))
+		value.Set(reflect.MakeSlice(t, len(vals), len(vals)))
+		for i, v := range vals {
+			err := SetAnyValueFromString(t.Elem(), value.Index(i), v, itps...)
+			if err != nil {
+				return err
+			}
+		}
+	case reflect.Array:
+		vals, err := strconv2.ParseStringSlice(val)
+		if err != nil {
+			return err
+		}
+		if t.Len() != len(vals) {
+			return fmt.Errorf("array length not match, want: %s, actual: %s", t.String(), vals)
+		}
 		for i, v := range vals {
 			err := SetAnyValueFromString(t.Elem(), value.Index(i), v, itps...)
 			if err != nil {
@@ -79,6 +105,7 @@ func SetAnyValueFromString(t reflect.Type, value reflect.Value, val string, itps
 			return err
 		}
 	case reflect.String:
+		val = strings.Trim(val, "\"")
 		value.SetString(val)
 	case reflect.Interface:
 		a, err := strconv2.ParseAny(val)

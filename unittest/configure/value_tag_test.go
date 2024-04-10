@@ -39,26 +39,32 @@ func TestValueTag(t *testing.T) {
 		})
 		t.Run("Map", func(t *testing.T) {
 			type T struct {
-				M  map[string]any `value:"{}"`
-				ME map[string]any
-				M2 map[string]any `value:"{\"foo\":\"bar\"}"`
+				MF   map[string]any `value:"map[]"`
+				MF2  map[string]any `value:"map[foo:bar]"`
+				MJ   map[string]any `value:"{}"`
+				MNil map[string]any
+				MJ2  map[string]any `value:"{\"foo\":\"bar\"}"`
 			}
 			var tt = &T{}
 			ioc.RunTest(t, app.SetComponents(tt))
-			assert.NotNil(t, tt.M)
-			assert.Nil(t, tt.ME)
-			assert.Equal(t, map[string]any{"foo": "bar"}, tt.M2)
+			assert.NotNil(t, tt.MJ)
+			assert.NotNil(t, tt.MF)
+			assert.Nil(t, tt.MNil)
+			assert.Equal(t, map[string]any{"foo": "bar"}, tt.MF2)
+			assert.Equal(t, map[string]any{"foo": "bar"}, tt.MJ2)
 		})
 		t.Run("Struct", func(t *testing.T) {
 			type S struct {
 				Foo string `json:"foo"`
 			}
 			type T struct {
-				M2 S `value:"{\"foo\":\"bar\"}"`
+				MJ S `value:"{\"foo\":\"bar\"}"`
+				MF S `value:"map[foo:bar]"`
 			}
 			var tt = &T{}
 			ioc.RunTest(t, app.SetComponents(tt))
-			assert.Equal(t, S{Foo: "bar"}, tt.M2)
+			assert.Equal(t, S{Foo: "bar"}, tt.MJ)
+			assert.Equal(t, S{Foo: "bar"}, tt.MF)
 		})
 	})
 	t.Run("TestComplexType", func(t *testing.T) {
@@ -82,7 +88,7 @@ func TestValueTag(t *testing.T) {
 		})
 		t.Run("SlicePointer", func(t *testing.T) {
 			type T struct {
-				S []*string  `value:"[\"hello\",\"world\",\"foo\",\"bar\"]"`
+				S []*string  `value:"[hello,world,foo,bar]"`
 				I []*int     `value:"[1,2,3]"`
 				B []*bool    `value:"[true,false,false,true]"`
 				F []*float64 `value:"[1.1,2.2,3]"`
@@ -111,11 +117,13 @@ func TestValueTag(t *testing.T) {
 				Foo string `json:"foo"`
 			}
 			type T struct {
-				M2 *S `value:"{\"foo\":\"bar\"}"`
+				MJ *S `value:"{\"foo\":\"bar\"}"`
+				MF *S `value:"map[foo:bar]"`
 			}
 			var tt = &T{}
 			ioc.RunTest(t, app.SetComponents(tt))
-			assert.Equal(t, &S{Foo: "bar"}, tt.M2)
+			assert.Equal(t, &S{Foo: "bar"}, tt.MJ)
+			assert.Equal(t, &S{Foo: "bar"}, tt.MF)
 		})
 	})
 }

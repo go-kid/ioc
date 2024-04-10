@@ -60,7 +60,6 @@ func (s *App) initiate() error {
 		instantiation_aware_component_post_processors.NewPropertiesAwarePostProcessors(),
 		instantiation_aware_component_post_processors.NewValueAwarePostProcessors(),
 		instantiation_aware_component_post_processors.NewValidateAwarePostProcessors(),
-		instantiation_aware_component_post_processors.NewRequiredArgValidatePostProcessors(),
 		instantiation_aware_component_post_processors.NewDependencyNameAwarePostProcessors(),
 		instantiation_aware_component_post_processors.NewDependencyTypeAwarePostProcessors(),
 		instantiation_aware_component_post_processors.NewDependencyFurtherMatchingProcessors(),

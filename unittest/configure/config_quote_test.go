@@ -61,13 +61,31 @@ test:
     aes:
       key: 123
       iv: abc
+  responses:
+    header: 
+      - X-Request-Id: "123"
+      - X-Cross-Origin: ["*"]
+      - X-Allowed-Method: [POST,GET]
+    body:
+      Code: 200
+      Msg: "success"
 `)
 	t.Run("NormalConfigQuote", func(t *testing.T) {
+		type respBody struct {
+			Code int    `yaml:"code"`
+			Msg  string `yaml:"msg"`
+		}
+		type resp struct {
+			Header []map[string]any `yaml:"header"`
+			Body   *respBody        `yaml:"body"`
+		}
 		type T struct {
-			Host       string         `value:"${test.host}"`
-			Port       []int          `value:"${test.port}"`
-			Parameters map[string]any `value:"${test.parameters}"`
-			Headers    []string       `value:"${test.parameters.header}"`
+			Host            string           `value:"${test.host}"`
+			Port            []int            `value:"${test.port}"`
+			Parameters      map[string]any   `value:"${test.parameters}"`
+			Headers         []string         `value:"${test.parameters.header}"`
+			ResponseHeaders []map[string]any `value:"${test.responses.header}"`
+			Resp            *resp            `value:"${test.responses}"`
 		}
 		t2 := &T{}
 		ioc.RunTest(t,
@@ -85,6 +103,25 @@ test:
 			"header": []any{"X-Request-Id", "X-Cross-Origin", "X-Allowed-Method"},
 		}, t2.Parameters)
 		assert.Equal(t, []string{"X-Request-Id", "X-Cross-Origin", "X-Allowed-Method"}, t2.Headers)
+		headers := []map[string]any{
+			{
+				"x-request-id": "123",
+			},
+			{
+				"x-cross-origin": []any{"*"},
+			},
+			{
+				"x-allowed-method": []any{"POST", "GET"},
+			},
+		}
+		assert.Equal(t, headers, t2.ResponseHeaders)
+		assert.Equal(t, &resp{
+			Header: headers,
+			Body: &respBody{
+				Code: 200,
+				Msg:  "success",
+			},
+		}, t2.Resp)
 	})
 	t.Run("NormalConfigQuoteWithDefault", func(t *testing.T) {
 		type T struct {

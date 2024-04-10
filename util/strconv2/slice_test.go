@@ -122,3 +122,41 @@ func TestParseSlice(t *testing.T) {
 		assert.Equal(t, []bool{true, false, true}, parse)
 	})
 }
+
+func Test_splitSlicePart(t *testing.T) {
+	type args struct {
+		val string
+	}
+	tests := []struct {
+		name string
+		args args
+		want []string
+	}{
+		{
+			name: "1",
+			args: args{
+				val: `{"x-request-id":"123"},{"x-cross-origin":["*"]},{"x-allowed-method":["POST","GET"]}`,
+			},
+			want: []string{`{"x-request-id":"123"}`, `{"x-cross-origin":["*"]}`, `{"x-allowed-method":["POST","GET"]}`},
+		},
+		{
+			name: "2",
+			args: args{
+				val: "1,2,3",
+			},
+			want: []string{"1", "2", "3"},
+		},
+		{
+			name: "2",
+			args: args{
+				val: "1,,2,3",
+			},
+			want: []string{"1", "", "2", "3"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equalf(t, tt.want, splitSlicePart(tt.args.val), "splitSlicePart(%v)", tt.args.val)
+		})
+	}
+}

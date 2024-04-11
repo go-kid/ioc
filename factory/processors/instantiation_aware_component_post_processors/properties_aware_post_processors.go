@@ -40,7 +40,7 @@ func (c *propertiesAwarePostProcessors) PostProcessProperties(properties []*comp
 		}
 
 		configValue := c.Configure.Get(prop.TagVal)
-		prop.SetConfiguration(prop.Tag, configValue)
+		prop.SetConfiguration(prop.TagVal, configValue)
 		if configValue == nil {
 			if prop.Args().Has(component_definition.ArgRequired, "true") {
 				return nil, fmt.Errorf("config value on '%s' is required", prop.ID())

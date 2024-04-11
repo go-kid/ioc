@@ -40,13 +40,14 @@ func (c *propertiesAwarePostProcessors) PostProcessProperties(properties []*comp
 		}
 
 		configValue := c.Configure.Get(prop.TagVal)
+		prop.SetConfiguration(prop.Tag, configValue)
 		if configValue == nil {
 			if prop.Args().Has(component_definition.ArgRequired, "true") {
 				return nil, fmt.Errorf("config value on '%s' is required", prop.ID())
 			}
 			continue
 		}
-		err := prop.SetConfiguration(prop.Tag, configValue, true)
+		err := prop.Unmarshall(configValue)
 		if err != nil {
 			return nil, fmt.Errorf("populate on '%s' to %s failed: %v", prop.ID(), prop.Type.String(), err)
 		}

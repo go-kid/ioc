@@ -99,16 +99,8 @@ const (
 	unmarshallArgTimeLayout = "timeLayout"
 )
 
-func (n *Property) SetConfiguration(path string, configValue any, unmarshall bool) error {
+func (n *Property) SetConfiguration(path string, configValue any) {
 	n.Configurations[path] = configValue
-	if !unmarshall {
-		return nil
-	}
-	err := n.Unmarshall(configValue)
-	if err != nil {
-		return errors.WithMessage(err, "unmarshall property value failed")
-	}
-	return nil
 }
 
 func (n *Property) Unmarshall(configValue any) error {

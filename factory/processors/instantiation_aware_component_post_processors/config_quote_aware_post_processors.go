@@ -81,7 +81,7 @@ func (c *configQuoteAwarePostProcessors) PostProcessProperties(properties []*com
 				return "", fmt.Errorf("marshal expression tag value %v error: %v", expVal, err)
 			}
 
-			_ = prop.SetConfiguration(exp, expVal, false)
+			prop.SetConfiguration(exp, expVal)
 
 			return marshalVal, nil
 		})

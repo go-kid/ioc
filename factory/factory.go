@@ -245,10 +245,6 @@ func (f *defaultFactory) doCreateComponent(name string, meta *component_definiti
 			}
 		}
 	}
-	err = f.postProcessorRegistrationDelegate.ProcessInitializedComponentInitialization(meta)
-	if err != nil {
-		return nil, err
-	}
 	f.logger().Debugf("do create component '%s' finished", name)
 	return exposedComponent, nil
 }

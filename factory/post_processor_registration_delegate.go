@@ -14,7 +14,6 @@ type PostProcessorRegistrationDelegate struct {
 	componentPostProcessors                     []processors.ComponentPostProcessor
 	hasInstantiationAwareComponentPostProcessor bool
 	hasDestructionAwareComponentPostProcessor   bool
-	hasComponentInitializedPostProcessor        bool
 }
 
 func (f *PostProcessorRegistrationDelegate) RegisterComponentPostProcessors(ps processors.ComponentPostProcessor) {
@@ -23,8 +22,6 @@ func (f *PostProcessorRegistrationDelegate) RegisterComponentPostProcessors(ps p
 		f.hasInstantiationAwareComponentPostProcessor = true
 	case processors.DestructionAwareComponentPostProcessor:
 		f.hasDestructionAwareComponentPostProcessor = true
-	case processors.ComponentInitializedPostProcessor:
-		f.hasComponentInitializedPostProcessor = true
 	}
 	f.componentPostProcessors = append(f.componentPostProcessors, ps)
 }
@@ -66,6 +63,9 @@ func (f *PostProcessorRegistrationDelegate) InitializeComponent(name string, m a
 	if err != nil {
 		return nil, err
 	}
+	if wrappedComponent == nil {
+		return m, nil
+	}
 	err = f.invokeInitMethods(name, wrappedComponent)
 	if err != nil {
 		return nil, err
@@ -86,26 +86,31 @@ func (f *PostProcessorRegistrationDelegate) invokeInitMethods(name string, compo
 			return errors.Wrapf(err, "invoking AfterPropertiesSet() method for component '%s'", name)
 		}
 	}
+	if c, ok := component.(definition.InitializeComponent); ok {
+		f.logger().Tracef("invoking init method for component '%s'", name)
+		err := c.Init()
+		if err != nil {
+			return errors.Wrapf(err, "invoking Init() for '%s'", name)
+		}
+	}
 	return nil
 }
 
 func (f *PostProcessorRegistrationDelegate) applyPostProcessBeforeInitialization(c any, name string) (any, error) {
 	var (
-		result = c
-		err    error
+		current = c
+		err     error
 	)
-	var current any
 	for _, processor := range f.componentPostProcessors {
-		current, err = processor.PostProcessBeforeInitialization(result, name)
+		current, err = processor.PostProcessBeforeInitialization(current, name)
 		if err != nil {
 			return nil, errors.Wrapf(err, "component post processor %s apply post process before initialization", reflectx.Id(processor))
 		}
 		if current == nil {
-			return result, nil
+			return nil, nil
 		}
-		result = current
 	}
-	return result, nil
+	return current, nil
 }
 
 func (f *PostProcessorRegistrationDelegate) applyPostProcessAfterInitialization(c any, name string) (any, error) {
@@ -129,39 +134,6 @@ func (f *PostProcessorRegistrationDelegate) applyPostProcessAfterInitialization(
 
 func (f *PostProcessorRegistrationDelegate) logger() syslog.Logger {
 	return syslog.GetLogger().Pref("PostProcessorDelegate")
-}
-
-func (f *PostProcessorRegistrationDelegate) ProcessInitializedComponentInitialization(meta *component_definition.Meta) error {
-	if f.hasComponentInitializedPostProcessor {
-		f.logger().Tracef("post process before initialize component '%s'", meta.Name())
-		for _, processor := range f.componentPostProcessors {
-			if pb, ok := processor.(processors.ComponentInitializedPostProcessor); ok {
-				err := pb.PostProcessBeforeInitialized(meta.Raw)
-				if err != nil {
-					return errors.Wrapf(err, "apply %T.PostProcessBeforeInitialized() for component '%s'", processor, meta.Name())
-				}
-			}
-		}
-	}
-	if c, ok := meta.Raw.(definition.InitializeComponent); ok {
-		f.logger().Tracef("invoking init method for component '%s'", meta.Name())
-		err := c.Init()
-		if err != nil {
-			return errors.Wrapf(err, "invoking Init() for '%s'", meta.Name())
-		}
-	}
-	if f.hasComponentInitializedPostProcessor {
-		f.logger().Tracef("post process after initialize component '%s'", meta.Name())
-		for _, processor := range f.componentPostProcessors {
-			if pb, ok := processor.(processors.ComponentInitializedPostProcessor); ok {
-				err := pb.PostProcessAfterInitialized(meta.Raw)
-				if err != nil {
-					return errors.Wrapf(err, "apply %T.PostProcessAfterInitialized() for component '%s'", processor, meta.Name())
-				}
-			}
-		}
-	}
-	return nil
 }
 
 func (f *PostProcessorRegistrationDelegate) ResolveBeforeInstantiation(meta *component_definition.Meta, name string) (any, error) {

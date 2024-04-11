@@ -26,12 +26,6 @@ type SmartInstantiationAwareBeanPostProcessor interface {
 	GetEarlyBeanReference(component any, componentName string) (any, error)
 }
 
-type ComponentInitializedPostProcessor interface {
-	ComponentPostProcessor
-	PostProcessBeforeInitialized(component any) error
-	PostProcessAfterInitialized(component any) error
-}
-
 type DestructionAwareComponentPostProcessor interface {
 	ComponentPostProcessor
 	PostProcessBeforeDestruction(component any, componentName string) error

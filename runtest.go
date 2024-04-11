@@ -7,6 +7,7 @@ import (
 )
 
 func RunTest(t *testing.T, ops ...SettingOption) *App {
+	testing.Init()
 	app, err := Run(ops...)
 	if t != nil {
 		assert.NoError(t, err)
@@ -15,6 +16,7 @@ func RunTest(t *testing.T, ops ...SettingOption) *App {
 }
 
 func RunErrorTest(t *testing.T, ops ...SettingOption) *App {
+	testing.Init()
 	app, err := Run(ops...)
 	if t != nil {
 		assert.Error(t, err)

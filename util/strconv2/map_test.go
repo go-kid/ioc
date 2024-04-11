@@ -38,7 +38,7 @@ func TestParseAnyMap(t *testing.T) {
 			want: map[string]any{
 				"aes": map[string]any{
 					"iv":  "abc",
-					"key": int64(123),
+					"key": float64(123),
 				},
 				"header": []any{"X-Request-Id", "X-Cross-Origin", "X-Allowed-Method"},
 			},

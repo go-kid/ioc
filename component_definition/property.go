@@ -2,27 +2,31 @@ package component_definition
 
 import (
 	"fmt"
+	"github.com/go-kid/ioc/util/reflectx"
+	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"reflect"
 )
 
 type Property struct {
 	*Field
-	PropertyType PropertyType
-	Tag          string
-	TagVal       string
-	Injects      []*Meta
-	args         TagArg
+	PropertyType   PropertyType
+	Tag            string
+	TagVal         string
+	Injects        []*Meta
+	Configurations map[string]any
+	args           TagArg
 }
 
 func NewProperty(field *Field, propType PropertyType, tag, tagVal string) *Property {
 	parsedTagVal, arg := defaultPropertyArgs().Parse(tagVal)
 	return &Property{
-		Field:        field,
-		PropertyType: propType,
-		Tag:          tag,
-		TagVal:       parsedTagVal,
-		args:         arg,
+		Field:          field,
+		PropertyType:   propType,
+		Tag:            tag,
+		TagVal:         parsedTagVal,
+		Configurations: make(map[string]any),
+		args:           arg,
 	}
 }
 
@@ -51,6 +55,9 @@ func (n *Property) String() string {
 }
 
 func (n *Property) Inject(metas []*Meta) error {
+	if n.PropertyType != PropertyTypeComponent {
+		return errors.Errorf("property '%s' is not allowed to inject", n.ID())
+	}
 	isRequired := n.args.Has(ArgRequired, "true")
 	if len(metas) == 0 {
 		if isRequired {
@@ -85,6 +92,73 @@ func (n *Property) Inject(metas []*Meta) error {
 
 	n.Injects = metas
 	return nil
+}
+
+const (
+	unmarshallArgTagName    = "mapper"
+	unmarshallArgTimeLayout = "timeLayout"
+)
+
+func (n *Property) SetConfiguration(path string, configValue any, unmarshall bool) error {
+	n.Configurations[path] = configValue
+	if !unmarshall {
+		return nil
+	}
+	err := n.Unmarshall(configValue)
+	if err != nil {
+		return errors.WithMessage(err, "unmarshall property value failed")
+	}
+	return nil
+}
+
+func (n *Property) Unmarshall(configValue any) error {
+	if n.PropertyType != PropertyTypeConfiguration {
+		return errors.Errorf("property '%s' is not allowed to unmarshall configuration value", n.ID())
+	}
+	if configValue == nil {
+		return nil
+	}
+	var hooks = []mapstructure.DecodeHookFunc{
+		mapstructure.StringToTimeDurationHookFunc(),
+	}
+	if args, ok := n.Args().Find(unmarshallArgTimeLayout); ok {
+		hooks = append(hooks, mapstructure.StringToTimeHookFunc(args[0]))
+	}
+	err := reflectx.SetValue(n.Value, func(a any) error {
+		config := newDecodeConfig(a, hooks)
+		if args, ok := n.Args().Find(unmarshallArgTagName); ok {
+			config.TagName = args[0]
+		}
+		decoder, err := mapstructure.NewDecoder(config)
+		if err != nil {
+			return fmt.Errorf("create mapstructure decoder error: %v", err)
+		}
+		err = decoder.Decode(configValue)
+		if err != nil {
+			return fmt.Errorf("mapstructure decode %+v error: %v", configValue, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "unmarshall property configuration failed")
+	}
+	return nil
+}
+
+func newDecodeConfig(v any, hooks []mapstructure.DecodeHookFunc) *mapstructure.DecoderConfig {
+	return &mapstructure.DecoderConfig{
+		DecodeHook:           mapstructure.ComposeDecodeHookFunc(hooks...),
+		ErrorUnused:          false,
+		ErrorUnset:           false,
+		ZeroFields:           false,
+		WeaklyTypedInput:     true,
+		Squash:               false,
+		Metadata:             nil,
+		Result:               v,
+		TagName:              "yaml",
+		IgnoreUntaggedFields: false,
+		MatchName:            nil,
+	}
 }
 
 func (n *Property) Args() TagArg {

@@ -1,14 +1,18 @@
 package loader
 
 import (
+	"flag"
 	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/properties"
 	"github.com/go-kid/ioc/util/strconv2"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
-	"regexp"
 	"strings"
 )
+
+func init() {
+	flag.String("app.config", "", "used for command line configure")
+}
 
 type ArgsLoader []string
 
@@ -18,13 +22,13 @@ func NewArgsLoader(args []string) ArgsLoader {
 
 func (args ArgsLoader) LoadConfig() ([]byte, error) {
 	p := properties.New()
-	reg := regexp.MustCompile("^-{2}\\S+=\\S*")
 	for _, arg := range args {
-		prop := reg.FindString(arg)
-		if prop == "" {
+		if !strings.HasPrefix(arg, "--app.config") {
 			continue
 		}
-		propPair := strings.SplitN(prop[2:], "=", 2)
+		cfg := strings.TrimPrefix(arg, "--app.config=")
+		syslog.Pref("ArgsLoader").Tracef("detected command config: %s", cfg)
+		propPair := strings.SplitN(cfg, "=", 2)
 		var val string
 		if len(propPair) == 2 {
 			val = propPair[1]
@@ -34,16 +38,15 @@ func (args ArgsLoader) LoadConfig() ([]byte, error) {
 			return nil, errors.Wrapf(err, "parse '%s' as any", val)
 		}
 		p.Set(propPair[0], typeVal)
+		syslog.Pref("ArgsLoader").Debugf("parse command config: %s=%s", propPair[0], typeVal)
 	}
 	if len(p) == 0 {
 		return nil, nil
-	}
-	for key, value := range p.Expand() {
-		syslog.Pref("ArgsLoader").Tracef("load %s=%s", key, value)
 	}
 	bytes, err := yaml.Marshal(p.Expand())
 	if err != nil {
 		return nil, errors.Wrapf(err, "marshal to YAML: %+v", p.Expand())
 	}
+
 	return bytes, nil
 }

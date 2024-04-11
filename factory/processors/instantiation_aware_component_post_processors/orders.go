@@ -1,13 +1,13 @@
 package instantiation_aware_component_post_processors
 
 const (
-	PriorityOrderPropertyConfigQuoteAware = iota
+	PriorityOrderPropertyConfigQuoteAware = 1 << (iota + 1)
 	PriorityOrderPropertyExpressionTagAware
 	PriorityOrderPopulateProperties
 )
 
 const (
-	OrderDependencyAware = iota
+	OrderDependencyAware = 1 << (iota + 1)
 	OrderDependencyFurtherMatching
 	OrderValidate
 )

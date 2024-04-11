@@ -1,50 +1,11 @@
 package strconv2
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
 )
-
-func TestParse(t *testing.T) {
-	t.Run("ParseString", func(t *testing.T) {
-		parse, err := Parse[string]("abc")
-		assert.NoError(t, err)
-		assert.Equal(t, "abc", parse)
-	})
-	t.Run("ParseInt", func(t *testing.T) {
-		i, err := Parse[int]("123")
-		assert.NoError(t, err)
-		assert.Equal(t, 123, i)
-		i8, err := Parse[int8]("2")
-		assert.NoError(t, err)
-		assert.Equal(t, int8(2), i8)
-		ui, err := Parse[uint]("123")
-		assert.NoError(t, err)
-		assert.Equal(t, uint(123), ui)
-		ui8, err := Parse[uint8]("123")
-		assert.NoError(t, err)
-		assert.Equal(t, uint8(123), ui8)
-	})
-	t.Run("ParseFloat", func(t *testing.T) {
-		f64, err := Parse[float64]("123.456")
-		assert.NoError(t, err)
-		assert.Equal(t, 123.456, f64)
-		f32, err := Parse[float32]("123.456")
-		assert.NoError(t, err)
-		assert.Equal(t, float32(123.456), f32)
-	})
-	t.Run("ParseBool", func(t *testing.T) {
-		parse, err := Parse[bool]("true")
-		assert.NoError(t, err)
-		assert.Equal(t, true, parse)
-	})
-	t.Run("ParseBool", func(t *testing.T) {
-		parse, err := Parse[bool]("false")
-		assert.NoError(t, err)
-		assert.Equal(t, false, parse)
-	})
-}
 
 func TestParseAny(t *testing.T) {
 	type args struct {
@@ -68,7 +29,7 @@ func TestParseAny(t *testing.T) {
 			args: args{
 				val: "123",
 			},
-			want: int64(123),
+			want: float64(123),
 		},
 		{
 			name: "3",
@@ -98,6 +59,41 @@ func TestParseAny(t *testing.T) {
 			},
 			want: "abc",
 		},
+		{
+			name: "7",
+			args: args{
+				val: "[foo,bar]",
+			},
+			want: []any{"foo", "bar"},
+		},
+		{
+			name: "8",
+			args: args{
+				val: `["foo","bar"]`,
+			},
+			want: []any{"foo", "bar"},
+		},
+		{
+			name: "8",
+			args: args{
+				val: `[1,"2",true,2.33]`,
+			},
+			want: []any{float64(1), "2", true, 2.33},
+		},
+		{
+			name: "9",
+			args: args{
+				val: `map[a:b]`,
+			},
+			want: map[string]any{"a": "b"},
+		},
+		{
+			name: "10",
+			args: args{
+				val: `{"foo":"bar"}`,
+			},
+			want: map[string]any{"foo": "bar"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -108,6 +104,257 @@ func TestParseAny(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ParseAny() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFormatAny(t *testing.T) {
+	type args struct {
+		a any
+	}
+	type ST struct {
+		A any `json:"a"`
+		B any `json:"b"`
+		C any `json:"c"`
+		D any `json:"d"`
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    string
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "1",
+			args: args{
+				a: 1,
+			},
+			want:    "1",
+			wantErr: assert.NoError,
+		},
+		{
+			name: "1",
+			args: args{
+				a: "foo",
+			},
+			want:    "foo",
+			wantErr: assert.NoError,
+		},
+		{
+			name: "1",
+			args: args{
+				a: true,
+			},
+			want:    "true",
+			wantErr: assert.NoError,
+		},
+		{
+			name: "1",
+			args: args{
+				a: []int{1, 2, 3},
+			},
+			want:    "[1,2,3]",
+			wantErr: assert.NoError,
+		},
+		{
+			name: "1",
+			args: args{
+				a: []string{"foo", "bar"},
+			},
+			want:    `["foo","bar"]`,
+			wantErr: assert.NoError,
+		},
+		{
+			name: "1",
+			args: args{
+				a: []any{1, "2", true, 2.33},
+			},
+			want:    `[1,"2",true,2.33]`,
+			wantErr: assert.NoError,
+		},
+		{
+			name: "1",
+			args: args{
+				a: map[string]any{
+					"a": 1,
+					"b": "2",
+					"c": true,
+					"d": 2.33,
+				},
+			},
+			want:    `{"a":1,"b":"2","c":true,"d":2.33}`,
+			wantErr: assert.NoError,
+		},
+		{
+			name: "1",
+			args: args{
+				a: ST{
+					A: 1,
+					B: "2",
+					C: true,
+					D: 2.33,
+				},
+			},
+			want:    `{"a":1,"b":"2","c":true,"d":2.33}`,
+			wantErr: assert.NoError,
+		},
+		{
+			name: "1",
+			args: args{
+				a: &ST{
+					A: 1,
+					B: "2",
+					C: true,
+					D: 2.33,
+				},
+			},
+			want:    `{"a":1,"b":"2","c":true,"d":2.33}`,
+			wantErr: assert.NoError,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := FormatAny(tt.args.a)
+			if !tt.wantErr(t, err, fmt.Sprintf("FormatAny(%v)", tt.args.a)) {
+				return
+			}
+			assert.Equalf(t, tt.want, got, "FormatAny(%v)", tt.args.a)
+		})
+	}
+}
+
+func TestFormatLoopAny(t *testing.T) {
+	type args struct {
+		a any
+	}
+	type ST struct {
+		A any `json:"a"`
+		B any `json:"b"`
+		C any `json:"c"`
+		D any `json:"d"`
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    any
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "1",
+			args: args{
+				a: float64(1),
+			},
+			want:    float64(1),
+			wantErr: assert.NoError,
+		},
+		{
+			name: "1",
+			args: args{
+				a: "foo",
+			},
+			wantErr: assert.NoError,
+		},
+		{
+			name: "1",
+			args: args{
+				a: true,
+			},
+			wantErr: assert.NoError,
+		},
+		{
+			name: "1",
+			args: args{
+				a: []int{1, 2, 3},
+			},
+			want:    []any{float64(1), float64(2), float64(3)},
+			wantErr: assert.NoError,
+		},
+		{
+			name: "1",
+			args: args{
+				a: []string{"foo", "bar"},
+			},
+			want:    []any{"foo", "bar"},
+			wantErr: assert.NoError,
+		},
+		{
+			name: "1",
+			args: args{
+				a: []any{1, "2", true, 2.33},
+			},
+			want:    []any{float64(1), "2", true, 2.33},
+			wantErr: assert.NoError,
+		},
+		{
+			name: "1",
+			args: args{
+				a: map[string]any{
+					"a": 1,
+					"b": "2",
+					"c": true,
+					"d": 2.33,
+				},
+			},
+			want: map[string]any{
+				"a": float64(1),
+				"b": "2",
+				"c": true,
+				"d": 2.33,
+			},
+			wantErr: assert.NoError,
+		},
+		{
+			name: "1",
+			args: args{
+				a: ST{
+					A: 1,
+					B: "2",
+					C: true,
+					D: 2.33,
+				},
+			},
+			want: map[string]any{
+				"a": float64(1),
+				"b": "2",
+				"c": true,
+				"d": 2.33,
+			},
+			wantErr: assert.NoError,
+		},
+		{
+			name: "1",
+			args: args{
+				a: &ST{
+					A: 1,
+					B: "2",
+					C: true,
+					D: 2.33,
+				},
+			},
+			want: map[string]any{
+				"a": float64(1),
+				"b": "2",
+				"c": true,
+				"d": 2.33,
+			},
+			wantErr: assert.NoError,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := FormatAny(tt.args.a)
+			if !tt.wantErr(t, err, fmt.Sprintf("FormatAny(%v)", tt.args.a)) {
+				return
+			}
+			parsed, err := ParseAny(got)
+			if !tt.wantErr(t, err, fmt.Sprintf("ParseAny(%v)", tt.args.a)) {
+				return
+			}
+			if tt.want == nil {
+				assert.Equal(t, tt.args.a, parsed)
+			} else {
+				assert.Equal(t, tt.want, parsed)
 			}
 		})
 	}

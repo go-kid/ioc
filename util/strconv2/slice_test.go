@@ -62,7 +62,53 @@ func TestParseAnySlice(t *testing.T) {
 			args: args{
 				val: "[abc,123,true,false,1.111]",
 			},
-			want:    []any{"abc", int64(123), true, false, 1.111},
+			want:    []any{"abc", float64(123), true, false, 1.111},
+			wantErr: false,
+		},
+		{
+			name: "1",
+			args: args{
+				val: `["abc",123,true,false,1.111]`,
+			},
+			want:    []any{"abc", float64(123), true, false, 1.111},
+			wantErr: false,
+		},
+		{
+			name: "1",
+			args: args{
+				val: `[["abc"],[123,true],[false,1.111]]`,
+			},
+			want:    []any{[]any{"abc"}, []any{float64(123), true}, []any{false, 1.111}},
+			wantErr: false,
+		},
+		{
+			name: "1",
+			args: args{
+				val: `[{"a":"b"},{"c":123}]`,
+			},
+			want: []any{
+				map[string]any{
+					"a": "b",
+				},
+				map[string]any{
+					"c": float64(123),
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "1",
+			args: args{
+				val: `[map[a:b],map[c:-123]]`,
+			},
+			want: []any{
+				map[string]any{
+					"a": "b",
+				},
+				map[string]any{
+					"c": float64(-123),
+				},
+			},
 			wantErr: false,
 		},
 		{
@@ -81,9 +127,7 @@ func TestParseAnySlice(t *testing.T) {
 				t.Errorf("ParseAnySlice() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ParseAnySlice() got = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

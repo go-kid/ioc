@@ -5,15 +5,12 @@ import (
 	"github.com/go-kid/ioc/definition"
 	"github.com/go-kid/ioc/factory/processors"
 	"github.com/go-kid/ioc/syslog"
+	"github.com/go-kid/ioc/util/framework_helper"
 	"github.com/go-kid/ioc/util/reflectx"
-	"github.com/go-kid/ioc/util/sort2"
 	"github.com/pkg/errors"
 )
 
 type PostProcessorRegistrationDelegate struct {
-	priorityOrderedComponentPostProcessors      []processors.ComponentPostProcessor
-	orderedComponentPostProcessors              []processors.ComponentPostProcessor
-	otherComponentPostProcessors                []processors.ComponentPostProcessor
 	componentPostProcessors                     []processors.ComponentPostProcessor
 	hasInstantiationAwareComponentPostProcessor bool
 	hasDestructionAwareComponentPostProcessor   bool
@@ -29,14 +26,7 @@ func (f *PostProcessorRegistrationDelegate) RegisterComponentPostProcessors(ps p
 	case processors.ComponentInitializedPostProcessor:
 		f.hasComponentInitializedPostProcessor = true
 	}
-	switch ps.(type) {
-	case definition.PriorityOrdered:
-		f.priorityOrderedComponentPostProcessors = append(f.priorityOrderedComponentPostProcessors, ps)
-	case definition.Ordered:
-		f.orderedComponentPostProcessors = append(f.orderedComponentPostProcessors, ps)
-	default:
-		f.otherComponentPostProcessors = append(f.otherComponentPostProcessors, ps)
-	}
+	f.componentPostProcessors = append(f.componentPostProcessors, ps)
 }
 
 func (f *PostProcessorRegistrationDelegate) InvokeBeanFactoryPostProcessors(factory Factory, factoryProcessors []ComponentFactoryPostProcessor) error {
@@ -46,17 +36,7 @@ func (f *PostProcessorRegistrationDelegate) InvokeBeanFactoryPostProcessors(fact
 			return errors.Wrapf(err, "apply %T.PostProcessComponentFactory() for factory %T", processor, factory)
 		}
 	}
-
-	sort2.Slice(f.priorityOrderedComponentPostProcessors, func(i processors.ComponentPostProcessor, j processors.ComponentPostProcessor) bool {
-		return i.(definition.PriorityOrdered).Order() < j.(definition.PriorityOrdered).Order()
-	})
-	f.componentPostProcessors = append(f.componentPostProcessors, f.priorityOrderedComponentPostProcessors...)
-	sort2.Slice(f.orderedComponentPostProcessors, func(i processors.ComponentPostProcessor, j processors.ComponentPostProcessor) bool {
-		return i.(definition.Ordered).Order() < j.(definition.Ordered).Order()
-	})
-	f.componentPostProcessors = append(f.componentPostProcessors, f.orderedComponentPostProcessors...)
-	f.componentPostProcessors = append(f.componentPostProcessors, f.otherComponentPostProcessors...)
-
+	f.componentPostProcessors = framework_helper.SortOrderedComponents(f.componentPostProcessors)
 	for name, component := range factory.GetRegisteredComponents() {
 		err := f.applyDefinitionRegistryPostProcessors(factory, component, name)
 		if err != nil {

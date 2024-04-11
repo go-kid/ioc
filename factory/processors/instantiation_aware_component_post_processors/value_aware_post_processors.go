@@ -46,7 +46,12 @@ func (c *valueAwarePostProcessors) PostProcessProperties(properties []*component
 			}
 			continue
 		}
-		err := reflectx.SetAnyValueFromString(prop.Type, prop.Value, prop.TagVal, c.hm)
+		parseVal, err := strconv2.ParseAny(prop.TagVal)
+		if err != nil {
+			return nil, fmt.Errorf("parse value on '%s' failed: %v", prop.ID(), err)
+		}
+		err = prop.Unmarshall(parseVal)
+		//err := reflectx.SetAnyValueFromString(prop.Type, prop.Value, prop.TagVal, c.hm)
 		if err != nil {
 			return nil, fmt.Errorf("populate on '%s' to %s failed: %v", prop.ID(), prop.Type.String(), err)
 		}

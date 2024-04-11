@@ -16,46 +16,45 @@ import (
 //	 "header": []any{"X-Request-Id", "X-Cross-Origin", "X-Allowed-Method"},
 //	}
 func ParseAnyMap(val string) (map[string]any, error) {
-	if isMap(val) {
-		if json.Valid([]byte(val)) {
-			result := make(map[string]any)
-			err := json.Unmarshal([]byte(val), &result)
-			if err != nil {
-				return nil, err
-			}
-			return result, nil
-		}
-		val = val[4 : len(val)-1]
-		if val == "" {
-			return map[string]any{}, nil
-		}
-		result := make(map[string]any)
-		for _, part := range splitMapPart(val) {
-			subKV := strings.SplitN(part, ":", 2)
-			if len(subKV) != 2 {
-				return nil, fmt.Errorf("can not parse \"%s\" as map, key value not found: \"%s\"", val, part)
-			}
-			var (
-				subK, subV = subKV[0], subKV[1]
-				sub        any
-				err        error
-			)
-			switch true {
-			case isMap(subV):
-				sub, err = ParseAnyMap(subV)
-			case isSlice(subV):
-				sub, err = ParseAnySlice(subV)
-			default:
-				sub, err = ParseAny(subV)
-			}
-			if err != nil {
-				return result, err
-			}
-			result[subK] = sub
+	if !isMap(val) {
+		return nil, fmt.Errorf("can not parse '%s' as map, need map[key:value ...] or json object", val)
+	}
+	result := make(map[string]any)
+	if bytes := []byte(val); json.Valid(bytes) {
+		err := json.Unmarshal(bytes, &result)
+		if err != nil {
+			return nil, err
 		}
 		return result, nil
 	}
-	return nil, fmt.Errorf("can not parse '%s' as map, need map[key:value ...] or json object", val)
+	val = val[4 : len(val)-1]
+	if val == "" {
+		return result, nil
+	}
+	for _, part := range splitMapPart(val) {
+		subKV := strings.SplitN(part, ":", 2)
+		if len(subKV) != 2 {
+			return nil, fmt.Errorf("can not parse \"%s\" as map, key value not found: \"%s\"", val, part)
+		}
+		var (
+			subK, subV = subKV[0], subKV[1]
+			sub        any
+			err        error
+		)
+		switch true {
+		case isMap(subV):
+			sub, err = ParseAnyMap(subV)
+		case isSlice(subV):
+			sub, err = ParseAnySlice(subV)
+		default:
+			sub, err = ParseAny(subV)
+		}
+		if err != nil {
+			return result, err
+		}
+		result[subK] = sub
+	}
+	return result, nil
 }
 
 func isMap(val string) bool {

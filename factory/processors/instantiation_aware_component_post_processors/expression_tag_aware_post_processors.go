@@ -8,6 +8,7 @@ import (
 	"github.com/go-kid/ioc/factory/processors"
 	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/el"
+	"github.com/go-kid/ioc/util/strconv2"
 )
 
 type expressionTagAwarePostProcessors struct {
@@ -47,7 +48,7 @@ func (c *expressionTagAwarePostProcessors) PostProcessProperties(properties []*c
 			if err != nil {
 				return "", fmt.Errorf("execute expression '%s' program error: %v", exp, err)
 			}
-			val, err := marshalTagVal(result)
+			val, err := strconv2.FormatAny(result)
 			if err != nil {
 				return "", fmt.Errorf("marshal expression tag value %v error: %v", result, err)
 			}

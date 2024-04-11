@@ -4,6 +4,7 @@ import (
 	"github.com/go-kid/ioc/configure/binder"
 	"github.com/go-kid/ioc/configure/loader"
 	"github.com/go-kid/ioc/syslog"
+	"github.com/go-kid/ioc/util/framework_helper"
 	"github.com/pkg/errors"
 	"os"
 )
@@ -51,6 +52,7 @@ func (c *configure) Initialize() error {
 }
 
 func (c *configure) loadConfigure() error {
+	c.loaders = framework_helper.SortOrderedComponents(c.loaders)
 	sumLoaders := len(c.loaders)
 	for i, l := range c.loaders {
 		c.logger().Tracef("config loader %T start loading configurations... [%d/%d]", l, i+1, sumLoaders)

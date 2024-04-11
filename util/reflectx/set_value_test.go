@@ -12,16 +12,17 @@ func TestSetAnyValueFromString(t *testing.T) {
 		B *ST
 	}
 	type T struct {
-		S      string           `val:"hello"`
-		SE     string           `val:"\"hello\""`
-		B      bool             `val:"true"`
-		I      int32            `val:"32"`
-		F      float32          `val:"2.33"`
-		Slice  []uint16         `val:"[1,2,3]"`
-		Array  [3]uint32        `val:"[3,2,1]"`
-		PS     *string          `val:"hello"`
-		M      map[string]any   `val:"map[a:0 b:1 c:2]"`
-		SliceM []map[string]any `val:"[map[a:1],map[b:2]]"`
+		S       string           `val:"hello"`
+		SE      string           `val:"\"hello\""`
+		B       bool             `val:"true"`
+		I       int32            `val:"32"`
+		F       float32          `val:"2.33"`
+		Slice   []uint16         `val:"[1,2,3]"`
+		Array   [3]uint32        `val:"[3,2,1]"`
+		PS      *string          `val:"hello"`
+		M       map[string]any   `val:"map[a:0 b:1 c:2]"`
+		SliceM  []map[string]any `val:"[map[a:1],map[b:2]]"`
+		SliceMJ []map[string]any `val:"[{\"a\":1},{\"b\":2}]"`
 	}
 	var tt = &T{}
 	var expected = map[string]any{
@@ -37,16 +38,24 @@ func TestSetAnyValueFromString(t *testing.T) {
 			return &s
 		}(),
 		"M": map[string]any{
-			"a": int64(0),
-			"b": int64(1),
-			"c": int64(2),
+			"a": float64(0),
+			"b": float64(1),
+			"c": float64(2),
 		},
 		"SliceM": []map[string]any{
 			{
-				"a": int64(1),
+				"a": float64(1),
 			},
 			{
-				"b": int64(2),
+				"b": float64(2),
+			},
+		},
+		"SliceMJ": []map[string]any{
+			{
+				"a": float64(1),
+			},
+			{
+				"b": float64(2),
 			},
 		},
 	}

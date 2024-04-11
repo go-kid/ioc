@@ -1,6 +1,7 @@
 package app
 
 import (
+	"flag"
 	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/definition"
 	"github.com/go-kid/ioc/factory"
@@ -21,18 +22,12 @@ type App struct {
 	CloserComponents   []definition.CloserComponent   `wire:",required=false"`
 }
 
-func NewApp(ops ...SettingOption) *App {
+func NewApp() *App {
+	defer flag.Parse()
 	var s = &App{
 		Configure: configure.Default(),
 		registry:  support.NewRegistry(),
 		Factory:   factory.Default(),
-	}
-	for _, op := range append(ops, globalOptions...) {
-		op(s)
-	}
-	err := s.initiate()
-	if err != nil {
-		s.logger().Fatalf("%+v", err)
 	}
 	return s
 }
@@ -71,7 +66,14 @@ func (s *App) initiate() error {
 	return nil
 }
 
-func (s *App) Run() error {
+func (s *App) Run(ops ...SettingOption) error {
+	for _, op := range append(ops, globalOptions...) {
+		op(s)
+	}
+	err := s.initiate()
+	if err != nil {
+		s.logger().Fatalf("%+v", err)
+	}
 	if err := s.run(); err != nil {
 		s.logger().Errorf("framework run failed: %+v", err)
 		return err

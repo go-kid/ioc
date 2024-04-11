@@ -1,7 +1,6 @@
 package instantiation_aware_component_post_processors
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/configure"
@@ -58,6 +57,8 @@ func (c *configQuoteAwarePostProcessors) PostProcessProperties(properties []*com
 				useDefaultValue = true
 			} else if m, ok := expVal.(map[string]any); ok && len(m) == 0 {
 				useDefaultValue = true
+			} else if arr, ok := expVal.([]any); ok && len(arr) == 0 {
+				useDefaultValue = true
 			}
 			if useDefaultValue {
 				if len(spExp) != 2 {
@@ -74,11 +75,15 @@ func (c *configQuoteAwarePostProcessors) PostProcessProperties(properties []*com
 					}
 				}
 			}
-			val, err := marshalTagVal(expVal)
+
+			marshalVal, err := strconv2.FormatAny(expVal)
 			if err != nil {
 				return "", fmt.Errorf("marshal expression tag value %v error: %v", expVal, err)
 			}
-			return val, nil
+
+			_ = prop.SetConfiguration(exp, expVal, false)
+
+			return marshalVal, nil
 		})
 		if err != nil {
 			return nil, fmt.Errorf("config quote value on '%s' failed: %v", prop.ID(), err)
@@ -88,19 +93,4 @@ func (c *configQuoteAwarePostProcessors) PostProcessProperties(properties []*com
 		syslog.Pref("ConfigQuoteAwarePostProcessor").Debugf("config quote value on '%s'\n '%s' -> '%s'", prop.ID(), rawTagVal, prop.TagVal)
 	}
 	return nil, nil
-}
-
-func marshalTagVal(expVal any) (string, error) {
-	switch expVal.(type) {
-	case string:
-		return expVal.(string), nil
-	case map[string]any, []any:
-		bytes, err := json.Marshal(expVal)
-		if err != nil {
-			return "", err
-		}
-		return string(bytes), nil
-	default:
-		return fmt.Sprintf("%v", expVal), nil
-	}
 }

@@ -1,19 +1,34 @@
 package strconv2
 
 import (
+	"encoding/json"
 	"fmt"
 )
 
-// ParseStringSlice exp: "[value1,value2,value3]" -> []string{"value1", "value2", "value3"}
-func ParseStringSlice(val string) ([]string, error) {
-	if isSlice(val) {
-		val = val[1 : len(val)-1]
-		if val == "" {
-			return []string{}, nil
-		}
-		return splitSlicePart(val), nil
+func ParseAnySlice(val string) ([]any, error) {
+	if !isSlice(val) {
+		return nil, fmt.Errorf("can not parse \"%s\" as slice, need [value1,value2 ...] or json array", val)
 	}
-	return nil, fmt.Errorf("can not parse \"%s\" as slice, need [value1,value2 ...]", val)
+	var result = make([]any, 0)
+	if bytes := []byte(val); json.Valid(bytes) {
+		err := json.Unmarshal(bytes, &result)
+		if err != nil {
+			return nil, err
+		}
+		return result, nil
+	}
+	val = val[1 : len(val)-1]
+	if val == "" {
+		return result, nil
+	}
+	for _, v := range splitSlicePart(val) {
+		a, err := ParseAny(v)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, a)
+	}
+	return result, nil
 }
 
 // {"x-request-id":"123"},{"x-cross-origin":["*"]},{"x-allowed-method":["POST","GET"]}
@@ -55,32 +70,35 @@ func splitSlicePart(val string) []string {
 	return pairs
 }
 
-func ParseAnySlice(val string) ([]any, error) {
-	slice, err := ParseStringSlice(val)
+// ParseStringSlice exp: "[value1,value2,value3]" -> []string{"value1", "value2", "value3"}
+func ParseStringSlice(val string) ([]string, error) {
+	anies, err := ParseAnySlice(val)
 	if err != nil {
 		return nil, err
 	}
-	var result = make([]any, len(slice))
-	for i, v := range slice {
-		result[i], err = ParseAny(v)
+	var result = make([]string, len(anies))
+	for i, a := range anies {
+		f, err := FormatAny(a)
 		if err != nil {
 			return nil, err
 		}
+		result[i] = f
 	}
 	return result, nil
 }
 
 func ParseSlice[T any](val string) ([]T, error) {
-	slice, err := ParseStringSlice(val)
+	anies, err := ParseStringSlice(val)
 	if err != nil {
 		return nil, err
 	}
-	var result = make([]T, len(slice))
-	for i, v := range slice {
-		result[i], err = Parse[T](v)
+	var result = make([]T, len(anies))
+	for i, a := range anies {
+		parse, err := Parse[T](a)
 		if err != nil {
 			return nil, err
 		}
+		result[i] = parse
 	}
 	return result, nil
 }

@@ -7,6 +7,13 @@ import (
 
 type FileLoader string
 
+func (c FileLoader) Priority() {
+}
+
+func (c FileLoader) Order() int {
+	return 0
+}
+
 func NewFileLoader(file string) FileLoader {
 	return FileLoader(file)
 }

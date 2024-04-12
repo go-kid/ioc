@@ -35,6 +35,13 @@ func (s *Holder) ID() string {
 	return s.Meta.ID()
 }
 
+func (s *Holder) String() string {
+	if s.IsEmbed {
+		return fmt.Sprintf("%s.Embed(%s)", s.Holder.String(), s.Type.Name())
+	}
+	return s.Meta.String()
+}
+
 func (s *Holder) Walk(f func(source *Holder) error) error {
 	if s == nil {
 		return nil

@@ -9,7 +9,7 @@ import (
 	"github.com/go-kid/ioc/factory/processors/instantiation_aware_component_post_processors"
 	"github.com/go-kid/ioc/factory/support"
 	"github.com/go-kid/ioc/syslog"
-	"github.com/go-kid/ioc/util/sort2"
+	"github.com/go-kid/ioc/util/framework_helper"
 	"github.com/pkg/errors"
 	"sync"
 )
@@ -144,9 +144,7 @@ func (s *App) callRunners() error {
 		return nil
 	}
 	s.logger().Tracef("find %d application runner(s), start sort", len(runners))
-	sort2.Slice(runners, func(i, j definition.ApplicationRunner) bool {
-		return i.Order() < j.Order()
-	})
+	runners = framework_helper.SortOrderedComponents(runners)
 	for i := range runners {
 		runner := runners[i]
 		s.logger().Tracef("start runner %T [%d/%d]", runner, i+1, len(runners))

@@ -8,22 +8,29 @@ import (
 	"github.com/go-kid/ioc/util/framework_helper"
 	"github.com/go-kid/ioc/util/reflectx"
 	"github.com/pkg/errors"
+	"sync"
 )
 
 type PostProcessorRegistrationDelegate struct {
+	rawComponentPostProcessors                  []processors.ComponentPostProcessor
 	componentPostProcessors                     []processors.ComponentPostProcessor
 	hasInstantiationAwareComponentPostProcessor bool
 	hasDestructionAwareComponentPostProcessor   bool
 }
 
-func (f *PostProcessorRegistrationDelegate) RegisterComponentPostProcessors(ps processors.ComponentPostProcessor) {
+func NewPostProcessorRegistrationDelegate() *PostProcessorRegistrationDelegate {
+	return &PostProcessorRegistrationDelegate{}
+}
+
+func (f *PostProcessorRegistrationDelegate) RegisterComponentPostProcessors(ps processors.ComponentPostProcessor, name string) {
 	switch ps.(type) {
 	case processors.InstantiationAwareComponentPostProcessor:
 		f.hasInstantiationAwareComponentPostProcessor = true
 	case processors.DestructionAwareComponentPostProcessor:
 		f.hasDestructionAwareComponentPostProcessor = true
 	}
-	f.componentPostProcessors = append(f.componentPostProcessors, ps)
+
+	f.rawComponentPostProcessors = append(f.rawComponentPostProcessors, ps)
 }
 
 func (f *PostProcessorRegistrationDelegate) InvokeBeanFactoryPostProcessors(factory Factory, factoryProcessors []ComponentFactoryPostProcessor) error {
@@ -33,22 +40,51 @@ func (f *PostProcessorRegistrationDelegate) InvokeBeanFactoryPostProcessors(fact
 			return errors.Wrapf(err, "apply %T.PostProcessComponentFactory() for factory %T", processor, factory)
 		}
 	}
-	f.componentPostProcessors = framework_helper.SortOrderedComponents(f.componentPostProcessors)
-	for name, component := range factory.GetRegisteredComponents() {
-		err := f.applyDefinitionRegistryPostProcessors(factory, component, name)
-		if err != nil {
-			return err
-		}
+
+	err := f.applyDefinitionRegistryPostProcessors(factory)
+	if err != nil {
+		return err
 	}
 
+	f.rawComponentPostProcessors = framework_helper.SortOrderedComponents(f.rawComponentPostProcessors)
+	for _, processor := range f.rawComponentPostProcessors {
+		if _, lazy := processor.(definition.LazyInit); !lazy {
+			instance, err := factory.GetComponentByName(framework_helper.GetComponentName(processor))
+			if err != nil {
+				return err
+			}
+			if icp, ok := instance.(processors.ComponentPostProcessor); ok {
+				processor = icp
+			}
+		}
+		f.componentPostProcessors = append(f.componentPostProcessors, processor)
+	}
+	f.rawComponentPostProcessors = nil
 	return nil
 }
 
-func (f *PostProcessorRegistrationDelegate) applyDefinitionRegistryPostProcessors(factory Factory, component any, name string) error {
+func (f *PostProcessorRegistrationDelegate) applyDefinitionRegistryPostProcessors(factory Factory) error {
+	components := factory.GetRegisteredComponents()
+	var wg sync.WaitGroup
 	for _, processor := range factory.GetDefinitionRegistryPostProcessors() {
-		err := processor.PostProcessDefinitionRegistry(factory.GetDefinitionRegistry(), component, name)
-		if err != nil {
-			return errors.Wrapf(err, "apply %T.PostProcessDefinitionRegistry() for component '%s'", processor, name)
+		var errs []error
+		wg.Add(len(components))
+		for name, component := range components {
+			go func(name string, component any) {
+				defer wg.Done()
+				err := processor.PostProcessDefinitionRegistry(factory.GetDefinitionRegistry(), component, name)
+				if err != nil {
+					errs = append(errs, errors.WithMessage(err, name))
+				}
+			}(name, component)
+		}
+		wg.Wait()
+		if errs != nil {
+			var err = errors.Errorf("apply %T.PostProcessDefinitionRegistry() for component", processor)
+			for _, e2 := range errs {
+				err = errors.WithMessage(err, e2.Error())
+			}
+			return err
 		}
 	}
 	return nil

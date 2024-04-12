@@ -1,4 +1,4 @@
-package component_definition
+package framework_helper
 
 import (
 	"github.com/go-kid/ioc/definition"

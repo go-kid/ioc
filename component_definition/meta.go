@@ -2,6 +2,7 @@ package component_definition
 
 import (
 	"fmt"
+	"github.com/go-kid/ioc/util/framework_helper"
 	"github.com/go-kid/ioc/util/reflectx"
 	"github.com/go-kid/ioc/util/sync2"
 	"reflect"
@@ -31,7 +32,7 @@ type Meta struct {
 
 func NewMeta(c any) *Meta {
 	base := NewBase(c)
-	name, alias := GetComponentNameWithAlias(c)
+	name, alias := framework_helper.GetComponentNameWithAlias(c)
 	m := &Meta{
 		Base:          base,
 		name:          name,
@@ -45,10 +46,14 @@ func NewMeta(c any) *Meta {
 }
 
 func (m *Meta) ID() string {
+	return fmt.Sprintf("%s(0x%x)", m.String(), m.Value.Pointer())
+}
+
+func (m *Meta) String() string {
 	if m.IsAlias() {
-		return fmt.Sprintf("%s(alias=%s)(0x%x)", m.name, m.alias, m.Value.Pointer())
+		return fmt.Sprintf("%s(alias=%s)", m.name, m.alias)
 	}
-	return fmt.Sprintf("%s(0x%x)", m.name, m.Value.Pointer())
+	return m.name
 }
 
 func (m *Meta) Name() string {

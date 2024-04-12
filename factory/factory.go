@@ -27,7 +27,7 @@ func Default() Factory {
 	f := &defaultFactory{
 		definitionRegistry:                support.DefaultDefinitionRegistry(),
 		singletonComponentRegistry:        support.DefaultSingletonComponentRegistry(),
-		postProcessorRegistrationDelegate: &PostProcessorRegistrationDelegate{},
+		postProcessorRegistrationDelegate: NewPostProcessorRegistrationDelegate(),
 		allowCircularReferences:           true,
 	}
 	return f
@@ -42,7 +42,7 @@ func (f *defaultFactory) PrepareComponents() error {
 			return err
 		}
 		if p, ok := singleton.(processors.ComponentPostProcessor); ok {
-			f.registerBeanPostProcessors(p)
+			f.registerBeanPostProcessors(p, name)
 		}
 		if p, ok := singleton.(processors.DefinitionRegistryPostProcessor); ok {
 			f.definitionRegistryPostProcessors = append(f.definitionRegistryPostProcessors, p)
@@ -61,8 +61,8 @@ func (f *defaultFactory) PrepareComponents() error {
 	return nil
 }
 
-func (f *defaultFactory) registerBeanPostProcessors(postProcessor processors.ComponentPostProcessor) {
-	f.postProcessorRegistrationDelegate.RegisterComponentPostProcessors(postProcessor)
+func (f *defaultFactory) registerBeanPostProcessors(postProcessor processors.ComponentPostProcessor, name string) {
+	f.postProcessorRegistrationDelegate.RegisterComponentPostProcessors(postProcessor, name)
 }
 
 func (f *defaultFactory) GetRegisteredComponents() map[string]any {

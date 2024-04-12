@@ -26,7 +26,6 @@ type PriorityOrdered interface {
 }
 
 type ApplicationRunner interface {
-	Ordered
 	Run() error
 }
 

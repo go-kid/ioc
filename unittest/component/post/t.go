@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/go-kid/ioc"
 	"github.com/go-kid/ioc/app"
-	"github.com/go-kid/ioc/definition"
+	"github.com/go-kid/ioc/configure/loader"
 	"github.com/go-kid/ioc/factory/processors"
 )
 
@@ -39,22 +39,31 @@ type ServiceC struct {
 
 type serviceAAOP struct {
 	Service
+	Enable bool
 }
 
 func (s *serviceAAOP) SayName() {
-	fmt.Printf("aop %p before say name\n", s)
+	if s.Enable {
+		fmt.Printf("aop %p before say name\n", s)
+	}
 	s.Service.SayName()
-	fmt.Printf("aop %p after say name\n", s)
+	if s.Enable {
+		fmt.Printf("aop %p after say name\n", s)
+	}
 }
 
 type postProcessor struct {
 	processors.DefaultInstantiationAwareComponentPostProcessor
-	definition.LazyInitComponent
+	//definition.LazyInitComponent
+	Enable bool `value:"${aop.enable:false}"`
 }
 
 func (p *postProcessor) GetEarlyBeanReference(component any, componentName string) (any, error) {
 	if s, ok := component.(*ServiceA); ok {
-		return &serviceAAOP{s}, nil
+		return &serviceAAOP{
+			Service: s,
+			Enable:  p.Enable,
+		}, nil
 	}
 	return component, nil
 }
@@ -64,7 +73,9 @@ func main() {
 	b := &ServiceB{Name: "service B"}
 	c := &ServiceC{Name: "service C"}
 	run, err := ioc.Run(
-		app.LogTrace,
+		//app.LogTrace,
+		app.AddConfigLoader(loader.NewRawLoader([]byte(`aop:
+  enable: true`))),
 		app.SetComponents(
 			a,
 			b,

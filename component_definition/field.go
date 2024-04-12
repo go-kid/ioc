@@ -14,3 +14,7 @@ type Field struct {
 func (f *Field) ID() string {
 	return fmt.Sprintf("%s.Field(%s)", f.Holder.ID(), f.StructField.Name)
 }
+
+func (f *Field) String() string {
+	return fmt.Sprintf("%s.Field(%s)", f.Holder.String(), f.StructField.Name)
+}

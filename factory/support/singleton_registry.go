@@ -1,8 +1,8 @@
 package support
 
 import (
-	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/syslog"
+	"github.com/go-kid/ioc/util/framework_helper"
 	"github.com/go-kid/ioc/util/sync2"
 	"github.com/pkg/errors"
 )
@@ -49,7 +49,7 @@ func NewRegistry() SingletonRegistry {
 }
 
 func (r *registry) RegisterSingleton(singleton any) {
-	name := component_definition.GetComponentName(singleton)
+	name := framework_helper.GetComponentName(singleton)
 	if exist, loaded := r.componentsMap.Load(name); loaded {
 		if exist != singleton {
 			r.logger().Panicf("register duplicated component %s", name)

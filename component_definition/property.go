@@ -46,12 +46,16 @@ func filter(metas []*Meta, f func(m *Meta) bool) []*Meta {
 	return result
 }
 
+func (n *Property) info() string {
+	return fmt.Sprintf("Tag(%s:'%s').Type(%s)", n.Tag, n.TagVal, n.PropertyType)
+}
+
 func (n *Property) ID() string {
-	return fmt.Sprintf("%s.Tag(%s:'%s').Type(%s)", n.Field.ID(), n.Tag, n.TagVal, n.PropertyType)
+	return fmt.Sprintf("%s.%s", n.Field.ID(), n.info())
 }
 
 func (n *Property) String() string {
-	return n.ID()
+	return fmt.Sprintf("%s.%s", n.Field.String(), n.info())
 }
 
 func (n *Property) Inject(metas []*Meta) error {

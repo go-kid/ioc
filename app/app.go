@@ -46,7 +46,8 @@ func (s *App) initiate() error {
 	s.Factory.SetConfigure(s.Configure)
 	var initiateComponent = []any{
 		s,
-		definition_registry_post_processors.NewPropTagScanProcessor(),
+		//definition_registry_post_processors.NewPropTagScanProcessor(),
+		definition_registry_post_processors.NewConfigurationScanProcessor(),
 		definition_registry_post_processors.NewValueTagScanProcessor(),
 		definition_registry_post_processors.NewWireTagScanProcessor(),
 		definition_registry_post_processors.NewFuncTagScanProcessor(),

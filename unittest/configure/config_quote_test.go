@@ -20,7 +20,7 @@ test:
 `)
 	t.Run("NormalConfigQuote", func(t *testing.T) {
 		type T struct {
-			Host string `prop:"test.${env}.host"`
+			Host string `prefix:"test.${env}.host"`
 		}
 		t2 := &T{}
 		ioc.RunTest(t,
@@ -32,8 +32,8 @@ test:
 	})
 	t.Run("NormalConfigQuoteWithDefault", func(t *testing.T) {
 		type T struct {
-			Host  string `prop:"test.${env:local}.host"`
-			Host2 string `prop:"test.${env2:local}.host"`
+			Host  string `prefix:"test.${env:local}.host"`
+			Host2 string `prefix:"test.${env2:local}.host"`
 		}
 		t2 := &T{}
 		ioc.RunTest(t,
@@ -86,23 +86,32 @@ test:
 			Headers         []string         `value:"${test.parameters.header}"`
 			ResponseHeaders []map[string]any `value:"${test.responses.header}"`
 			Resp            *resp            `value:"${test.responses}"`
+			HostP           string           `prop:"test.host"`
+
+			PortP            []int            `prop:"test.port"`
+			HeadersP         []string         `prop:"test.parameters.header"`
+			ParametersP      map[string]any   `prop:"test.parameters"`
+			ResponseHeadersP []map[string]any `prop:"test.responses.header"`
+			RespP            *resp            `prop:"test.responses"`
 		}
 		t2 := &T{}
 		ioc.RunTest(t,
-			app.LogTrace,
+			//app.LogTrace,
 			app.SetConfigLoader(loader.NewRawLoader(config)),
 			app.SetComponents(t2),
 		)
 		assert.Equal(t, "https://api.dev.go-kid.org", t2.Host)
 		assert.Equal(t, []int{8080, 9090}, t2.Port)
-		assert.Equal(t, map[string]any{
+		wantMap := map[string]any{
 			"aes": map[string]any{
 				"iv":  "abc",
 				"key": float64(123),
 			},
 			"header": []any{"X-Request-Id", "X-Cross-Origin", "X-Allowed-Method"},
-		}, t2.Parameters)
-		assert.Equal(t, []string{"X-Request-Id", "X-Cross-Origin", "X-Allowed-Method"}, t2.Headers)
+		}
+		assert.Equal(t, wantMap, t2.Parameters)
+		wantArr := []string{"X-Request-Id", "X-Cross-Origin", "X-Allowed-Method"}
+		assert.Equal(t, wantArr, t2.Headers)
 		headers := []map[string]any{
 			{
 				"x-request-id": "123",
@@ -115,13 +124,21 @@ test:
 			},
 		}
 		assert.Equal(t, headers, t2.ResponseHeaders)
-		assert.Equal(t, &resp{
+		wantResp := &resp{
 			Header: headers,
 			Body: &respBody{
 				Code: 200,
 				Msg:  "success",
 			},
-		}, t2.Resp)
+		}
+		assert.Equal(t, wantResp, t2.Resp)
+
+		assert.Equal(t, "https://api.dev.go-kid.org", t2.HostP)
+		assert.Equal(t, []int{8080, 9090}, t2.PortP)
+		assert.Equal(t, wantMap, t2.ParametersP)
+		assert.Equal(t, wantArr, t2.HeadersP)
+		assert.Equal(t, headers, t2.ResponseHeadersP)
+		assert.Equal(t, wantResp, t2.RespP)
 	})
 	t.Run("NormalConfigQuoteWithDefault", func(t *testing.T) {
 		type T struct {
@@ -129,10 +146,15 @@ test:
 			Port       []int          `value:"${test.port2:[8888,9999]}"`
 			PortS      []string       `value:"${test.port2:[:8888,:9999]}"`
 			Parameters map[string]any `value:"${test.parameters2:map[a:b]}"`
+
+			HostP       string         `prop:"test.host2:https://api.go-kid.org"`
+			PortP       []int          `prop:"test.port2:[8888,9999]"`
+			PortSP      []string       `prop:"test.port2:[:8888,:9999]"`
+			ParametersP map[string]any `prop:"test.parameters2:map[a:b]"`
 		}
 		t2 := &T{}
 		ioc.RunTest(t,
-			app.LogTrace,
+			//app.LogTrace,
 			app.SetConfigLoader(loader.NewRawLoader(config)),
 			app.SetComponents(t2),
 		)
@@ -143,6 +165,12 @@ test:
 		assert.Equal(t, map[string]any{
 			"a": "b",
 		}, t2.Parameters)
+
+		assert.Equal(t, "https://api.go-kid.org", t2.HostP)
+		assert.Equal(t, []int{8888, 9999}, t2.PortP)
+		assert.Equal(t, []string{":8888", ":9999"}, t2.PortSP)
+		assert.NotNil(t, t2.ParametersP)
+		assert.Equal(t, map[string]any{"a": "b"}, t2.ParametersP)
 	})
 	t.Run("MultipleConfigQuote", func(t *testing.T) {
 		type T struct {

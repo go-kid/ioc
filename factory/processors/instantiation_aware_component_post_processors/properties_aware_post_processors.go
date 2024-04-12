@@ -35,7 +35,7 @@ func (c *propertiesAwarePostProcessors) Order() int {
 
 func (c *propertiesAwarePostProcessors) PostProcessProperties(properties []*component_definition.Property, component any, componentName string) ([]*component_definition.Property, error) {
 	for _, prop := range properties {
-		if prop.Tag != definition.PropTag {
+		if prop.Tag != definition.PrefixTag {
 			continue
 		}
 

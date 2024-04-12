@@ -6,15 +6,15 @@ import (
 	"github.com/go-kid/ioc/factory/processors"
 )
 
-type propTagScanProcessor struct {
+type configurationScanProcessor struct {
 	processors.DefaultTagScanDefinitionRegistryPostProcessor
 }
 
-func NewPropTagScanProcessor() processors.DefinitionRegistryPostProcessor {
-	return &propTagScanProcessor{processors.DefaultTagScanDefinitionRegistryPostProcessor{
+func NewConfigurationScanProcessor() processors.DefinitionRegistryPostProcessor {
+	return &configurationScanProcessor{processors.DefaultTagScanDefinitionRegistryPostProcessor{
 		NodeType: component_definition.PropertyTypeConfiguration,
-		Tag:      definition.PropTag,
-		ExtractHandler: func(meta *component_definition.Meta, field *component_definition.Field) (tagVal string, ok bool) {
+		Tag:      definition.PrefixTag,
+		ExtractHandler: func(meta *component_definition.Meta, field *component_definition.Field) (tag, tagVal string, ok bool) {
 			if configuration, infer := field.Value.Interface().(definition.ConfigurationProperties); infer {
 				tagVal = configuration.Prefix()
 				ok = true

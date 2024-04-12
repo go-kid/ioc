@@ -24,9 +24,9 @@ func (c *configD) Prefix() string {
 }
 
 type configApp struct {
-	A  *configA `prop:"a"`
+	A  *configA `prefix:"a"`
 	D  *configD
-	A2 configA `prop:"a"`
+	A2 configA `prefix:"a"`
 }
 
 func TestBinder(t *testing.T) {
@@ -39,7 +39,9 @@ a:
  d:
    d1: "abc"
    d2: 123`)
-		ioc.RunTest(t, app.SetComponents(tApp),
+		ioc.RunTest(t,
+			app.LogTrace,
+			app.SetComponents(tApp),
 			app.SetConfigLoader(loader.NewRawLoader(_tConfig)))
 		assert.Equal(t, 123, tApp.A.B)
 		assert.Equal(t, []int{1, 2, 3, 4}, tApp.A.C)

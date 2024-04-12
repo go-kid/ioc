@@ -6,6 +6,7 @@ const (
 	FuncTag   = "func"
 
 	//configuration tag
-	PropTag  = "prop"
-	ValueTag = "value"
+	ValueTag  = "value"
+	PropTag   = "prop" //`prop` tag is alias to `value:"${prop_value}"`
+	PrefixTag = "prefix"
 )

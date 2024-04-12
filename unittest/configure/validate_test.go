@@ -1,6 +1,7 @@
 package configure
 
 import (
+	"fmt"
 	"github.com/go-kid/ioc"
 	"github.com/go-kid/ioc/app"
 	"testing"
@@ -9,7 +10,7 @@ import (
 func TestValueTagValidate(t *testing.T) {
 	t.Run("Validate", func(t *testing.T) {
 		type C struct {
-			S string `json:"s" validate:"eq=abc"`
+			S string `yaml:"s" validate:"eq=abc"`
 			B bool   `validate:"required"`
 		}
 		type T struct {
@@ -20,9 +21,10 @@ func TestValueTagValidate(t *testing.T) {
 		}
 		t2 := &T{}
 		ioc.RunTest(t,
-			app.LogTrace,
+			//app.LogTrace,
 			app.SetComponents(t2),
 		)
+		fmt.Println(*t2.C)
 	})
 	t.Run("Multi-Vars", func(t *testing.T) {
 		type T struct {

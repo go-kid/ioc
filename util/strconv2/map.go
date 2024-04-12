@@ -3,6 +3,7 @@ package strconv2
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/go-kid/ioc/util/strings2"
 	"strings"
 )
 
@@ -31,7 +32,8 @@ func ParseAnyMap(val string) (map[string]any, error) {
 	if val == "" {
 		return result, nil
 	}
-	for _, part := range splitMapPart(val) {
+
+	for _, part := range strings2.SplitWithConfig(val, mapSplitConfig) {
 		subKV := strings.SplitN(part, ":", 2)
 		if len(subKV) != 2 {
 			return nil, fmt.Errorf("can not parse \"%s\" as map, key value not found: \"%s\"", val, part)
@@ -62,48 +64,9 @@ func isMap(val string) bool {
 		(val[:1] == "{" && val[len(val)-1:] == "}" && json.Valid([]byte(val)))
 }
 
-//aes:map[iv:abc key:123] header:[X-Request-Id X-Cross-Origin X-Allowed-Method]
-func splitMapPart(val string) []string {
-	var pairs []string
-	var in = 0
-	var last = 0
-	var i = 0
-	var q = false
-	for i < len(val) {
-		c := val[i]
-		i++
-		if c == ':' {
-			q = true
-			continue
-		}
-		if q {
-			if c == '{' || c == '[' || c == '(' {
-				in++
-				continue
-			}
-			if c == '}' || c == ']' || c == ')' {
-				in--
-				if in == 0 {
-					pairs = append(pairs, val[last:i])
-					last = i + 1
-					q = false
-				}
-				continue
-			}
-			if c == ' ' && in == 0 && (i-1-last) > 1 {
-				pairs = append(pairs, val[last:i-1])
-				last = i
-				q = false
-				continue
-			}
-			if i == len(val)-1 && in == 0 {
-				pairs = append(pairs, val[last:])
-				last = len(val)
-			}
-		}
-	}
-	if len(val) > last && val[last:] != "" {
-		pairs = append(pairs, val[last:])
-	}
-	return pairs
+var mapSplitConfig = &strings2.SplitConfig{
+	Sep:                 " ",
+	N:                   -1,
+	LeftSkipCharacters:  strings2.LeftBlocks,
+	RightSkipCharacters: strings2.RightBlocks,
 }

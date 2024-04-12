@@ -3,6 +3,7 @@ package strconv2
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/go-kid/ioc/util/strings2"
 )
 
 func ParseAnySlice(val string) ([]any, error) {
@@ -21,7 +22,7 @@ func ParseAnySlice(val string) ([]any, error) {
 	if val == "" {
 		return result, nil
 	}
-	for _, v := range splitSlicePart(val) {
+	for _, v := range strings2.SplitWithConfig(val, sliceSplitConfig) {
 		a, err := ParseAny(v)
 		if err != nil {
 			return nil, err
@@ -31,43 +32,11 @@ func ParseAnySlice(val string) ([]any, error) {
 	return result, nil
 }
 
-// {"x-request-id":"123"},{"x-cross-origin":["*"]},{"x-allowed-method":["POST","GET"]}
-func splitSlicePart(val string) []string {
-	var pairs []string
-	var in = 0
-	var last = 0
-	var i = 0
-	length := len(val)
-	for i < length {
-		c := val[i]
-		i++
-		if c == '{' || c == '[' || c == '(' {
-			in++
-			continue
-		}
-		if c == '}' || c == ']' || c == ')' {
-			in--
-			if in == 0 {
-				pairs = append(pairs, val[last:i])
-				last = i + 1
-			}
-			continue
-		}
-		if c == ',' && in == 0 {
-			if subLen := i - last; subLen > 1 {
-				pairs = append(pairs, val[last:i-1])
-			} else if subLen == 1 {
-				pairs = append(pairs, "")
-			}
-			last = i
-			continue
-		}
-		if i == length && in == 0 {
-			pairs = append(pairs, val[last:])
-			last = length
-		}
-	}
-	return pairs
+var sliceSplitConfig = &strings2.SplitConfig{
+	Sep:                 ",",
+	N:                   -1,
+	LeftSkipCharacters:  strings2.LeftBlocks,
+	RightSkipCharacters: strings2.RightBlocks,
 }
 
 // ParseStringSlice exp: "[value1,value2,value3]" -> []string{"value1", "value2", "value3"}

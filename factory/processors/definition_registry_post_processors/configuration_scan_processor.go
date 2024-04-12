@@ -21,5 +21,6 @@ func NewConfigurationScanProcessor() processors.DefinitionRegistryPostProcessor 
 			}
 			return
 		},
+		Required: true,
 	}}
 }

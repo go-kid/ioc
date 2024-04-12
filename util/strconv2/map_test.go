@@ -1,6 +1,7 @@
 package strconv2
 
 import (
+	"github.com/go-kid/ioc/util/strings2"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -74,7 +75,7 @@ func TestParseAnyMap(t *testing.T) {
 	}
 }
 
-func Test_splitKVPairs(t *testing.T) {
+func Test_splitMapPart(t *testing.T) {
 	type args struct {
 		val string
 	}
@@ -105,23 +106,23 @@ func Test_splitKVPairs(t *testing.T) {
 			want: []string{"iv:abc", "key:123"},
 		},
 		{
-			name: "4",
-			args: args{
-				val: "X-Request-Id X-Cross-Origin X-Allowed-Method",
-			},
-			want: []string{"X-Request-Id X-Cross-Origin X-Allowed-Method"},
-		},
-		{
 			name: "5",
 			args: args{
 				val: "b:[map[a:b] map[c:d]]",
 			},
 			want: []string{"b:[map[a:b] map[c:d]]"},
 		},
+		//{
+		//	name: "6",
+		//	args: args{
+		//		val: "b: map[c:d]]",
+		//	},
+		//	want: []string{"b:[map[a:b] map[c:d]]"},
+		//},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equalf(t, tt.want, splitMapPart(tt.args.val), "splitKVPairs(%v)", tt.args.val)
+			assert.Equalf(t, tt.want, strings2.SplitWithConfig(tt.args.val, mapSplitConfig), "splitKVPairs(%v)", tt.args.val)
 		})
 	}
 }

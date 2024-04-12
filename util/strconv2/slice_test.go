@@ -1,6 +1,7 @@
 package strconv2
 
 import (
+	"github.com/go-kid/ioc/util/strings2"
 	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
@@ -200,7 +201,7 @@ func Test_splitSlicePart(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equalf(t, tt.want, splitSlicePart(tt.args.val), "splitSlicePart(%v)", tt.args.val)
+			assert.Equalf(t, tt.want, strings2.SplitWithConfig(tt.args.val, sliceSplitConfig), "splitSlicePart(%v)", tt.args.val)
 		})
 	}
 }

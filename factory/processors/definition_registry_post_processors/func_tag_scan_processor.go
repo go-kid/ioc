@@ -16,6 +16,7 @@ func NewFuncTagScanProcessor() processors.DefinitionRegistryPostProcessor {
 			NodeType:       component_definition.PropertyTypeComponent,
 			Tag:            definition.FuncTag,
 			ExtractHandler: nil,
+			Required:       true,
 		},
 	}
 }

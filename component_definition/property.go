@@ -19,22 +19,23 @@ type Property struct {
 }
 
 func NewProperty(field *Field, propType PropertyType, tag, tagVal string) *Property {
-	parsedTagVal, arg := defaultPropertyArgs().Parse(tagVal)
+	args := make(TagArg)
+	parsedTagVal := args.Parse(tagVal)
 	return &Property{
 		Field:          field,
 		PropertyType:   propType,
 		Tag:            tag,
 		TagVal:         parsedTagVal,
 		Configurations: make(map[string]any),
-		args:           arg,
+		args:           args,
 	}
 }
 
-func defaultPropertyArgs() TagArg {
-	return TagArg{
-		ArgRequired: {"true"},
-	}
-}
+//func defaultPropertyArgs() TagArg {
+//	return TagArg{
+//		ArgRequired: {"true"},
+//	}
+//}
 
 func filter(metas []*Meta, f func(m *Meta) bool) []*Meta {
 	var result = make([]*Meta, 0, len(metas))
@@ -47,22 +48,22 @@ func filter(metas []*Meta, f func(m *Meta) bool) []*Meta {
 }
 
 func (n *Property) info() string {
-	return fmt.Sprintf("Tag(%s:'%s').Type(%s)", n.Tag, n.TagVal, n.PropertyType)
+	return fmt.Sprintf(".Type(%s).Tag(%s:'%s')", n.PropertyType, n.Tag, n.TagVal)
 }
 
 func (n *Property) ID() string {
-	return fmt.Sprintf("%s.%s", n.Field.ID(), n.info())
+	return fmt.Sprintf("%s%s", n.Field.ID(), n.info())
 }
 
 func (n *Property) String() string {
-	return fmt.Sprintf("%s.%s", n.Field.String(), n.info())
+	return fmt.Sprintf("%s%s%s", n.Field.String(), n.info(), n.args.String())
 }
 
 func (n *Property) Inject(metas []*Meta) error {
 	if n.PropertyType != PropertyTypeComponent {
 		return errors.Errorf("property '%s' is not allowed to inject", n.ID())
 	}
-	isRequired := n.args.Has(ArgRequired, "true")
+	isRequired := n.IsRequired()
 	if len(metas) == 0 {
 		if isRequired {
 			return errors.Errorf("inject %s: not found available components", n.ID())
@@ -96,6 +97,10 @@ func (n *Property) Inject(metas []*Meta) error {
 
 	n.Injects = metas
 	return nil
+}
+
+func (n *Property) IsRequired() bool {
+	return !n.args.Has(ArgRequired, "false")
 }
 
 const (
@@ -161,21 +166,10 @@ func (n *Property) Args() TagArg {
 	return n.args
 }
 
-func (n *Property) SetArg(t ArgType, val []string) {
-	n.args[t] = val
-}
-func (n *Property) AppendArg(t ArgType, val []string) {
-	n.args[t] = append(n.args[t], val...)
+func (n *Property) SetArg(t ArgType, val ...string) {
+	n.args.Set(t, val...)
 }
 
-func (n *Property) SetArgs(a TagArg) {
-	for argType, val := range a {
-		n.SetArg(argType, val)
-	}
-}
-
-func (n *Property) AppendArgs(a TagArg) {
-	for argType, val := range a {
-		n.AppendArg(argType, val)
-	}
+func (n *Property) AddArg(t ArgType, val ...string) {
+	n.args.Add(t, val...)
 }

@@ -7,10 +7,11 @@ import (
 	"github.com/go-kid/ioc/factory/processors"
 	"github.com/go-playground/validator/v10"
 	"reflect"
+	"strings"
 )
 
 const (
-	ArgValidate component_definition.ArgType = "validate"
+	ArgValidate component_definition.ArgType = "Validate"
 )
 
 type validateAwarePostProcessors struct {
@@ -48,12 +49,10 @@ func (c *validateAwarePostProcessors) PostProcessProperties(properties []*compon
 				if err != nil {
 					return nil, fmt.Errorf("validate on struct field '%s' error: %v", prop.ID(), err)
 				}
-			} else {
-				for _, t := range ts {
-					err := c.v.Var(prop.Value.Interface(), t)
-					if err != nil {
-						return nil, fmt.Errorf("validate on variable field '%s' error: %v", prop.ID(), err)
-					}
+			} else if prop.Value.CanInterface() {
+				err := c.v.Var(prop.Value.Interface(), strings.Join(ts, ","))
+				if err != nil {
+					return nil, fmt.Errorf("validate on variable field '%s' error: %v", prop.String(), err)
 				}
 			}
 		}

@@ -16,6 +16,7 @@ func NewWireTagScanProcessor() processors.DefinitionRegistryPostProcessor {
 			NodeType:       component_definition.PropertyTypeComponent,
 			Tag:            definition.InjectTag,
 			ExtractHandler: nil,
+			Required:       true,
 		},
 	}
 }

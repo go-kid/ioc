@@ -41,7 +41,7 @@ func (c *valueAwarePostProcessors) PostProcessProperties(properties []*component
 			continue
 		}
 		if prop.TagVal == "" {
-			if prop.Args().Has(component_definition.ArgRequired, "true") {
+			if prop.IsRequired() {
 				return nil, fmt.Errorf("value on '%s' is required", prop.ID())
 			}
 			continue

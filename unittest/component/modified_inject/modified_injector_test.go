@@ -35,7 +35,7 @@ func (m *MyInjector) PostProcessProperties(properties []*component_definition.Pr
 		d.Value.Set(reflect.ValueOf(func(i int64) int64 {
 			return n * i
 		}))
-		d.SetArg(component_definition.ArgRequired, []string{"false"})
+		d.SetArg(component_definition.ArgRequired, "false")
 	}
 	return nil, nil
 }

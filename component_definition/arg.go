@@ -2,6 +2,7 @@ package component_definition
 
 import (
 	"github.com/go-kid/ioc/util/sort2"
+	"github.com/go-kid/ioc/util/strings2"
 	"strings"
 )
 
@@ -11,39 +12,74 @@ type (
 )
 
 const (
-	argSep    = ','
+	argSep    = ","
 	argExpSep = "="
 
-	ArgRequired  ArgType = "required"
-	ArgQualifier ArgType = "qualifier"
+	ArgRequired  ArgType = "Required"
+	ArgQualifier ArgType = "Qualifier"
 )
 
-func (m TagArg) Parse(tag string) (string, TagArg) {
-	idx := argStartIndex(tag)
-	if idx == -1 {
-		return tag, m
+func (m TagArg) Parse(tag string) string {
+	parts := strings2.Split(tag, argSep, strings2.DefaultSplitBlock)
+	tag = parts[0]
+	if len(parts) == 1 {
+		return tag
 	}
-	exps := strings.Split(tag[idx+1:], string(argSep))
+	exps := parts[1:]
 	for _, exp := range exps {
 		spIdx := strings.Index(exp, argExpSep)
 		if spIdx == -1 {
-			m[ArgType(exp)] = []string{""}
+			m.Set(ArgType(exp), "")
 			continue
 		}
-		m[ArgType(exp[:spIdx])] = strings.Split(exp[spIdx+1:], " ")
+		m.Set(ArgType(exp[:spIdx]), strings2.Split(exp[spIdx+1:], " ", strings2.DefaultSplitBlock)...)
 	}
-	return tag[:idx], m
+	return tag
+}
+
+func (m TagArg) Set(argType ArgType, val ...string) {
+	if argType == "" {
+		return
+	}
+	argType = formatArgType(argType)
+	m[argType] = val
+}
+
+func (m TagArg) Add(argType ArgType, val ...string) {
+	if argType == "" {
+		return
+	}
+	argType = formatArgType(argType)
+	m[argType] = append(m[argType], val...)
+}
+
+func formatArgType(argType ArgType) ArgType {
+	t := string(argType)
+	return ArgType(strings.ToUpper(t[:1]) + t[1:])
 }
 
 func (m TagArg) Find(argType ArgType) ([]string, bool) {
-	s, ok := m[argType]
+	s, ok := m[formatArgType(argType)]
 	return s, ok
 }
 
-func (m TagArg) Has(argType ArgType, want string) bool {
-	for _, s := range m[argType] {
-		if s == want {
-			return true
+func (m TagArg) Has(argType ArgType, wants ...string) bool {
+	args, ok := m[formatArgType(argType)]
+	if !ok {
+		return false
+	}
+	if len(wants) == 0 {
+		return ok
+	}
+	return isIntersect(args, wants)
+}
+
+func isIntersect(a, b []string) bool {
+	for _, a2 := range a {
+		for _, b2 := range b {
+			if a2 == b2 {
+				return true
+			}
 		}
 	}
 	return false
@@ -62,20 +98,18 @@ func (m TagArg) ForEach(f func(argType ArgType, args []string)) {
 	}
 }
 
-func argStartIndex(tag string) int {
-	var in = 0
-	for i, c := range tag {
-		if c == '{' || c == '[' || c == '(' {
-			in++
-			continue
+func (m TagArg) String() string {
+	sb := strings.Builder{}
+	m.ForEach(func(argType ArgType, args []string) {
+		sb.WriteString("." + string(argType) + "(")
+		if l := len(args); l != 0 {
+			if l == 1 {
+				sb.WriteString(args[0])
+			} else {
+				sb.WriteString(strings.Join(args, ","))
+			}
 		}
-		if c == '}' || c == ']' || c == ')' {
-			in--
-			continue
-		}
-		if c == argSep && in == 0 {
-			return i
-		}
-	}
-	return -1
+		sb.WriteString(")")
+	})
+	return sb.String()
 }

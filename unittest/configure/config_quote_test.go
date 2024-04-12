@@ -89,6 +89,7 @@ test:
 			HostP           string           `prop:"test.host"`
 
 			PortP            []int            `prop:"test.port"`
+			PortP2           []int            `prop:"test.port2:[1,2,3],required=true,validate=required min=3 max=20"`
 			HeadersP         []string         `prop:"test.parameters.header"`
 			ParametersP      map[string]any   `prop:"test.parameters"`
 			ResponseHeadersP []map[string]any `prop:"test.responses.header"`

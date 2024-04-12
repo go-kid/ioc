@@ -35,8 +35,8 @@ func (d *dependencyFurtherMatchingPostProcessors) PostProcessProperties(properti
 		dependencies, err := filterDependencies(prop, prop.Injects)
 		if err != nil {
 			if len(dependencies) == 0 {
-				if prop.Args().Has(component_definition.ArgRequired, "true") {
-					return nil, fmt.Errorf("field '%s' is required but not found any components", prop.ID())
+				if prop.IsRequired() {
+					return nil, fmt.Errorf("field '%s' is required but not found any components\n caused by: %v", prop.String(), err)
 				}
 				return nil, nil
 			}
@@ -66,7 +66,7 @@ func filterDependencies(n *component_definition.Property, metas []*component_def
 			return ok && n.Args().Has(component_definition.ArgQualifier, qualifier.Qualifier())
 		})
 		if len(result) == 0 {
-			return nil, fmt.Errorf("field %s: no component found for qualifier %s", n.ID(), qualifierName)
+			return nil, fmt.Errorf("no component found for qualifier %s", qualifierName)
 		}
 	}
 

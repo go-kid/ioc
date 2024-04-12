@@ -11,6 +11,7 @@ type DefaultTagScanDefinitionRegistryPostProcessor struct {
 	NodeType       component_definition.PropertyType
 	Tag            string
 	ExtractHandler func(meta *component_definition.Meta, field *component_definition.Field) (tag, tagVal string, ok bool)
+	Required       bool
 }
 
 func (d *DefaultTagScanDefinitionRegistryPostProcessor) PostProcessDefinitionRegistry(registry support.DefinitionRegistry, component any, componentName string) error {
@@ -35,6 +36,13 @@ func (d *DefaultTagScanDefinitionRegistryPostProcessor) PostProcessDefinitionReg
 			}
 		}
 	}
+
+	for _, property := range properties {
+		if d.Required && !property.Args().Has(component_definition.ArgRequired) {
+			property.SetArg(component_definition.ArgRequired)
+		}
+	}
+
 	meta.SetProperties(properties...)
 	return nil
 }

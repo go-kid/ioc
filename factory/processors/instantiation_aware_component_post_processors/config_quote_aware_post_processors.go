@@ -79,6 +79,10 @@ func (c *configQuoteAwarePostProcessors) PostProcessProperties(properties []*com
 				}
 			}
 			prop.SetConfiguration(exp, expVal)
+
+			if expVal == nil {
+				return "", nil
+			}
 			marshalVal, err := strconv2.FormatAny(expVal)
 			if err != nil {
 				return "", errors.Wrapf(err, "marshal expression tag value %v error", expVal)

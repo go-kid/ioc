@@ -2,13 +2,13 @@ package strconv2
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/go-kid/ioc/util/strings2"
+	"github.com/pkg/errors"
 )
 
 func ParseAnySlice(val string) ([]any, error) {
 	if !isSlice(val) {
-		return nil, fmt.Errorf("can not parse \"%s\" as slice, need [value1,value2 ...] or json array", val)
+		return nil, errors.Errorf("can not parse \"%s\" as slice, need [value1,value2 ...] or json array", val)
 	}
 	var result = make([]any, 0)
 	if bytes := []byte(val); json.Valid(bytes) {

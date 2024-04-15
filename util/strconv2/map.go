@@ -2,8 +2,8 @@ package strconv2
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/go-kid/ioc/util/strings2"
+	"github.com/pkg/errors"
 	"strings"
 )
 
@@ -18,7 +18,7 @@ import (
 //	}
 func ParseAnyMap(val string) (map[string]any, error) {
 	if !isMap(val) {
-		return nil, fmt.Errorf("can not parse '%s' as map, need map[key:value ...] or json object", val)
+		return nil, errors.Errorf("can not parse '%s' as map, need map[key:value ...] or json object", val)
 	}
 	result := make(map[string]any)
 	if bytes := []byte(val); json.Valid(bytes) {
@@ -36,7 +36,7 @@ func ParseAnyMap(val string) (map[string]any, error) {
 	for _, part := range strings2.SplitWithConfig(val, mapSplitConfig) {
 		subKV := strings.SplitN(part, ":", 2)
 		if len(subKV) != 2 {
-			return nil, fmt.Errorf("can not parse \"%s\" as map, key value not found: \"%s\"", val, part)
+			return nil, errors.Errorf("can not parse \"%s\" as map, key value not found: \"%s\"", val, part)
 		}
 		var (
 			subK, subV = subKV[0], subKV[1]

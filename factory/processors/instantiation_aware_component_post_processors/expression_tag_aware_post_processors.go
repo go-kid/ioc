@@ -1,7 +1,6 @@
 package instantiation_aware_component_post_processors
 
 import (
-	"fmt"
 	"github.com/expr-lang/expr"
 	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/definition"
@@ -9,6 +8,7 @@ import (
 	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/el"
 	"github.com/go-kid/ioc/util/strconv2"
+	"github.com/pkg/errors"
 )
 
 type expressionTagAwarePostProcessors struct {
@@ -42,23 +42,23 @@ func (c *expressionTagAwarePostProcessors) PostProcessProperties(properties []*c
 		content, err := c.el.ReplaceAllContent(prop.TagVal, func(exp string) (string, error) {
 			program, err := expr.Compile(exp)
 			if err != nil {
-				return "", fmt.Errorf("compile expression '%s' error: %v", exp, err)
+				return "", errors.Wrapf(err, "compile expression '%s' error", exp)
 			}
 			result, err := expr.Run(program, nil)
 			if err != nil {
-				return "", fmt.Errorf("execute expression '%s' program error: %v", exp, err)
+				return "", errors.Wrapf(err, "execute expression '%s' program error", exp)
 			}
 			val, err := strconv2.FormatAny(result)
 			if err != nil {
-				return "", fmt.Errorf("marshal expression tag value %v error: %v", result, err)
+				return "", errors.Wrapf(err, "marshal expression tag value %v error", result)
 			}
 			return val, nil
 		})
 		if err != nil {
-			return nil, fmt.Errorf("execute expression language on '%s' failed: %v", prop.ID(), err)
+			return nil, errors.WithMessagef(err, "execute expression language on '%s' failed", prop)
 		}
 		prop.TagVal = content
-		syslog.Pref("ExpressionTagAwarePostProcessor").Debugf("execute expression language on '%s'\n '%s' -> '%s'", prop.ID(), rawTagVal, prop.TagVal)
+		syslog.Pref("ExpressionTagAwarePostProcessor").Debugf("execute expression language on '%s'\n '%s' -> '%s'", prop, rawTagVal, prop.TagVal)
 	}
 	return nil, nil
 }

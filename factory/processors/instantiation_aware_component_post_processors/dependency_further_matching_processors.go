@@ -1,12 +1,12 @@
 package instantiation_aware_component_post_processors
 
 import (
-	"fmt"
 	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/definition"
 	"github.com/go-kid/ioc/factory/processors"
 	"github.com/go-kid/ioc/util/fas"
 	"github.com/go-kid/ioc/util/reflectx"
+	"github.com/pkg/errors"
 	"reflect"
 )
 
@@ -36,7 +36,7 @@ func (d *dependencyFurtherMatchingPostProcessors) PostProcessProperties(properti
 		if err != nil {
 			if len(dependencies) == 0 {
 				if prop.IsRequired() {
-					return nil, fmt.Errorf("field '%s' is required but not found any components\n caused by: %v", prop.String(), err)
+					return nil, errors.WithMessagef(err, "field '%s' is required but not found any components", prop.String())
 				}
 				return nil, nil
 			}
@@ -57,7 +57,7 @@ func filterDependencies(n *component_definition.Property, metas []*component_def
 		return m != nil
 	})
 	if len(result) == 0 {
-		return nil, fmt.Errorf("%s not found available components", n.ID())
+		return nil, errors.Errorf("inject '%s' not found available components", n)
 	}
 	//filter qualifier
 	if qualifierName, isQualifier := n.Args().Find(component_definition.ArgQualifier); isQualifier {
@@ -66,7 +66,7 @@ func filterDependencies(n *component_definition.Property, metas []*component_def
 			return ok && n.Args().Has(component_definition.ArgQualifier, qualifier.Qualifier())
 		})
 		if len(result) == 0 {
-			return nil, fmt.Errorf("no component found for qualifier %s", qualifierName)
+			return nil, errors.Errorf("inject '%s' matching qualifier '%s' not found available components", n, qualifierName)
 		}
 	}
 

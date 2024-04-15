@@ -31,12 +31,6 @@ func NewProperty(field *Field, propType PropertyType, tag, tagVal string) *Prope
 	}
 }
 
-//func defaultPropertyArgs() TagArg {
-//	return TagArg{
-//		ArgRequired: {"true"},
-//	}
-//}
-
 func filter(metas []*Meta, f func(m *Meta) bool) []*Meta {
 	var result = make([]*Meta, 0, len(metas))
 	for _, m := range metas {
@@ -61,12 +55,12 @@ func (n *Property) String() string {
 
 func (n *Property) Inject(metas []*Meta) error {
 	if n.PropertyType != PropertyTypeComponent {
-		return errors.Errorf("property '%s' is not allowed to inject", n.ID())
+		return errors.Errorf("property '%s' is not allowed to inject", n)
 	}
 	isRequired := n.IsRequired()
 	if len(metas) == 0 {
 		if isRequired {
-			return errors.Errorf("inject %s: not found available components", n.ID())
+			return errors.Errorf("inject '%s': not found available components", n)
 		}
 		return nil
 	}
@@ -77,7 +71,7 @@ func (n *Property) Inject(metas []*Meta) error {
 	})
 	if len(metas) == 0 {
 		if isRequired {
-			return errors.Errorf("inject %s:%s: self inject not allowed", n.ID(), n.Holder.Stack())
+			return errors.Errorf("inject '%s':%s: self inject not allowed", n, n.Holder.Stack())
 		}
 		return nil
 	}
@@ -114,7 +108,7 @@ func (n *Property) SetConfiguration(path string, configValue any) {
 
 func (n *Property) Unmarshall(configValue any) error {
 	if n.PropertyType != PropertyTypeConfiguration {
-		return errors.Errorf("property '%s' is not allowed to unmarshall configuration value", n.ID())
+		return errors.Errorf("property '%s' is not allowed to unmarshall configuration value", n)
 	}
 	if configValue == nil {
 		return nil
@@ -132,11 +126,11 @@ func (n *Property) Unmarshall(configValue any) error {
 		}
 		decoder, err := mapstructure.NewDecoder(config)
 		if err != nil {
-			return fmt.Errorf("create mapstructure decoder error: %v", err)
+			return errors.Wrapf(err, "create mapstructure decoder error")
 		}
 		err = decoder.Decode(configValue)
 		if err != nil {
-			return fmt.Errorf("mapstructure decode %+v error: %v", configValue, err)
+			return errors.Wrapf(err, "mapstructure decode %+v", configValue)
 		}
 		return nil
 	})

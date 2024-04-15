@@ -1,7 +1,7 @@
 package strconv2
 
 import (
-	"fmt"
+	"github.com/pkg/errors"
 	"strconv"
 )
 
@@ -89,6 +89,6 @@ func Parse[T any](val string) (T, error) {
 	case string, any:
 		return any(val).(T), nil
 	default:
-		return tVal, fmt.Errorf("not supported to parse value %s as %T", val, tVal)
+		return tVal, errors.Errorf("not supported to parse value %s as %T", val, tVal)
 	}
 }

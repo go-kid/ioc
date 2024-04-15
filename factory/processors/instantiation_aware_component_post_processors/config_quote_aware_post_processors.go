@@ -1,7 +1,6 @@
 package instantiation_aware_component_post_processors
 
 import (
-	"fmt"
 	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/definition"
@@ -10,6 +9,7 @@ import (
 	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/el"
 	"github.com/go-kid/ioc/util/strconv2"
+	"github.com/pkg/errors"
 	"strings"
 )
 
@@ -62,7 +62,7 @@ func (c *configQuoteAwarePostProcessors) PostProcessProperties(properties []*com
 			}
 			if useDefaultValue {
 				if len(spExp) != 2 {
-					return "", fmt.Errorf("config quote value '%s' is not exist and has no default value", exp)
+					return "", errors.Errorf("config quote value '%s' is not exist and has no default value", exp)
 				}
 				//parse tag default value
 				if defaultVal := spExp[1]; defaultVal == "" {
@@ -71,14 +71,14 @@ func (c *configQuoteAwarePostProcessors) PostProcessProperties(properties []*com
 					var err error
 					expVal, err = strconv2.ParseAny(defaultVal)
 					if err != nil {
-						return "", fmt.Errorf("parse config quote default value %s error: %v", defaultVal, err)
+						return "", errors.Wrapf(err, "parse config quote default value %s error", defaultVal)
 					}
 				}
 			}
 
 			marshalVal, err := strconv2.FormatAny(expVal)
 			if err != nil {
-				return "", fmt.Errorf("marshal expression tag value %v error: %v", expVal, err)
+				return "", errors.Wrapf(err, "marshal expression tag value %v error", expVal)
 			}
 
 			prop.SetConfiguration(exp, expVal)
@@ -86,11 +86,11 @@ func (c *configQuoteAwarePostProcessors) PostProcessProperties(properties []*com
 			return marshalVal, nil
 		})
 		if err != nil {
-			return nil, fmt.Errorf("config quote value on '%s' failed: %v", prop.ID(), err)
+			return nil, errors.WithMessagef(err, "config quote value on '%s' failed", prop)
 		}
 
 		prop.TagVal = content
-		syslog.Pref("ConfigQuoteAwarePostProcessor").Debugf("config quote value on '%s'\n '%s' -> '%s'", prop.ID(), rawTagVal, prop.TagVal)
+		syslog.Pref("ConfigQuoteAwarePostProcessor").Debugf("config quote value on '%s'\n '%s' -> '%s'", prop, rawTagVal, prop.TagVal)
 	}
 	return nil, nil
 }

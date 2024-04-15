@@ -76,7 +76,7 @@ func (s *App) Run(ops ...SettingOption) error {
 		s.logger().Fatalf("%+v", err)
 	}
 	if err := s.run(); err != nil {
-		s.logger().Errorf("framework run failed: %+v", err)
+		s.logger().Errorf("application run failed: %+v", err)
 		return err
 	}
 	return nil
@@ -86,38 +86,37 @@ func (s *App) run() error {
 	/* begin load and bind configuration */
 	s.logger().Info("start initializing configuration...")
 	if err := s.initConfiguration(); err != nil {
-		return err
+		return errors.WithMessage(err, "application configuration initialize failed")
 	}
 
 	/* set default init behavior */
 	s.logger().Info("start initializing component factory...")
-	err := s.initFactory()
-	if err != nil {
-		return err
+	if err := s.initFactory(); err != nil {
+		return errors.WithMessage(err, "application factory initialize failed")
 	}
 	/* factory ready */
 
 	/* begin inject dependencies */
 	s.logger().Info("start refreshing components...")
 	if err := s.refresh(); err != nil {
-		return err
+		return errors.WithMessage(err, "application components refresh failed")
 	}
 	/* dependency injection ready */
 
 	/* begin call runners */
 	s.logger().Info("start call up runners...")
 	if err := s.callRunners(); err != nil {
-		return err
+		return errors.WithMessagef(err, "start application runners failed")
 	}
 	/* finished */
-	s.logger().Info("app run up")
+	s.logger().Info("application run up")
 	return nil
 }
 
 func (s *App) initConfiguration() error {
 	err := s.Configure.Initialize()
 	if err != nil {
-		return err
+		return errors.WithMessage(err, "initialize configure error")
 	}
 	return nil
 }
@@ -125,7 +124,7 @@ func (s *App) initConfiguration() error {
 func (s *App) initFactory() error {
 	err := s.Factory.PrepareComponents()
 	if err != nil {
-		return err
+		return errors.WithMessage(err, "prepare component factory error")
 	}
 	return nil
 }
@@ -133,7 +132,7 @@ func (s *App) initFactory() error {
 func (s *App) refresh() error {
 	err := s.Factory.Refresh()
 	if err != nil {
-		return err
+		return errors.WithMessage(err, "component factory refresh error")
 	}
 	return nil
 }

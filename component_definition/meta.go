@@ -11,8 +11,8 @@ import (
 type PropertyType string
 
 const (
-	PropertyTypeConfiguration PropertyType = "configuration"
-	PropertyTypeComponent     PropertyType = "component"
+	PropertyTypeConfiguration PropertyType = "Configuration"
+	PropertyTypeComponent     PropertyType = "Component"
 )
 
 type Meta struct {

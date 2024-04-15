@@ -1,11 +1,11 @@
 package instantiation_aware_component_post_processors
 
 import (
-	"fmt"
 	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/definition"
 	"github.com/go-kid/ioc/factory/processors"
 	"github.com/go-playground/validator/v10"
+	"github.com/pkg/errors"
 	"reflect"
 	"strings"
 )
@@ -47,12 +47,12 @@ func (c *validateAwarePostProcessors) PostProcessProperties(properties []*compon
 			if p.Kind() == reflect.Struct {
 				err := c.v.Struct(prop.Value.Interface())
 				if err != nil {
-					return nil, fmt.Errorf("validate on struct field '%s' error: %v", prop.ID(), err)
+					return nil, errors.Wrapf(err, "validate on struct field '%s' error", prop)
 				}
 			} else if prop.Value.CanInterface() {
 				err := c.v.Var(prop.Value.Interface(), strings.Join(ts, ","))
 				if err != nil {
-					return nil, fmt.Errorf("validate on variable field '%s' error: %v", prop.String(), err)
+					return nil, errors.Wrapf(err, "validate on variable field '%s' error", prop)
 				}
 			}
 		}

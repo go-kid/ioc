@@ -2,8 +2,8 @@ package reflectx
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/go-kid/ioc/util/strconv2"
+	"github.com/pkg/errors"
 	"reflect"
 	"strconv"
 	"strings"
@@ -33,7 +33,7 @@ var JsonUnmarshallHandler SetValueHandler = func(r reflect.Type, v reflect.Value
 	return SetValue(v, func(a any) error {
 		err := json.Unmarshal([]byte(s), a)
 		if err != nil {
-			return fmt.Errorf("unmarshall json %s to type '%s' failed: %v", s, r.String(), err)
+			return errors.Wrapf(err, "unmarshall json %s to type '%s' failed", s, r.String())
 		}
 		return nil
 	})
@@ -88,7 +88,7 @@ func SetAnyValueFromString(t reflect.Type, value reflect.Value, val string, itps
 			return err
 		}
 		if t.Len() != len(vals) {
-			return fmt.Errorf("array length not match, want: %s, actual: %s", t.String(), vals)
+			return errors.Errorf("array length not match, want: %s, actual: %s", t.String(), vals)
 		}
 		for i, v := range vals {
 			err := SetAnyValueFromString(t.Elem(), value.Index(i), v, itps...)
@@ -120,7 +120,7 @@ func SetAnyValueFromString(t reflect.Type, value reflect.Value, val string, itps
 		}
 		value.Set(reflect.ValueOf(m))
 	default:
-		return fmt.Errorf("not supported to set value %s as type %s", val, t.String())
+		return errors.Errorf("not supported to set value %s as type %s", val, t.String())
 	}
 	return nil
 }

@@ -1,12 +1,12 @@
 package instantiation_aware_component_post_processors
 
 import (
-	"fmt"
 	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/definition"
 	"github.com/go-kid/ioc/factory"
 	"github.com/go-kid/ioc/factory/processors"
+	"github.com/pkg/errors"
 )
 
 type propertiesAwarePostProcessors struct {
@@ -43,13 +43,13 @@ func (c *propertiesAwarePostProcessors) PostProcessProperties(properties []*comp
 		prop.SetConfiguration(prop.TagVal, configValue)
 		if configValue == nil {
 			if prop.IsRequired() {
-				return nil, fmt.Errorf("config value on '%s' is required", prop.ID())
+				return nil, errors.Errorf("config value on '%s' is required", prop)
 			}
 			continue
 		}
 		err := prop.Unmarshall(configValue)
 		if err != nil {
-			return nil, fmt.Errorf("populate on '%s' to %s failed: %v", prop.ID(), prop.Type.String(), err)
+			return nil, errors.WithMessagef(err, "populate config value on '%s' failed", prop)
 		}
 	}
 	return nil, nil

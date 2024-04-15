@@ -11,7 +11,7 @@ import (
 type Property struct {
 	*Field
 	PropertyType   PropertyType
-	Tag            string
+	Tag, TagStr    string
 	TagVal         string
 	Injects        []*Meta
 	Configurations map[string]any
@@ -25,6 +25,7 @@ func NewProperty(field *Field, propType PropertyType, tag, tagVal string) *Prope
 		Field:          field,
 		PropertyType:   propType,
 		Tag:            tag,
+		TagStr:         parsedTagVal,
 		TagVal:         parsedTagVal,
 		Configurations: make(map[string]any),
 		args:           args,
@@ -42,7 +43,7 @@ func filter(metas []*Meta, f func(m *Meta) bool) []*Meta {
 }
 
 func (n *Property) info() string {
-	return fmt.Sprintf(".Type(%s).Tag(%s:'%s')", n.PropertyType, n.Tag, n.TagVal)
+	return fmt.Sprintf(".Type(%s).Tag(%s:'%s')", n.PropertyType, n.Tag, n.TagStr)
 }
 
 func (n *Property) ID() string {
@@ -50,6 +51,9 @@ func (n *Property) ID() string {
 }
 
 func (n *Property) String() string {
+	if n.PropertyType == PropertyTypeConfiguration {
+		return fmt.Sprintf("%s%s.TagActualValue(%s)%s", n.Field.String(), n.info(), n.TagVal, n.args.String())
+	}
 	return fmt.Sprintf("%s%s%s", n.Field.String(), n.info(), n.args.String())
 }
 

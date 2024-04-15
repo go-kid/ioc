@@ -61,29 +61,28 @@ func (c *configQuoteAwarePostProcessors) PostProcessProperties(properties []*com
 			} else if arr, ok := expVal.([]any); ok && len(arr) == 0 {
 				useDefaultValue = true
 			}
+
 			if useDefaultValue {
-				if len(spExp) != 2 {
+				var defaultValue string
+				if len(spExp) == 2 {
+					defaultValue = spExp[1]
+				} else {
 					logger.Warnf("config quote value '%s' is neither in configuration nor has a default value", exp)
-					return "", nil
 				}
 				//parse tag default value
-				if defaultVal := spExp[1]; defaultVal == "" {
-					return "", nil
-				} else {
-					var err error
-					expVal, err = strconv2.ParseAny(defaultVal)
+				if defaultValue != "" {
+					parsedVal, err := strconv2.ParseAny(defaultValue)
 					if err != nil {
-						return "", errors.Wrapf(err, "parse config quote default value '%s' error", defaultVal)
+						return "", errors.Wrapf(err, "parse config quote default value '%s' error", defaultValue)
 					}
+					expVal = parsedVal
 				}
 			}
-
+			prop.SetConfiguration(exp, expVal)
 			marshalVal, err := strconv2.FormatAny(expVal)
 			if err != nil {
 				return "", errors.Wrapf(err, "marshal expression tag value %v error", expVal)
 			}
-
-			prop.SetConfiguration(exp, expVal)
 
 			return marshalVal, nil
 		})

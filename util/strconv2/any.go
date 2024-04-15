@@ -43,6 +43,9 @@ func isNumber(v string) bool {
 }
 
 func FormatAny(a any) (string, error) {
+	if a == nil {
+		return "<nil>", nil
+	}
 	switch a.(type) {
 	case string:
 		return a.(string), nil

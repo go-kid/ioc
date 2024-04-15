@@ -41,6 +41,7 @@ func (c *configQuoteAwarePostProcessors) Order() int {
 }
 
 func (c *configQuoteAwarePostProcessors) PostProcessProperties(properties []*component_definition.Property, component any, componentName string) ([]*component_definition.Property, error) {
+	logger := syslog.Pref("ConfigQuoteAwarePostProcessor")
 	for _, prop := range properties {
 		if !c.el.MatchString(prop.TagVal) {
 			continue
@@ -62,7 +63,8 @@ func (c *configQuoteAwarePostProcessors) PostProcessProperties(properties []*com
 			}
 			if useDefaultValue {
 				if len(spExp) != 2 {
-					return "", errors.Errorf("config quote value '%s' is not exist and has no default value", exp)
+					logger.Warnf("config quote value '%s' is neither in configuration nor has a default value", exp)
+					return "", nil
 				}
 				//parse tag default value
 				if defaultVal := spExp[1]; defaultVal == "" {
@@ -71,7 +73,7 @@ func (c *configQuoteAwarePostProcessors) PostProcessProperties(properties []*com
 					var err error
 					expVal, err = strconv2.ParseAny(defaultVal)
 					if err != nil {
-						return "", errors.Wrapf(err, "parse config quote default value %s error", defaultVal)
+						return "", errors.Wrapf(err, "parse config quote default value '%s' error", defaultVal)
 					}
 				}
 			}
@@ -90,7 +92,7 @@ func (c *configQuoteAwarePostProcessors) PostProcessProperties(properties []*com
 		}
 
 		prop.TagVal = content
-		syslog.Pref("ConfigQuoteAwarePostProcessor").Debugf("config quote value on '%s'\n '%s' -> '%s'", prop, rawTagVal, prop.TagVal)
+		logger.Debugf("config quote value on '%s'\n '%s' -> '%s'", prop, rawTagVal, prop.TagVal)
 	}
 	return nil, nil
 }

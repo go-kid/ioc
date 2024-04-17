@@ -5,7 +5,7 @@ import (
 	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/definition"
 	"github.com/go-kid/ioc/factory/processors"
-	"github.com/go-kid/ioc/util/strings2"
+	"github.com/go-kid/strings2"
 )
 
 type valueTagScanProcessor struct {

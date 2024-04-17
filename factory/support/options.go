@@ -3,7 +3,7 @@ package support
 import (
 	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/util/reflectx"
-	"github.com/go-kid/ioc/util/strconv2"
+	"github.com/go-kid/strconv2"
 	"reflect"
 )
 

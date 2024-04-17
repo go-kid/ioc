@@ -2,7 +2,7 @@ package component_definition
 
 import (
 	"github.com/go-kid/ioc/util/sort2"
-	"github.com/go-kid/ioc/util/strings2"
+	"github.com/go-kid/strings2"
 	"strings"
 )
 

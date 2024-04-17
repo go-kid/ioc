@@ -2,7 +2,7 @@ package reflectx
 
 import (
 	"encoding/json"
-	"github.com/go-kid/ioc/util/strconv2"
+	"github.com/go-kid/strconv2"
 	"github.com/pkg/errors"
 	"reflect"
 	"strconv"

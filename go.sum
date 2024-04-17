@@ -67,6 +67,10 @@ github.com/go-gl/glfw/v3.3/glfw v0.0.0-20191125211704-12ad95a8df72/go.mod h1:tQ2
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200222043503-6f7a984d4dc4/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
 github.com/go-kid/properties v0.0.1 h1:p3nqzM8vMJvVynPqMXXWa+Qdc7ieYu2dsm2CayqzFrA=
 github.com/go-kid/properties v0.0.1/go.mod h1:IxSdFbvIu1n5UcwOfDVgZ31erVDriAlJra+e1s9hNxc=
+github.com/go-kid/strconv2 v0.0.1 h1:gWn2QTslYPmt8F8NV7sIr4279xnPL6/boU0Hzy+RGy4=
+github.com/go-kid/strconv2 v0.0.1/go.mod h1:G6HFlDtWK/k/qARuJsD9K+pIwtoGeM9pwAqoGTN5gtI=
+github.com/go-kid/strings2 v0.0.1 h1:mAxi0r9m8TkF0bY0EfWM71nCRB4Ulw7WZp2xd1RUWOQ=
+github.com/go-kid/strings2 v0.0.1/go.mod h1:wcgoCTUN+tzPyjnYzMMNRALAl2KBT1jNA6lble5PWko=
 github.com/go-playground/assert/v2 v2.2.0 h1:JvknZsQTYeFEAhQwI4qEt9cyV5ONwRHC+lYKSsYSR8s=
 github.com/go-playground/locales v0.14.1 h1:EWaQ/wswjilfKLTECiXz7Rh+3BjFhfDFKv/oXslEjJA=
 github.com/go-playground/locales v0.14.1/go.mod h1:hxrqLVvrK65+Rwrd5Fc6F2O76J/NuW9t0sjnWqG1slY=

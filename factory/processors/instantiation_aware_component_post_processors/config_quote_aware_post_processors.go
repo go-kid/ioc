@@ -8,7 +8,7 @@ import (
 	"github.com/go-kid/ioc/factory/processors"
 	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/el"
-	"github.com/go-kid/ioc/util/strconv2"
+	"github.com/go-kid/strconv2"
 	"github.com/pkg/errors"
 	"strings"
 )

@@ -3,8 +3,8 @@ package loader
 import (
 	"flag"
 	"github.com/go-kid/ioc/syslog"
-	"github.com/go-kid/ioc/util/strconv2"
 	"github.com/go-kid/properties"
+	"github.com/go-kid/strconv2"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
 	"strings"

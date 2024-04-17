@@ -22,9 +22,10 @@ func zeroValue(p reflect.Type, cache map[string]reflect.Value) any {
 	switch p.Kind() {
 	case reflect.Bool:
 		zero.SetBool(false)
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
-		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		zero.SetInt(0)
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		zero.SetUint(0)
 	case reflect.Float32, reflect.Float64:
 		zero.SetFloat(0.0)
 	case reflect.Array:

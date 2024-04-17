@@ -4,7 +4,9 @@ go 1.20
 
 require (
 	github.com/expr-lang/expr v1.16.3
+	github.com/go-kid/properties v0.0.1
 	github.com/go-playground/validator/v10 v10.19.0
+	github.com/mitchellh/mapstructure v1.5.0
 	github.com/pkg/errors v0.9.1
 	github.com/samber/lo v1.38.1
 	github.com/spf13/viper v1.15.0
@@ -21,7 +23,6 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
-	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.6 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/spf13/afero v1.9.3 // indirect

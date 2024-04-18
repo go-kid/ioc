@@ -43,9 +43,9 @@ func (args ArgsLoader) LoadConfig() ([]byte, error) {
 	if len(p) == 0 {
 		return nil, nil
 	}
-	bytes, err := yaml.Marshal(p.Expand())
+	bytes, err := yaml.Marshal(p)
 	if err != nil {
-		return nil, errors.Wrapf(err, "marshal to YAML: %+v", p.Expand())
+		return nil, errors.Wrapf(err, "marshal to YAML: %+v", p)
 	}
 
 	return bytes, nil

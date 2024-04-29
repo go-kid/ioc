@@ -169,7 +169,7 @@ func (f *PostProcessorRegistrationDelegate) applyPostProcessAfterInitialization(
 }
 
 func (f *PostProcessorRegistrationDelegate) logger() syslog.Logger {
-	return syslog.GetLogger().Pref("PostProcessorDelegate")
+	return syslog.Pref("PostProcessorDelegate")
 }
 
 func (f *PostProcessorRegistrationDelegate) ResolveBeforeInstantiation(meta *component_definition.Meta, name string) (any, error) {

@@ -95,5 +95,5 @@ func (r *defaultSingletonComponentRegistry) IsSingletonCurrentlyInCreation(name 
 }
 
 func (r *defaultSingletonComponentRegistry) logger() syslog.Logger {
-	return syslog.GetLogger().Pref("SingletonComponentRegistry")
+	return syslog.Pref("SingletonComponentRegistry")
 }

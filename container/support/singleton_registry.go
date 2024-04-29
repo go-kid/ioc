@@ -62,5 +62,5 @@ func (r *registry) RegisterSingleton(singleton any) {
 }
 
 func (r *registry) logger() syslog.Logger {
-	return syslog.GetLogger().Pref("SingletonRegistry")
+	return syslog.Pref("SingletonRegistry")
 }

@@ -79,7 +79,7 @@ func main() {
 	b := &ServiceB{Name: "service B"}
 	c := &ServiceC{Name: "service C"}
 	run, err := ioc.Run(
-		//app.LogTrace,
+		app.LogTrace,
 		app.AddConfigLoader(loader.NewRawLoader([]byte(`aop:
   enable: true`))),
 		app.SetComponents(

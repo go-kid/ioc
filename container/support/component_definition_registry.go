@@ -40,12 +40,11 @@ func (r *defaultDefinitionRegistry) GetMetaByName(name string) *component_defini
 	return nil
 }
 
-func (r *defaultDefinitionRegistry) GetMetaOrRegister(name string, handler container.RegisterMeta) *component_definition.Meta {
-	if m, ok := r.metaMaps.Load(name); ok {
+func (r *defaultDefinitionRegistry) GetMetaOrRegister(name string, component any) *component_definition.Meta {
+	m, _ := r.metaMaps.LoadOrStoreFn(name, func() *component_definition.Meta {
+		m := component_definition.NewMeta(component)
+		m.SetName(name)
 		return m
-	}
-	m := handler()
-	m.SetName(name)
-	r.RegisterMeta(m)
+	})
 	return m
 }

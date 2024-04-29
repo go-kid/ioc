@@ -13,13 +13,11 @@ type SingletonRegistry interface {
 	GetSingletonCount() int
 }
 
-type RegisterMeta func() *component_definition.Meta
-
 type DefinitionRegistry interface {
 	RegisterMeta(m *component_definition.Meta)
 	GetMetas(opts ...Option) []*component_definition.Meta
 	GetMetaByName(name string) *component_definition.Meta
-	GetMetaOrRegister(name string, handler RegisterMeta) *component_definition.Meta
+	GetMetaOrRegister(name string, component any) *component_definition.Meta
 }
 
 type SingletonComponentRegistry interface {

@@ -174,5 +174,5 @@ func (s *App) Close() {
 }
 
 func (s *App) logger() syslog.Logger {
-	return syslog.GetLogger().Pref("Application")
+	return syslog.Pref("Application")
 }

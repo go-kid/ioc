@@ -1,7 +1,10 @@
 package syslog
 
+import "github.com/go-kid/ioc/util/sync2"
+
 var (
-	_logger Logger = New(LvInfo)
+	_logger   Logger = New(LvInfo)
+	prefCache        = sync2.New[any, Logger]()
 )
 
 func Trace(v ...any) {
@@ -52,13 +55,12 @@ func Level(lv Lv) {
 }
 
 func Pref(pref any) Logger {
-	return _logger.Pref(pref)
+	l, _ := prefCache.LoadOrStoreFn(pref, func() Logger {
+		return _logger.Pref(pref)
+	})
+	return l
 }
 
 func SetLogger(l Logger) {
 	_logger = l
-}
-
-func GetLogger() Logger {
-	return _logger
 }

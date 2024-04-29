@@ -72,5 +72,5 @@ func (c *configure) loadConfigure() error {
 }
 
 func (c *configure) logger() syslog.Logger {
-	return syslog.GetLogger().Pref("Configure")
+	return syslog.Pref("Configure")
 }

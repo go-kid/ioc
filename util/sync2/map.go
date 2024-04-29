@@ -28,6 +28,15 @@ func (m *Map[K, V]) LoadOrStore(key K, value V) (V, bool) {
 	return actual.(V), loaded
 }
 
+func (m *Map[K, V]) LoadOrStoreFn(key K, f func() V) (V, bool) {
+	if v, loaded := m.Load(key); loaded {
+		return v, true
+	}
+	v := f()
+	m.m.Store(key, v)
+	return v, false
+}
+
 func (m *Map[K, V]) Delete(key K) {
 	m.m.Delete(key)
 }

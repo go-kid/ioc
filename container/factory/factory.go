@@ -300,5 +300,5 @@ func (f *defaultFactory) genProxyComponent(origin *component_definition.Meta, na
 }
 
 func (f *defaultFactory) logger() syslog.Logger {
-	return syslog.GetLogger().Pref("ComponentFactory")
+	return syslog.Pref("ComponentFactory")
 }

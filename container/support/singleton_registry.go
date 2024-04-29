@@ -1,6 +1,7 @@
 package support
 
 import (
+	"github.com/go-kid/ioc/container"
 	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/framework_helper"
 	"github.com/go-kid/ioc/util/sync2"
@@ -42,7 +43,7 @@ func (r *registry) GetSingletonCount() int {
 	return len(r.GetSingletonNames())
 }
 
-func NewRegistry() SingletonRegistry {
+func NewRegistry() container.SingletonRegistry {
 	return &registry{
 		componentsMap: sync2.New[string, any](),
 	}

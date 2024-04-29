@@ -1,9 +1,9 @@
-package instantiation_aware_component_post_processors
+package processors
 
 import (
 	"github.com/go-kid/ioc/component_definition"
+	"github.com/go-kid/ioc/container"
 	"github.com/go-kid/ioc/definition"
-	"github.com/go-kid/ioc/factory/processors"
 	"github.com/go-playground/validator/v10"
 	"github.com/pkg/errors"
 	"reflect"
@@ -15,12 +15,12 @@ const (
 )
 
 type validateAwarePostProcessors struct {
-	processors.DefaultInstantiationAwareComponentPostProcessor
+	DefaultInstantiationAwareComponentPostProcessor
 	definition.LazyInitComponent
 	v *validator.Validate
 }
 
-func NewValidateAwarePostProcessors() processors.InstantiationAwareComponentPostProcessor {
+func NewValidateAwarePostProcessors() container.InstantiationAwareComponentPostProcessor {
 	return &validateAwarePostProcessors{
 		v: validator.New(validator.WithRequiredStructEnabled()),
 	}

@@ -1,26 +1,38 @@
-package instantiation_aware_component_post_processors
+package processors
 
 import (
 	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/configure"
+	"github.com/go-kid/ioc/container"
 	"github.com/go-kid/ioc/definition"
-	"github.com/go-kid/ioc/factory"
-	"github.com/go-kid/ioc/factory/processors"
 	"github.com/pkg/errors"
 )
 
 type propertiesAwarePostProcessors struct {
-	processors.DefaultInstantiationAwareComponentPostProcessor
+	DefaultTagScanDefinitionRegistryPostProcessor
+	DefaultInstantiationAwareComponentPostProcessor
 	definition.PriorityComponent
-	definition.LazyInitComponent
 	Configure configure.Configure
 }
 
-func NewPropertiesAwarePostProcessors() processors.InstantiationAwareComponentPostProcessor {
-	return &propertiesAwarePostProcessors{}
+func NewPropertiesAwarePostProcessors() container.InstantiationAwareComponentPostProcessor {
+	return &propertiesAwarePostProcessors{
+		DefaultTagScanDefinitionRegistryPostProcessor: DefaultTagScanDefinitionRegistryPostProcessor{
+			NodeType: component_definition.PropertyTypeConfiguration,
+			Tag:      definition.PrefixTag,
+			ExtractHandler: func(meta *component_definition.Meta, field *component_definition.Field) (tag, tagVal string, ok bool) {
+				if configuration, infer := field.Value.Interface().(definition.ConfigurationProperties); infer {
+					tagVal = configuration.Prefix()
+					ok = true
+				}
+				return
+			},
+			Required: true,
+		},
+	}
 }
 
-func (c *propertiesAwarePostProcessors) PostProcessComponentFactory(factory factory.Factory) error {
+func (c *propertiesAwarePostProcessors) PostProcessComponentFactory(factory container.Factory) error {
 	c.Configure = factory.GetConfigure()
 	return nil
 }

@@ -3,14 +3,13 @@ package app
 import (
 	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/configure/loader"
-	"github.com/go-kid/ioc/factory"
-	"github.com/go-kid/ioc/factory/support"
+	"github.com/go-kid/ioc/container"
 	"github.com/go-kid/ioc/syslog"
 )
 
 type SettingOption func(s *App)
 
-func SetRegistry(r support.SingletonRegistry) SettingOption {
+func SetRegistry(r container.SingletonRegistry) SettingOption {
 	return func(s *App) {
 		s.registry = r
 	}
@@ -36,7 +35,7 @@ func SetConfig(cfg string) SettingOption {
 	}
 }
 
-func SetFactory(factory factory.Factory) SettingOption {
+func SetFactory(factory container.Factory) SettingOption {
 	return func(s *App) {
 		s.Factory = factory
 	}

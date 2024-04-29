@@ -3,11 +3,11 @@ package app
 import (
 	"flag"
 	"github.com/go-kid/ioc/configure"
+	"github.com/go-kid/ioc/container"
+	"github.com/go-kid/ioc/container/factory"
+	"github.com/go-kid/ioc/container/processors"
+	"github.com/go-kid/ioc/container/support"
 	"github.com/go-kid/ioc/definition"
-	"github.com/go-kid/ioc/factory"
-	"github.com/go-kid/ioc/factory/processors/definition_registry_post_processors"
-	"github.com/go-kid/ioc/factory/processors/instantiation_aware_component_post_processors"
-	"github.com/go-kid/ioc/factory/support"
 	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/framework_helper"
 	"github.com/pkg/errors"
@@ -16,8 +16,8 @@ import (
 
 type App struct {
 	configure.Configure
-	factory.Factory
-	registry           support.SingletonRegistry
+	container.Factory
+	registry           container.SingletonRegistry
 	ApplicationRunners []definition.ApplicationRunner `wire:",required=false"`
 	CloserComponents   []definition.CloserComponent   `wire:",required=false"`
 }
@@ -46,20 +46,14 @@ func (s *App) initiate() error {
 	s.Factory.SetConfigure(s.Configure)
 	var initiateComponent = []any{
 		s,
-		//definition_registry_post_processors.NewPropTagScanProcessor(),
-		definition_registry_post_processors.NewConfigurationScanProcessor(),
-		definition_registry_post_processors.NewValueTagScanProcessor(),
-		definition_registry_post_processors.NewWireTagScanProcessor(),
-		definition_registry_post_processors.NewFuncTagScanProcessor(),
-		instantiation_aware_component_post_processors.NewConfigQuoteAwarePostProcessors(),
-		instantiation_aware_component_post_processors.NewExpressionTagAwarePostProcessors(),
-		instantiation_aware_component_post_processors.NewPropertiesAwarePostProcessors(),
-		instantiation_aware_component_post_processors.NewValueAwarePostProcessors(),
-		instantiation_aware_component_post_processors.NewValidateAwarePostProcessors(),
-		instantiation_aware_component_post_processors.NewDependencyNameAwarePostProcessors(),
-		instantiation_aware_component_post_processors.NewDependencyTypeAwarePostProcessors(),
-		instantiation_aware_component_post_processors.NewDependencyFurtherMatchingProcessors(),
-		instantiation_aware_component_post_processors.NewDependencyFunctionAwarePostProcessors(),
+		processors.NewConfigQuoteAwarePostProcessors(),
+		processors.NewExpressionTagAwarePostProcessors(),
+		processors.NewPropertiesAwarePostProcessors(),
+		processors.NewValueAwarePostProcessors(),
+		processors.NewValidateAwarePostProcessors(),
+		processors.NewDependencyAwarePostProcessors(),
+		processors.NewDependencyFurtherMatchingProcessors(),
+		processors.NewDependencyFunctionAwarePostProcessors(),
 	}
 	for _, c := range initiateComponent {
 		s.registry.RegisterSingleton(c)

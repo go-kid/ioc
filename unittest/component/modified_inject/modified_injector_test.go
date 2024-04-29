@@ -4,7 +4,7 @@ import (
 	"github.com/go-kid/ioc"
 	"github.com/go-kid/ioc/app"
 	"github.com/go-kid/ioc/component_definition"
-	"github.com/go-kid/ioc/factory/processors"
+	"github.com/go-kid/ioc/container/processors"
 	"github.com/stretchr/testify/assert"
 	"reflect"
 	"strconv"

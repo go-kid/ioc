@@ -1,9 +1,9 @@
-package instantiation_aware_component_post_processors
+package processors
 
 import (
 	"github.com/go-kid/ioc/component_definition"
+	"github.com/go-kid/ioc/container"
 	"github.com/go-kid/ioc/definition"
-	"github.com/go-kid/ioc/factory/processors"
 	"github.com/go-kid/ioc/util/fas"
 	"github.com/go-kid/ioc/util/reflectx"
 	"github.com/pkg/errors"
@@ -11,11 +11,11 @@ import (
 )
 
 type dependencyFurtherMatchingPostProcessors struct {
-	processors.DefaultInstantiationAwareComponentPostProcessor
+	DefaultInstantiationAwareComponentPostProcessor
 	definition.LazyInitComponent
 }
 
-func NewDependencyFurtherMatchingProcessors() processors.InstantiationAwareComponentPostProcessor {
+func NewDependencyFurtherMatchingProcessors() container.InstantiationAwareComponentPostProcessor {
 	return &dependencyFurtherMatchingPostProcessors{}
 }
 

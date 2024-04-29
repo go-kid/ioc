@@ -1,4 +1,4 @@
-package support
+package container
 
 import (
 	"github.com/go-kid/ioc/component_definition"

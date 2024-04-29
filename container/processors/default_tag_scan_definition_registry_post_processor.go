@@ -2,8 +2,8 @@ package processors
 
 import (
 	"github.com/go-kid/ioc/component_definition"
+	"github.com/go-kid/ioc/container"
 	"github.com/go-kid/ioc/definition"
-	"github.com/go-kid/ioc/factory/support"
 )
 
 type DefaultTagScanDefinitionRegistryPostProcessor struct {
@@ -14,7 +14,7 @@ type DefaultTagScanDefinitionRegistryPostProcessor struct {
 	Required       bool
 }
 
-func (d *DefaultTagScanDefinitionRegistryPostProcessor) PostProcessDefinitionRegistry(registry support.DefinitionRegistry, component any, componentName string) error {
+func (d *DefaultTagScanDefinitionRegistryPostProcessor) PostProcessDefinitionRegistry(registry container.DefinitionRegistry, component any, componentName string) error {
 	meta := registry.GetMetaOrRegister(componentName, func() *component_definition.Meta {
 		return component_definition.NewMeta(component)
 	})

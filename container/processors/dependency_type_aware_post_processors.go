@@ -1,25 +1,23 @@
-package instantiation_aware_component_post_processors
+package processors
 
 import (
 	"github.com/go-kid/ioc/component_definition"
+	"github.com/go-kid/ioc/container"
 	"github.com/go-kid/ioc/definition"
-	"github.com/go-kid/ioc/factory"
-	"github.com/go-kid/ioc/factory/processors"
-	"github.com/go-kid/ioc/factory/support"
 	"reflect"
 )
 
 type dependencyTypeAwarePostProcessors struct {
-	processors.DefaultInstantiationAwareComponentPostProcessor
+	DefaultInstantiationAwareComponentPostProcessor
 	definition.LazyInitComponent
-	Registry support.DefinitionRegistry
+	Registry container.DefinitionRegistry
 }
 
-func NewDependencyTypeAwarePostProcessors() processors.InstantiationAwareComponentPostProcessor {
+func NewDependencyTypeAwarePostProcessors() container.InstantiationAwareComponentPostProcessor {
 	return &dependencyTypeAwarePostProcessors{}
 }
 
-func (d *dependencyTypeAwarePostProcessors) PostProcessComponentFactory(factory factory.Factory) error {
+func (d *dependencyTypeAwarePostProcessors) PostProcessComponentFactory(factory container.Factory) error {
 	d.Registry = factory.GetDefinitionRegistry()
 	return nil
 }
@@ -38,11 +36,11 @@ func (d *dependencyTypeAwarePostProcessors) PostProcessProperties(properties []*
 			continue
 		}
 		if prop.TagVal == "" {
-			var typeOption support.Option
+			var typeOption container.Option
 			if p, ok := isActualKind(prop.Type, reflect.Pointer); ok {
-				typeOption = support.Type(p)
+				typeOption = container.Type(p)
 			} else if p, ok = isActualKind(prop.Type, reflect.Interface); ok {
-				typeOption = support.InterfaceType(p)
+				typeOption = container.InterfaceType(p)
 			} else {
 				continue
 			}
@@ -51,14 +49,4 @@ func (d *dependencyTypeAwarePostProcessors) PostProcessProperties(properties []*
 		}
 	}
 	return nil, nil
-}
-
-func isActualKind(p reflect.Type, kind reflect.Kind) (reflect.Type, bool) {
-	if p.Kind() == kind {
-		return p, true
-	}
-	if p.Kind() == reflect.Slice && p.Elem().Kind() == kind {
-		return p.Elem(), true
-	}
-	return nil, false
 }

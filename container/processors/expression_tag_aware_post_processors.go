@@ -1,10 +1,10 @@
-package instantiation_aware_component_post_processors
+package processors
 
 import (
 	"github.com/expr-lang/expr"
 	"github.com/go-kid/ioc/component_definition"
+	"github.com/go-kid/ioc/container"
 	"github.com/go-kid/ioc/definition"
-	"github.com/go-kid/ioc/factory/processors"
 	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/el"
 	"github.com/go-kid/strconv2"
@@ -12,13 +12,13 @@ import (
 )
 
 type expressionTagAwarePostProcessors struct {
-	processors.DefaultInstantiationAwareComponentPostProcessor
+	DefaultInstantiationAwareComponentPostProcessor
 	definition.PriorityComponent
 	definition.LazyInitComponent
 	el el.Helper
 }
 
-func NewExpressionTagAwarePostProcessors() processors.InstantiationAwareComponentPostProcessor {
+func NewExpressionTagAwarePostProcessors() container.InstantiationAwareComponentPostProcessor {
 	return &expressionTagAwarePostProcessors{
 		el: el.NewExpr(),
 	}

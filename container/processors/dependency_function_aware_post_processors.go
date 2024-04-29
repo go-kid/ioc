@@ -1,25 +1,30 @@
-package instantiation_aware_component_post_processors
+package processors
 
 import (
 	"github.com/go-kid/ioc/component_definition"
+	"github.com/go-kid/ioc/container"
 	"github.com/go-kid/ioc/definition"
-	"github.com/go-kid/ioc/factory"
-	"github.com/go-kid/ioc/factory/processors"
-	"github.com/go-kid/ioc/factory/support"
 	"reflect"
 )
 
 type dependencyFunctionAwarePostProcessors struct {
-	processors.DefaultInstantiationAwareComponentPostProcessor
-	definition.LazyInitComponent
-	Registry support.DefinitionRegistry
+	DefaultTagScanDefinitionRegistryPostProcessor
+	DefaultInstantiationAwareComponentPostProcessor
+	Registry container.DefinitionRegistry
 }
 
-func NewDependencyFunctionAwarePostProcessors() processors.InstantiationAwareComponentPostProcessor {
-	return &dependencyFunctionAwarePostProcessors{}
+func NewDependencyFunctionAwarePostProcessors() container.InstantiationAwareComponentPostProcessor {
+	return &dependencyFunctionAwarePostProcessors{
+		DefaultTagScanDefinitionRegistryPostProcessor: DefaultTagScanDefinitionRegistryPostProcessor{
+			NodeType:       component_definition.PropertyTypeComponent,
+			Tag:            definition.FuncTag,
+			ExtractHandler: nil,
+			Required:       true,
+		},
+	}
 }
 
-func (d *dependencyFunctionAwarePostProcessors) PostProcessComponentFactory(factory factory.Factory) error {
+func (d *dependencyFunctionAwarePostProcessors) PostProcessComponentFactory(factory container.Factory) error {
 	d.Registry = factory.GetDefinitionRegistry()
 	return nil
 }
@@ -38,24 +43,24 @@ func (d *dependencyFunctionAwarePostProcessors) PostProcessProperties(properties
 			continue
 		}
 		var (
-			typeOption support.Option
-			funcOption support.Option
+			typeOption container.Option
+			funcOption container.Option
 		)
 		if p, ok := isActualKind(prop.Type, reflect.Pointer); ok {
-			typeOption = support.Type(p)
+			typeOption = container.Type(p)
 		} else if p, ok = isActualKind(prop.Type, reflect.Interface); ok {
-			typeOption = support.InterfaceType(p)
+			typeOption = container.InterfaceType(p)
 		} else {
 			continue
 		}
 		if args, ok := prop.Args().Find("returns"); ok {
-			var options []support.Option
+			var options []container.Option
 			for _, arg := range args {
-				options = append(options, support.FuncNameAndResult(prop.TagVal, arg))
+				options = append(options, container.FuncNameAndResult(prop.TagVal, arg))
 			}
-			funcOption = support.Or(options...)
+			funcOption = container.Or(options...)
 		} else {
-			funcOption = support.FuncName(prop.TagVal)
+			funcOption = container.FuncName(prop.TagVal)
 		}
 		dm := d.Registry.GetMetas(typeOption, funcOption)
 		prop.Injects = append(prop.Injects, dm...)

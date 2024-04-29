@@ -5,7 +5,7 @@ import (
 	"github.com/go-kid/ioc"
 	"github.com/go-kid/ioc/app"
 	"github.com/go-kid/ioc/configure/loader"
-	"github.com/go-kid/ioc/factory/processors"
+	"github.com/go-kid/ioc/container/processors"
 )
 
 type Service interface {

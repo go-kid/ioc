@@ -1,11 +1,10 @@
-package instantiation_aware_component_post_processors
+package processors
 
 import (
 	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/configure"
+	"github.com/go-kid/ioc/container"
 	"github.com/go-kid/ioc/definition"
-	"github.com/go-kid/ioc/factory"
-	"github.com/go-kid/ioc/factory/processors"
 	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/el"
 	"github.com/go-kid/strconv2"
@@ -14,20 +13,20 @@ import (
 )
 
 type configQuoteAwarePostProcessors struct {
-	processors.DefaultInstantiationAwareComponentPostProcessor
+	DefaultInstantiationAwareComponentPostProcessor
 	definition.PriorityComponent
 	definition.LazyInitComponent
 	Configure configure.Configure
 	el        el.Helper
 }
 
-func NewConfigQuoteAwarePostProcessors() processors.InstantiationAwareComponentPostProcessor {
+func NewConfigQuoteAwarePostProcessors() container.InstantiationAwareComponentPostProcessor {
 	return &configQuoteAwarePostProcessors{
 		el: el.NewQuote(),
 	}
 }
 
-func (c *configQuoteAwarePostProcessors) PostProcessComponentFactory(factory factory.Factory) error {
+func (c *configQuoteAwarePostProcessors) PostProcessComponentFactory(factory container.Factory) error {
 	c.Configure = factory.GetConfigure()
 	return nil
 }

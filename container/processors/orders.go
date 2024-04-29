@@ -1,4 +1,4 @@
-package instantiation_aware_component_post_processors
+package processors
 
 const (
 	PriorityOrderPropertyConfigQuoteAware = 1 << (iota + 1)

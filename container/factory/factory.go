@@ -3,27 +3,26 @@ package factory
 import (
 	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/configure"
+	"github.com/go-kid/ioc/container"
+	"github.com/go-kid/ioc/container/support"
 	"github.com/go-kid/ioc/definition"
-	"github.com/go-kid/ioc/factory/processors"
-	"github.com/go-kid/ioc/factory/support"
 	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/sort2"
 	"github.com/pkg/errors"
 )
 
 type defaultFactory struct {
-	singletonRegistry                 support.SingletonRegistry
-	definitionRegistry                support.DefinitionRegistry
-	singletonComponentRegistry        support.SingletonComponentRegistry
+	singletonRegistry                 container.SingletonRegistry
+	definitionRegistry                container.DefinitionRegistry
+	singletonComponentRegistry        container.SingletonComponentRegistry
 	configure                         configure.Configure
-	definitionRegistryPostProcessors  []processors.DefinitionRegistryPostProcessor
-	factoryPostProcessors             []ComponentFactoryPostProcessor
+	definitionRegistryPostProcessors  []container.DefinitionRegistryPostProcessor
 	allowCircularReferences           bool
 	postProcessorRegistrationDelegate *PostProcessorRegistrationDelegate
 	registeredComponents              map[string]any
 }
 
-func Default() Factory {
+func Default() container.Factory {
 	f := &defaultFactory{
 		definitionRegistry:                support.DefaultDefinitionRegistry(),
 		singletonComponentRegistry:        support.DefaultSingletonComponentRegistry(),
@@ -36,24 +35,25 @@ func Default() Factory {
 func (f *defaultFactory) PrepareComponents() error {
 	singletonNames := f.singletonRegistry.GetSingletonNames()
 	f.registeredComponents = make(map[string]any, len(singletonNames))
+	var factoryPostProcessors []container.ComponentFactoryPostProcessor
 	for _, name := range singletonNames {
 		singleton, err := f.singletonRegistry.GetSingleton(name)
 		if err != nil {
 			return err
 		}
-		if p, ok := singleton.(processors.ComponentPostProcessor); ok {
+		if p, ok := singleton.(container.ComponentPostProcessor); ok {
 			f.registerBeanPostProcessors(p, name)
 		}
-		if p, ok := singleton.(processors.DefinitionRegistryPostProcessor); ok {
+		if p, ok := singleton.(container.DefinitionRegistryPostProcessor); ok {
 			f.definitionRegistryPostProcessors = append(f.definitionRegistryPostProcessors, p)
 		}
-		if p, ok := singleton.(ComponentFactoryPostProcessor); ok {
-			f.factoryPostProcessors = append(f.factoryPostProcessors, p)
+		if p, ok := singleton.(container.ComponentFactoryPostProcessor); ok {
+			factoryPostProcessors = append(factoryPostProcessors, p)
 		}
 		f.registeredComponents[name] = singleton
 	}
 
-	err := f.postProcessorRegistrationDelegate.InvokeBeanFactoryPostProcessors(f, f.factoryPostProcessors)
+	err := f.postProcessorRegistrationDelegate.InvokeBeanFactoryPostProcessors(f, factoryPostProcessors)
 	if err != nil {
 		return err
 	}
@@ -61,7 +61,7 @@ func (f *defaultFactory) PrepareComponents() error {
 	return nil
 }
 
-func (f *defaultFactory) registerBeanPostProcessors(postProcessor processors.ComponentPostProcessor, name string) {
+func (f *defaultFactory) registerBeanPostProcessors(postProcessor container.ComponentPostProcessor, name string) {
 	f.postProcessorRegistrationDelegate.RegisterComponentPostProcessors(postProcessor, name)
 }
 
@@ -69,11 +69,11 @@ func (f *defaultFactory) GetRegisteredComponents() map[string]any {
 	return f.registeredComponents
 }
 
-func (f *defaultFactory) GetDefinitionRegistryPostProcessors() []processors.DefinitionRegistryPostProcessor {
+func (f *defaultFactory) GetDefinitionRegistryPostProcessors() []container.DefinitionRegistryPostProcessor {
 	return f.definitionRegistryPostProcessors
 }
 
-func (f *defaultFactory) SetRegistry(r support.SingletonRegistry) {
+func (f *defaultFactory) SetRegistry(r container.SingletonRegistry) {
 	f.singletonRegistry = r
 }
 
@@ -85,7 +85,7 @@ func (f *defaultFactory) GetConfigure() configure.Configure {
 	return f.configure
 }
 
-func (f *defaultFactory) GetDefinitionRegistry() support.DefinitionRegistry {
+func (f *defaultFactory) GetDefinitionRegistry() container.DefinitionRegistry {
 	return f.definitionRegistry
 }
 
@@ -117,7 +117,7 @@ func (f *defaultFactory) Refresh() error {
 	return nil
 }
 
-func (f *defaultFactory) GetComponents(opts ...support.Option) ([]any, error) {
+func (f *defaultFactory) GetComponents(opts ...container.Option) ([]any, error) {
 	var components []any
 	for _, meta := range f.definitionRegistry.GetMetas(opts...) {
 		component, err := f.GetComponentByName(meta.Name())
@@ -152,7 +152,7 @@ func (f *defaultFactory) doGetComponent(name string) (*component_definition.Meta
 		return sharedInstance, nil
 	}
 	sharedInstance, err = f.singletonComponentRegistry.GetSingletonOrCreateByFactory(name,
-		support.FuncSingletonFactory(func() (*component_definition.Meta, error) {
+		container.FuncSingletonFactory(func() (*component_definition.Meta, error) {
 			return f.createComponent(name)
 		}))
 	if err != nil {
@@ -192,7 +192,7 @@ func (f *defaultFactory) doCreateComponent(name string, meta *component_definiti
 	earlySingletonExposure := meta.IsSingleton() && f.allowCircularReferences && f.singletonComponentRegistry.IsSingletonCurrentlyInCreation(name)
 	if earlySingletonExposure {
 		f.logger().Debugf("eagerly caching bean '%s' to allow for resolving potential circular references", name)
-		f.singletonComponentRegistry.AddSingletonFactory(name, support.FuncSingletonFactory(func() (*component_definition.Meta, error) {
+		f.singletonComponentRegistry.AddSingletonFactory(name, container.FuncSingletonFactory(func() (*component_definition.Meta, error) {
 			return f.getEarlyBeanReference(name, meta)
 		}))
 	}

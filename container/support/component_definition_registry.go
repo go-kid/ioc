@@ -2,6 +2,7 @@ package support
 
 import (
 	"github.com/go-kid/ioc/component_definition"
+	"github.com/go-kid/ioc/container"
 	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/sync2"
 )
@@ -10,7 +11,7 @@ type defaultDefinitionRegistry struct {
 	metaMaps *sync2.Map[string, *component_definition.Meta]
 }
 
-func DefaultDefinitionRegistry() DefinitionRegistry {
+func DefaultDefinitionRegistry() container.DefinitionRegistry {
 	return &defaultDefinitionRegistry{
 		metaMaps: sync2.New[string, *component_definition.Meta](),
 	}
@@ -21,10 +22,10 @@ func (r *defaultDefinitionRegistry) RegisterMeta(m *component_definition.Meta) {
 	syslog.Pref("ComponentDefinitionRegistry").Tracef("register component definition for '%s'", m.Name())
 }
 
-func (r *defaultDefinitionRegistry) GetMetas(opts ...Option) []*component_definition.Meta {
+func (r *defaultDefinitionRegistry) GetMetas(opts ...container.Option) []*component_definition.Meta {
 	var metas = make([]*component_definition.Meta, 0)
 	r.metaMaps.Range(func(k string, m *component_definition.Meta) bool {
-		if And(opts...)(m) {
+		if container.And(opts...)(m) {
 			metas = append(metas, m)
 		}
 		return true
@@ -39,7 +40,7 @@ func (r *defaultDefinitionRegistry) GetMetaByName(name string) *component_defini
 	return nil
 }
 
-func (r *defaultDefinitionRegistry) GetMetaOrRegister(name string, handler RegisterMeta) *component_definition.Meta {
+func (r *defaultDefinitionRegistry) GetMetaOrRegister(name string, handler container.RegisterMeta) *component_definition.Meta {
 	if m, ok := r.metaMaps.Load(name); ok {
 		return m
 	}

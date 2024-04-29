@@ -2,6 +2,7 @@ package support
 
 import (
 	"github.com/go-kid/ioc/component_definition"
+	"github.com/go-kid/ioc/container"
 	"github.com/go-kid/ioc/syslog"
 	"github.com/go-kid/ioc/util/list"
 	"github.com/go-kid/ioc/util/sync2"
@@ -10,20 +11,20 @@ import (
 type defaultSingletonComponentRegistry struct {
 	singletonObjects             *sync2.Map[string, *component_definition.Meta]
 	earlySingletonObjects        *sync2.Map[string, *component_definition.Meta]
-	singletonFactories           *sync2.Map[string, SingletonFactory]
+	singletonFactories           *sync2.Map[string, container.SingletonFactory]
 	singletonCurrentlyInCreation list.Set
 }
 
-func DefaultSingletonComponentRegistry() SingletonComponentRegistry {
+func DefaultSingletonComponentRegistry() container.SingletonComponentRegistry {
 	return &defaultSingletonComponentRegistry{
 		singletonObjects:             sync2.New[string, *component_definition.Meta](),
 		earlySingletonObjects:        sync2.New[string, *component_definition.Meta](),
-		singletonFactories:           sync2.New[string, SingletonFactory](),
+		singletonFactories:           sync2.New[string, container.SingletonFactory](),
 		singletonCurrentlyInCreation: list.NewConcurrentSets(),
 	}
 }
 
-func (r *defaultSingletonComponentRegistry) AddSingletonFactory(name string, method SingletonFactory) {
+func (r *defaultSingletonComponentRegistry) AddSingletonFactory(name string, method container.SingletonFactory) {
 	r.singletonFactories.Store(name, method)
 	r.logger().Tracef("add singleton factory for '%s' to singleton factories cache", name)
 }
@@ -72,7 +73,7 @@ func (r *defaultSingletonComponentRegistry) GetSingleton(name string, allowEarly
 	return nil, nil
 }
 
-func (r *defaultSingletonComponentRegistry) GetSingletonOrCreateByFactory(name string, factory SingletonFactory) (*component_definition.Meta, error) {
+func (r *defaultSingletonComponentRegistry) GetSingletonOrCreateByFactory(name string, factory container.SingletonFactory) (*component_definition.Meta, error) {
 	if singleton, loaded := r.singletonObjects.Load(name); loaded {
 		return singleton, nil
 	}

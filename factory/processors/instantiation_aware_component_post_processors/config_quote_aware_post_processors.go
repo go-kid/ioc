@@ -43,12 +43,11 @@ func (c *configQuoteAwarePostProcessors) Order() int {
 func (c *configQuoteAwarePostProcessors) PostProcessProperties(properties []*component_definition.Property, component any, componentName string) ([]*component_definition.Property, error) {
 	logger := syslog.Pref("ConfigQuoteAwarePostProcessor")
 	for _, prop := range properties {
-		if !c.el.MatchString(prop.TagVal) {
+		if !c.el.MatchString(prop.TagStr) {
 			continue
 		}
-		rawTagVal := prop.TagVal
 
-		content, err := c.el.ReplaceAllContent(prop.TagVal, func(exp string) (string, error) {
+		content, err := c.el.ReplaceAllContent(prop.TagStr, func(exp string) (string, error) {
 			//split expression key and default value
 			spExp := strings.SplitN(exp, ":", 2)
 			exp = spExp[0]
@@ -95,7 +94,7 @@ func (c *configQuoteAwarePostProcessors) PostProcessProperties(properties []*com
 		}
 
 		prop.TagVal = content
-		logger.Debugf("config quote value on '%s'\n '%s' -> '%s'", prop, rawTagVal, prop.TagVal)
+		logger.Debugf("config quote value on '%s'\n '%s' -> '%s'", prop, prop.TagStr, prop.TagVal)
 	}
 	return nil, nil
 }

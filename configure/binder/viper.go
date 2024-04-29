@@ -41,16 +41,3 @@ func (d *ViperBinder) Get(path string) any {
 func (d *ViperBinder) Set(path string, val any) {
 	d.Viper.Set(path, val)
 }
-
-func (d *ViperBinder) Unmarshall(key string, a any) error {
-	var err error
-	if key == "" {
-		err = d.Viper.Unmarshal(a)
-	} else {
-		err = d.Viper.UnmarshalKey(key, a)
-	}
-	if err != nil {
-		return errors.Wrapf(err, "viper unmarshal '%s'", key)
-	}
-	return nil
-}

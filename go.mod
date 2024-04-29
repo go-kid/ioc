@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/expr-lang/expr v1.16.3
-	github.com/go-kid/properties v0.0.4
+	github.com/go-kid/properties v0.0.5
 	github.com/go-kid/strconv2 v0.0.2
 	github.com/go-kid/strings2 v0.0.1
 	github.com/go-playground/validator/v10 v10.19.0

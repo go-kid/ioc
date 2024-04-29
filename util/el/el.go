@@ -1,7 +1,6 @@
 package el
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 )
@@ -40,7 +39,6 @@ func (e *elHelper) ReplaceAllContent(s string, f func(content string) (string, e
 	var result = s
 	for true {
 		elr := e.FindString(result)
-		fmt.Println(result, elr)
 		if elr == "" {
 			break
 		}

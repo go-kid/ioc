@@ -1,7 +1,8 @@
 package processors
 
 const (
-	PriorityOrderPropertyConfigQuoteAware = 1 << (iota + 1)
+	PriorityOrderLoggerAware = 1 << (iota + 1)
+	PriorityOrderPropertyConfigQuoteAware
 	PriorityOrderPropertyExpressionTagAware
 	PriorityOrderPopulateProperties
 )

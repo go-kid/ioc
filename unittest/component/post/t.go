@@ -6,10 +6,15 @@ import (
 	"github.com/go-kid/ioc/app"
 	"github.com/go-kid/ioc/configure/loader"
 	"github.com/go-kid/ioc/container/processors"
+	"github.com/go-kid/ioc/syslog"
 )
 
 type Service interface {
 	SayName()
+}
+
+type LogParent struct {
+	Logger syslog.Logger `logger:",embed"`
 }
 
 type ServiceA struct {
@@ -17,6 +22,7 @@ type ServiceA struct {
 	ServiceB *ServiceB `wire:""`
 	ServiceC *ServiceC `wire:""`
 	ServiceA Service   `wire:""`
+	LogParent
 }
 
 func (s *ServiceA) Qualifier() string {
@@ -91,6 +97,8 @@ func main() {
 	b.ServiceA.SayName()
 	c.ServiceA.SayName()
 	a.ServiceA.SayName()
+
+	a.Logger.Info("hello")
 
 	//fmt.Printf("a: %T\n", a.ServiceA)
 	//a.ServiceA.SayName()

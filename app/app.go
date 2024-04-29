@@ -46,6 +46,7 @@ func (s *App) initiate() error {
 	s.Factory.SetConfigure(s.Configure)
 	var initiateComponent = []any{
 		s,
+		processors.NewLoggerAwarePostProcessor(),
 		processors.NewConfigQuoteAwarePostProcessors(),
 		processors.NewExpressionTagAwarePostProcessors(),
 		processors.NewPropertiesAwarePostProcessors(),

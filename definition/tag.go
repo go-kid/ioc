@@ -1,6 +1,9 @@
 package definition
 
 const (
+	//System Components tag
+	LoggerTag = "logger"
+
 	//components tag
 	InjectTag = "wire"
 	FuncTag   = "func"

@@ -9,6 +9,14 @@ import (
 
 type SettingOption func(s *App)
 
+func Options(ops ...SettingOption) SettingOption {
+	return func(s *App) {
+		for _, op := range ops {
+			op(s)
+		}
+	}
+}
+
 func SetRegistry(r container.SingletonRegistry) SettingOption {
 	return func(s *App) {
 		s.registry = r
@@ -72,8 +80,8 @@ func SetLogger(l syslog.Logger) SettingOption {
 }
 
 var (
-	LogTrace = func(s *App) { syslog.Level(syslog.LvTrace) }
-	LogDebug = func(s *App) { syslog.Level(syslog.LvDebug) }
-	LogWarn  = func(s *App) { syslog.Level(syslog.LvWarn) }
-	LogError = func(s *App) { syslog.Level(syslog.LvError) }
+	LogTrace = LogLevel(syslog.LvTrace)
+	LogDebug = LogLevel(syslog.LvDebug)
+	LogWarn  = LogLevel(syslog.LvWarn)
+	LogError = LogLevel(syslog.LvError)
 )

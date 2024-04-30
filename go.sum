@@ -65,8 +65,8 @@ github.com/gabriel-vasile/mimetype v1.4.3/go.mod h1:d8uq/6HKRL6CGdk+aubisF/M5GcP
 github.com/go-gl/glfw v0.0.0-20190409004039-e6da0acd62b1/go.mod h1:vR7hzQXu2zJy9AVAgeJqvqgH9Q5CA+iKCZ2gyEVpxRU=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20191125211704-12ad95a8df72/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200222043503-6f7a984d4dc4/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
-github.com/go-kid/properties v0.0.4 h1:qdVIfN3A46nQI/3SLfA9Sb0owPZuIcjEi+VGubXG+CA=
-github.com/go-kid/properties v0.0.4/go.mod h1:FY1qbVzsNEwMyN9J8xBseY3e35wsB7OGcm62exek99w=
+github.com/go-kid/properties v0.0.5 h1:P5KeXj0OD+L7vNDG4ZK8WDSf+Dg4kf9yYEuAvipnLKs=
+github.com/go-kid/properties v0.0.5/go.mod h1:FY1qbVzsNEwMyN9J8xBseY3e35wsB7OGcm62exek99w=
 github.com/go-kid/strconv2 v0.0.2 h1:z9nTJOCNWXwPBF6jm/v28yve1C5tlv/NhMJuVVIAbtA=
 github.com/go-kid/strconv2 v0.0.2/go.mod h1:G6HFlDtWK/k/qARuJsD9K+pIwtoGeM9pwAqoGTN5gtI=
 github.com/go-kid/strings2 v0.0.1 h1:mAxi0r9m8TkF0bY0EfWM71nCRB4Ulw7WZp2xd1RUWOQ=

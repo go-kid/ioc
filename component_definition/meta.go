@@ -51,7 +51,7 @@ func (m *Meta) ID() string {
 
 func (m *Meta) String() string {
 	if m.IsAlias() {
-		return fmt.Sprintf("%s(alias=%s)", m.name, m.alias)
+		return fmt.Sprintf("%s(alias:'%s')", m.name, m.alias)
 	}
 	return m.name
 }

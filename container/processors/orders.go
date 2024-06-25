@@ -8,7 +8,8 @@ const (
 )
 
 const (
-	OrderDependencyAware = 1 << (iota + 1)
+	OrderConstructorAware = 1 << (iota + 1)
+	OrderDependencyAware
 	OrderDependencyFurtherMatching
 	OrderValidate
 )

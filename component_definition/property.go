@@ -89,7 +89,12 @@ func (n *Property) Inject(metas []*Meta) error {
 		}
 	default:
 		m := metas[0]
-		n.Value.Set(m.Value)
+		//fmt.Println(n.Value.Type(), n.Value.IsZero(), n.Value.Elem().IsZero())
+		if !n.Value.IsZero() && n.Value.Elem().IsZero() {
+			n.Value.Elem().Set(m.Value.Elem())
+		} else {
+			n.Value.Set(m.Value)
+		}
 		m.dependOn(n.Holder.Meta)
 	}
 

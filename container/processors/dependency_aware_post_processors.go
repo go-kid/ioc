@@ -44,12 +44,8 @@ func (d *dependencyAwarePostProcessors) PostProcessProperties(properties []*comp
 		}
 		//aware by type
 		if prop.TagVal == "" {
-			var typeOption container.Option
-			if p, ok := isActualKind(prop.Type, reflect.Pointer); ok {
-				typeOption = container.Type(p)
-			} else if p, ok = isActualKind(prop.Type, reflect.Interface); ok {
-				typeOption = container.InterfaceType(p)
-			} else {
+			typeOption := getMetaTypeOption(prop.Type)
+			if typeOption == nil {
 				continue
 			}
 			dm := d.Registry.GetMetas(typeOption)
@@ -63,6 +59,16 @@ func (d *dependencyAwarePostProcessors) PostProcessProperties(properties []*comp
 		}
 	}
 	return nil, nil
+}
+
+func getMetaTypeOption(typ reflect.Type) container.Option {
+	var typeOption container.Option
+	if p, ok := isActualKind(typ, reflect.Pointer); ok {
+		typeOption = container.Type(p)
+	} else if p, ok = isActualKind(typ, reflect.Interface); ok {
+		typeOption = container.InterfaceType(p)
+	}
+	return typeOption
 }
 
 func isActualKind(p reflect.Type, kind reflect.Kind) (reflect.Type, bool) {

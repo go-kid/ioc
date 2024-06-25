@@ -4,6 +4,7 @@ import (
 	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/container"
 	"github.com/go-kid/ioc/definition"
+	"reflect"
 )
 
 type DefaultTagScanDefinitionRegistryPostProcessor struct {
@@ -15,6 +16,9 @@ type DefaultTagScanDefinitionRegistryPostProcessor struct {
 }
 
 func (d *DefaultTagScanDefinitionRegistryPostProcessor) PostProcessDefinitionRegistry(registry container.DefinitionRegistry, component any, componentName string) error {
+	if reflect.TypeOf(component).Kind() != reflect.Pointer {
+		return nil
+	}
 	meta := registry.GetMetaOrRegister(componentName, component)
 	var properties []*component_definition.Property
 	for _, field := range meta.Fields {

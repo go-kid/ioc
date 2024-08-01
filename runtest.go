@@ -12,7 +12,6 @@ func RunTest(t *testing.T, ops ...SettingOption) *App {
 	err := app.Run(ops...)
 	if t != nil {
 		assert.NoError(t, err)
-		return nil
 	}
 	return app
 }
@@ -23,7 +22,6 @@ func RunErrorTest(t *testing.T, ops ...SettingOption) *App {
 	err := app.Run(ops...)
 	if t != nil {
 		assert.Error(t, err)
-		return nil
 	}
 	return app
 }

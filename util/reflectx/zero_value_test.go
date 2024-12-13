@@ -27,7 +27,8 @@ type sub struct {
 func TestZeroValue(t *testing.T) {
 
 	type args struct {
-		p reflect.Type
+		p            reflect.Type
+		interceptors []ZeroValueInterceptor
 	}
 
 	tests := []struct {
@@ -38,91 +39,91 @@ func TestZeroValue(t *testing.T) {
 		{
 			name: "string",
 			args: args{
-				reflect.TypeOf(""),
+				p: reflect.TypeOf(""),
 			},
 			want: "string",
 		},
 		{
 			name: "int",
 			args: args{
-				reflect.TypeOf(1),
+				p: reflect.TypeOf(1),
 			},
 			want: 0,
 		},
 		{
 			name: "float",
 			args: args{
-				reflect.TypeOf(1.1),
+				p: reflect.TypeOf(1.1),
 			},
 			want: 0.0,
 		},
 		{
 			name: "bool",
 			args: args{
-				reflect.TypeOf(true),
+				p: reflect.TypeOf(true),
 			},
 			want: false,
 		},
 		{
 			name: "array",
 			args: args{
-				reflect.TypeOf([1]string{"a"}),
+				p: reflect.TypeOf([1]string{"a"}),
 			},
 			want: [1]string{"string"},
 		},
 		{
 			name: "any array",
 			args: args{
-				reflect.TypeOf([1]any{"a"}),
+				p: reflect.TypeOf([1]any{"a"}),
 			},
 			want: [1]any{nil},
 		},
 		{
 			name: "slice",
 			args: args{
-				reflect.TypeOf([]string{"a"}),
+				p: reflect.TypeOf([]string{"a"}),
 			},
 			want: []string{"string"},
 		},
 		{
 			name: "any slice",
 			args: args{
-				reflect.TypeOf([]any{"a"}),
+				p: reflect.TypeOf([]any{"a"}),
 			},
 			want: []any{nil},
 		},
 		{
 			name: "map",
 			args: args{
-				reflect.TypeOf(map[string]int{"a": 123}),
+				p: reflect.TypeOf(map[string]int{"a": 123}),
 			},
 			want: map[string]int{"string": 0},
 		},
 		{
 			name: "any key map",
 			args: args{
-				reflect.TypeOf(map[any]int{"a": 123}),
+				p: reflect.TypeOf(map[any]int{"a": 123}),
 			},
 			want: map[any]int{},
 		},
 		{
 			name: "any value map",
 			args: args{
-				reflect.TypeOf(map[string]any{"a": 123}),
+				p: reflect.TypeOf(map[string]any{"a": 123}),
 			},
 			want: map[string]any{},
 		},
 		{
 			name: "any map",
 			args: args{
-				reflect.TypeOf(map[any]any{"a": 123}),
+				p: reflect.TypeOf(map[any]any{"a": 123}),
 			},
 			want: map[any]any{},
 		},
 		{
 			name: "struct",
 			args: args{
-				reflect.TypeOf(testStruct{Name: "abc"}),
+				p: reflect.TypeOf(testStruct{Name: "abc"}),
 			},
 			want: testStruct{
 				Name: "string",
@@ -137,7 +138,7 @@ func TestZeroValue(t *testing.T) {
 		{
 			name: "pointer struct",
 			args: args{
-				reflect.TypeOf(&testStruct{Name: "abc"}),
+				p: reflect.TypeOf(&testStruct{Name: "abc"}),
 			},
 			want: &testStruct{
 				Name: "string",
@@ -147,10 +148,26 @@ func TestZeroValue(t *testing.T) {
 				Sub: &sub{SubName: "string"},
 			},
 		},
+		{
+			name: "interceptor json.RawMessage",
+			args: args{
+				p: reflect.TypeOf(struct {
+					M json.RawMessage `json:"m"`
+				}{}),
+				interceptors: []ZeroValueInterceptor{
+					JsonZero,
+				},
+			},
+			want: struct {
+				M json.RawMessage `json:"m"`
+			}{
+				M: json.RawMessage("{}"),
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ZeroValue(tt.args.p); !reflect.DeepEqual(got, tt.want) {
+			if got := ZeroValue(tt.args.p, tt.args.interceptors...); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ZeroValue() = %v, want %v", got, tt.want)
 			}
 		})

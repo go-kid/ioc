@@ -52,26 +52,43 @@ type Factory interface {
 	GetDefinitionRegistry() DefinitionRegistry
 }
 
+// ComponentFactoryPostProcessor Used for Component to get Factory
 type ComponentFactoryPostProcessor interface {
 	PostProcessComponentFactory(factory Factory) error
 }
 
+// DefinitionRegistryPostProcessor Used to add custom Component Meta parsing capabilities
 type DefinitionRegistryPostProcessor interface {
 	PostProcessDefinitionRegistry(registry DefinitionRegistry, component any, componentName string) error
 }
 
+// ComponentPostProcessor is an interface that provides extension points to modify components during their lifecycle in the IoC container
 type ComponentPostProcessor interface {
+	// PostProcessBeforeInitialization called before InitializingComponent.AfterPropertiesSet and InitializeComponent.Init
 	PostProcessBeforeInitialization(component any, componentName string) (any, error)
+	// PostProcessAfterInitialization called after InitializingComponent.AfterPropertiesSet and InitializeComponent.Init
 	PostProcessAfterInitialization(component any, componentName string) (any, error)
 }
 
+// InstantiationAwareComponentPostProcessor is an extension of ComponentPostProcessor
+// that provides additional callbacks for intercepting component instantiation and dependency injection.
+// It allows fine-grained control over the component lifecycle, particularly before instantiation and after property population (dependency injection).
 type InstantiationAwareComponentPostProcessor interface {
 	ComponentPostProcessor
+	// PostProcessBeforeInstantiation Return a proxy instead of the real bean
 	PostProcessBeforeInstantiation(m *component_definition.Meta, componentName string) (any, error)
+	// PostProcessAfterInstantiation Return false to skip injection (PostProcessProperties) for certain components.
 	PostProcessAfterInstantiation(component any, componentName string) (bool, error)
+	// PostProcessProperties inject and modify the properties value for certain components
 	PostProcessProperties(properties []*component_definition.Property, component any, componentName string) ([]*component_definition.Property, error)
 }
 
+// SmartInstantiationAwareBeanPostProcessor is an advanced extension of InstantiationAwareComponentPostProcessor
+// that provides additional capabilities for predicting component types,
+// This interface is primarily used for:
+//
+// - Circular dependency handling (exposing early bean references)
+// - Proxy creation optimization
 type SmartInstantiationAwareBeanPostProcessor interface {
 	InstantiationAwareComponentPostProcessor
 	GetEarlyBeanReference(component any, componentName string) (any, error)

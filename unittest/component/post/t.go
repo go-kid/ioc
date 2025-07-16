@@ -65,6 +65,7 @@ type postProcessor struct {
 }
 
 func (p *postProcessor) GetEarlyBeanReference(component any, componentName string) (any, error) {
+	fmt.Printf("GetEarlyBeanReference: %T, %s\n", component, componentName)
 	if s, ok := component.(*ServiceA); ok {
 		return &serviceAAOP{
 			Service: s,

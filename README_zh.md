@@ -1,27 +1,42 @@
 # go-kid/ioc
-go-kid/ioc是一款基于go tag和interface的运行时依赖注入框架
 
-## 快速使用
-### 安装
+`go-kid/ioc` 是一款基于 **tag + interface** 的 Go 运行时依赖注入（IoC/DI）框架。
 
-```shell
+- 通过 `wire` 标签实现 **组件依赖注入**：
+  - 按指针类型注入
+  - 按接口类型注入
+  - 按组件名称注入
+  - 接口的多个实现注入到接口数组 / 切片
+- 通过 `value` / `prop` / `prefix` 等标签实现 **配置注入**：
+  - 从多种配置源加载（命令行参数、文件、原始内容等）
+  - 支持 `${...}` 配置占位符
+  - 支持 `#{...}` 表达式计算（算术、逻辑、条件、集合操作等）
+
+---
+
+## 安装
+
+```bash
 go get github.com/go-kid/ioc
 ```
 
+---
 
-### 构建一个基础依赖注入场景
+## 快速入门
 
-main.go
+下面以一个最简单的依赖注入示例开始：
+
 ```go
 package main
 
 import (
 	"fmt"
+
 	"github.com/go-kid/ioc"
 	"github.com/go-kid/ioc/app"
 )
 
-//定义组件ComponentA作为被依赖项
+// 被注入的组件
 type ComponentA struct {
 	Name string
 }
@@ -30,363 +45,746 @@ func (a *ComponentA) GetName() string {
 	return a.Name
 }
 
-//定义组件App作为注入主体
+// 注入目标组件
 type App struct {
-	ComponentA *ComponentA `wire:""`
+	ComponentA *ComponentA `wire:""` // 指针 + 导出字段 + wire tag
 }
 
 func main() {
-	//创建组件App
 	a := new(App)
-	//注册组件App
-    ioc.Register(a)
-	//创建组件ComponentA
-	compA:=&ComponentA{Name: "Comp-A"}
-    //注册组件ComponentA
-    ioc.Register(compA)
-	//运行框架
+
+	// 注册组件
+	ioc.Register(a)
+	ioc.Register(&ComponentA{Name: "Comp-A"})
+
+	// 运行框架
 	_, err := ioc.Run()
 	if err != nil {
 		panic(err)
 	}
-	//此时a.ComponentA被填充为compA
-	//所以此处应打印出"Comp-A"
+
+	// 这里应打印 "Comp-A"
 	fmt.Println(a.ComponentA.GetName())
 }
 ```
 
-此处展示了go-kid/ioc依赖注入的基本能力,
-在组件App中,我们使用`wire`标签标注了ComponentA为一个依赖项,
-注意此时ComponentA的类型为指针,并且字段名首字母大写,这样才能注入成功.
+> 关键点：
+> - 依赖字段必须可导出（首字母大写）且可设置；
+> - 使用 `wire:""` 声明需要注入。
 
-## 依赖注入
+---
 
-此章将详细介绍go-kid/ioc支持的各种注入场景
+## 1. 组件依赖注入（`wire` 标签）
 
-### 按接口类型注入
+组件注入统一使用 tag：
 
-前面例子中展示了指针类型的基本注入能力, 但在开发中,
-我们倾向于使用接口类型进行抽象和解耦,
-下面我们将用接口对上面例子进行重构
-
-main.go
 ```go
-package main
+`wire:"<name>,arg1=xxx,arg2=yyy"`
+```
 
-//定义接口IComponent, 此时ComponentA实现了该接口
-type IComponent interface {
-    GetName() string
+其中：
+
+- `<name>`：可选，指定按名称注入；
+- `,arg=...`：可选，附加参数（如 `qualifier`）；
+- 留空 `wire:""` 时表示按类型自动匹配。
+
+### 1.1 按指针类型注入
+
+```go
+type Component struct {
+	Name string
 }
 
 type App struct {
-    ComponentA IComponent `wire:""`
+	C *Component `wire:""` // 按 *Component 类型注入
 }
 ```
-此处App依赖ComponentA的形式从指针变为了接口,更符合设计规范.
-至此你可以看到go-kid/ioc提供了基于指针类型和基于接口的注入能力.
 
-### 为组件命名和按名称注入
+当容器中存在一个或多个 `*Component` 实例时：
 
-容器默认会为每个组件生成组件名,格式为{package}/{组件名}.
-当需要自定义组件名时, go-kid/ioc在
-github.com/go-kid/ioc/definition
-中提供了内置接口`NamingComponent`
+- 若只有一个，则直接注入；
+- 若有多个，则会进入“多实现选择规则”（见后文）。
 
-def.go
+### 1.2 按接口类型注入
+
+更推荐用接口抽象依赖：
+
 ```go
-package main
+type IComponent interface {
+	GetName() string
+}
 
+type ComponentA struct{ Name string }
+func (a *ComponentA) GetName() string { return a.Name }
+
+type App struct {
+	C IComponent `wire:""` // 按接口类型注入
+}
+```
+
+容器会查找所有实现 `IComponent` 的组件，并按策略选择一个（见 1.4）。
+
+### 1.3 按名称注入
+
+`go-kid/ioc` 内建 `NamingComponent` 接口，用于自定义组件名：
+
+```go
 type NamingComponent interface {
 	Naming() string
 }
 ```
-组件只需实现此接口, 在Naming()方法中返回的字符串将被作为组件别名.
-下面我们来让ComponentA实现Naming接口:
 
-main.go
+实现该接口后，`Naming()` 返回值会作为组件**别名**（alias）。  
+注入时可显式按名称：
+
 ```go
-package main
-
 type ComponentA struct {
 	Name          string
 	componentName string
 }
 
-func (a *ComponentA) GetName() string {
-	return a.Name
-}
+func (a *ComponentA) GetName() string { return a.Name }
+func (a *ComponentA) Naming() string  { return a.componentName }
 
-func (a *ComponentA) Naming() string {
-	return a.componentName
+type IComponent interface {
+	GetName() string
 }
-
-//...///
 
 type App struct {
-	ComponentA IComponent `wire:"comp-A"`
+	ByName IComponent `wire:"comp-A"` // 按组件名注入
 }
 
 func main() {
 	a := new(App)
 	ioc.Register(a)
-	compA := &ComponentA{
+
+	ioc.Register(&ComponentA{
 		Name:          "Comp-A",
 		componentName: "comp-A",
-	}
-	ioc.Register(compA)
-	_, err := ioc.Run()
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(a.ComponentA.GetName())
+	})
+
+	_, _ = ioc.Run()
+	fmt.Println(a.ByName.GetName()) // "Comp-A"
 }
 ```
-上面代码中我们自定义了ComponentA的别名为comp-A,
-并修改App中依赖项ComponentA的wire标签内容为comp-A,
-即可实现按名称注入.
-> 可以尝试修改wire标签内容为comp-B, 
-> 运行代码,将看到报错
-> 
-> [ERROR] [Application] application run failed: inject 'main/App.Field(ComponentA).Type(Component).Tag(wire:'comp-B').Required()' not found available components
-> 
-> 说明容器没有找到名称为comp-B的组件,在严格模式下将立即报错.
 
-main.go
+若 `wire:"comp-B"`，而容器无该名称组件，则在严格模式下直接报错。
+
+### 1.4 同一接口多实现、默认选择策略
+
+当某接口有多个实现，而字段只声明为该接口（或指针），且 `wire` 留空时：
+
 ```go
-package main
+type IComponent interface{ GetName() string }
 
-//...///
+type ComponentA struct{ Name string }
+func (a *ComponentA) GetName() string { return a.Name }
 
-//定义ComponentB,此处为简化例子代码,我们让其等于ComponentA
-type ComponentB = ComponentA
-
-//...//
+type ComponentB struct{ Name string }
+func (b *ComponentB) GetName() string { return b.Name }
 
 type App struct {
-	ComponentA IComponent   `wire:"comp-A"`
-	ComponentB IComponent   `wire:"comp-B"`
-}
-
-func main() {
-	a := new(App)
-	ioc.Register(a)
-	_, err := ioc.Run(app.SetComponents(
-		&ComponentA{
-			Name:          "Comp-A",
-			componentName: "comp-A",
-		},
-		&ComponentB{
-			Name:          "Comp-B",
-			componentName: "comp-B",
-		},
-	))
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("ComponentA", a.ComponentA.GetName())
-	fmt.Println("ComponentB", a.ComponentB.GetName())
+	C IComponent `wire:""` // 多实现，按策略选择
 }
 ```
 
-这里我们定义了ComponentB,
-为了简化, 我们定义其等于ComponentA, 所以ComponentB也实现了ComponentA的所有接口.
-在main方法中, 可以看到我们使用app.SetComponents(...)方法替换了ioc.Register(...),其作用是相同的.
+容器会：
 
-### 同一接口多个实例情况的注入
+1. 找出所有实现 `IComponent` 的组件；
+2. 如实现数 > 1：
+   - 若有实现了 `WirePrimary` 接口的组件，则优先该组件；
+   - 否则优先**无别名**组件（不是通过 `Naming()` 自定义名称的）；
+   - 若最终仍有多个候选，则“任选其一”（不保证顺序）。
 
-修改上面例子:
+#### 优先注入：`WirePrimary` 接口
 
-main.go
+定义：
+
 ```go
-package main
+type WirePrimaryComponent struct{}
+func (i *WirePrimaryComponent) Primary() {}
+```
 
-//...//
+任一组件只要实现了 `Primary()` 方法，即可被视为“主实现”（primary）。例如：
+
+```go
+type ComponentA struct {
+	Name string
+	definition.WirePrimaryComponent
+}
+
+type ComponentB struct{ Name string }
 
 type App struct {
-	Component  IComponent   `wire:""`
-}
-
-func main() {
-	a := new(App)
-	ioc.Register(a)
-	_, err := ioc.Run(app.SetComponents(
-		&ComponentA{
-			Name:          "Comp-A",
-			componentName: "comp-A",
-		},
-		&ComponentB{
-			Name:          "Comp-B",
-			componentName: "comp-B",
-		},
-	))
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("Component", a.Component.GetName())
+	C IComponent `wire:""`
 }
 ```
 
-我们向容器中注册了两个实现了IComponent接口的实例,
-在App中, 前两项将按指定的名称comp-A和comp-B查找依赖项,
-而第三项Component未指定名称, 容器只能随机选择一个实例注入,
-多次运行程序, 可以看到ComponentA和ComponentB的GetName()方法返回值始终固定,
-而Component的GetName()将每次随机.
-大部分时候随机注入将不会是我们希望的, 该问题有下面几种解决方法.
+此时 `C` 会始终注入 `ComponentA`。
 
-#### 限定注入
+> 注意：
+> - `WirePrimary` 仅在**接口/指针注入**且未指定 `wire:"name"` 时生效；
+> - 不建议同一接口多个实现都标记为 Primary，否则仍可能存在不确定性。
 
-当一个接口有多个实例, 且需要精确注入时, 将需要内置的WireQualifier接口进行限定.
-修改ComponentA组件实现WireQualifier接口, 该接口返回一个string作为限定符:
+#### 限定注入：`WireQualifier` 接口 + `qualifier` 参数
 
-main.go
+当一个接口有多个实现，希望**精确标识**注入对象时，可使用限定符：
+
 ```go
-package main
+type WireQualifier interface {
+	Qualifier() string
+}
+```
 
-//...///
+实现示例：
 
+```go
 type ComponentA struct {
 	Name          string
 	componentName string
 	qualifier     string
 }
 
-func (a *ComponentA) Qualifier() string {
-	return a.qualifier
-}
+func (a *ComponentA) Qualifier() string { return a.qualifier }
 ```
 
-修改组件App, 添加qualifier参数,使其等于需要的组件的限定符.
+在 `wire` 中使用：
 
-main.go
 ```go
-package main
-
-//...//
-
 type App struct {
-	Component IComponent `wire:",qualifier=comp-A"`
+	C IComponent `wire:",qualifier=comp-A"`
 }
 
 func main() {
 	a := new(App)
 	ioc.Register(a)
-	_, err := ioc.Run(app.SetComponents(
-		&ComponentA{
-			Name:          "Comp-A",
-			componentName: "comp-A",
-			qualifier:     "comp-A",
-		},
-		&ComponentB{
-			Name:          "Comp-B",
-			componentName: "comp-B",
-			qualifier:     "comp-B",
-		},
-	))
-	if err != nil {
-		panic(err)
+
+	ioc.Register(&ComponentA{
+		Name:          "Comp-A",
+		componentName: "comp-A",
+		qualifier:     "comp-A",
+	})
+	ioc.Register(&ComponentA{
+		Name:          "Comp-B",
+		componentName: "comp-B",
+		qualifier:     "comp-B",
+	})
+
+	_, _ = ioc.Run()
+	fmt.Println(a.C.GetName()) // 始终为 "Comp-A"
+}
+```
+
+> `wire:"name,qualifier=xxx"` 中：
+> - `name` 部分用于按名称查找；
+> - `qualifier` 参数用于在多候选中再过滤；
+> - 当同时存在 `name` 和 `qualifier` 时，两者都生效。
+
+### 1.5 注入多实现到接口数组 / 切片
+
+当字段声明为接口切片 / 数组，并使用 `wire:""` 时，容器会将**所有匹配实现**注入进去：
+
+```go
+type Interface interface {
+	SimpleInterface()
+}
+
+type InterfaceImplComponent struct{ Component }
+func (i *InterfaceImplComponent) SimpleInterface() {}
+
+type InterfaceImplNamingComponent struct{ SpecifyNameComponent }
+func (i *InterfaceImplNamingComponent) SimpleInterface() {}
+
+type App struct {
+	All []Interface `wire:""` // 所有 Interface 实现
+}
+```
+
+对应单测（节选）：
+
+```go
+var tApp = &struct {
+	Ts []Interface `wire:""`
+}{}
+
+ioc.RunTest(t, app.SetComponents(
+	&InterfaceImplNamingComponent{SpecifyNameComponent{Component{"InterfaceImplNamingComponent"}}},
+	&InterfaceImplComponent{Component{"InterfaceImplComponent"}},
+	&SpecifyNameComponent{Component{"SpecifyNameComponent"}},
+	&Component{"Component"},
+	tApp,
+))
+assert.Equal(t, 2, len(tApp.Ts)) // 仅两个真正实现 Interface 的组件被注入
+```
+
+同理：
+
+```go
+type App struct {
+	Ptrs []*SpecifyNameComponent `wire:""` // 所有 *SpecifyNameComponent 实例
+}
+```
+
+---
+
+## 2. 配置注入（`value` / `prop` / `prefix`）
+
+`go-kid/ioc` 的配置系统由三部分组成：
+
+- `configure.Loader`：从不同来源加载原始配置（YAML/JSON/命令行等）；
+- `configure.Binder`：将原始配置解析为统一访问接口，默认使用 `viper`；
+- 注入标签：
+  - `value`：从**字面值 / 表达式 / 配置占位符**转换为字段值；
+  - `prop`：是 `value` 的语法糖；
+  - `prefix`：将一个配置前缀整个绑定为结构体。
+
+### 2.1 基础配置加载
+
+默认 `App` 使用：
+
+```go
+configure.Default():
+- Loader:  loader.NewArgsLoader(os.Args)
+- Binder:  binder.NewViperBinder("yaml")
+```
+
+你也可以在 `Run` 时自定义：
+
+```go
+ioc.Run(
+    app.SetConfigLoader(
+        loader.NewFileLoader("config.yaml"), // 从文件加载
+    ),
+    app.SetConfigBinder(
+        binder.NewViperBinder("yaml"),       // 或 "json"
+    ),
+)
+```
+
+或者直接使用原始字节（单测中常用）：
+
+```go
+cfg := []byte(`
+a:
+  b: 123
+  c: [1,2,3]
+`)
+ioc.Run(
+    app.SetConfigLoader(loader.NewRawLoader(cfg)),
+)
+```
+
+> `Configure` 接口本身也暴露：
+>
+> ```go
+> Get(path string) any
+> Set(path string, val any)
+> ```
+>
+> 可在运行中直接读取/写入配置。
+
+### 2.2 `prefix`：按配置前缀绑定结构体
+
+`prefix` 标签会将某个配置前缀（如 `a`）下的所有配置，反序列化到字段结构体上。
+
+简单示例（来自单测 `configuration_test.go`）：
+
+```go
+type configA struct {
+	B int   `yaml:"b"`
+	C []int `yaml:"c"`
+}
+
+type configD struct {
+	D1 string `yaml:"d1"`
+	D2 int    `yaml:"d2"`
+}
+
+func (c *configD) Prefix() string {
+	return "a.d" // 支持由实现接口返回前缀
+}
+
+type configApp struct {
+	A  *configA `prefix:"a"` // 结构体 tag 中声明前缀
+	D  *configD             // 使用 Prefix() 方法提供前缀
+	A2 configA  `prefix:"a"`
+}
+```
+
+配置示例（YAML）：
+
+```yaml
+a:
+  b: 123
+  c: [1,2,3,4]
+  d:
+    d1: "abc"
+    d2: 123
+```
+
+运行后：
+
+```go
+assert.Equal(t, 123, tApp.A.B)
+assert.Equal(t, []int{1, 2, 3, 4}, tApp.A.C)
+assert.Equal(t, "abc", tApp.D.D1)
+assert.Equal(t, 123, tApp.D.D2)
+assert.Equal(t, 123, tApp.A2.B)
+assert.Equal(t, []int{1, 2, 3, 4}, tApp.A2.C)
+```
+
+`prefix` 注入流程：
+
+1. `PropertiesAwarePostProcessors` 扫描所有 `PropertyTypeConfiguration` 字段（通过 Tag 扫描器）；
+2. 对于 `prefix` 字段，调用 `Configure.Get(prefix)` 获取配置子树；
+3. 通过 `Unmarshall` 将配置反序列化到结构体字段。
+
+### 2.3 `value`：字面值 / 配置占位 / 表达式
+
+`value` 标签用于字段级配置注入，核心行为由 `valueAwarePostProcessors` 完成：
+
+1. 解析标签字符串（支持 JSON / map 风格 / 基本类型 / 切片 / 指针等）；
+2. 使用 `strconv2.ParseAny` 将字符串解析为 `any`；
+3. 调用 `Property.Unmarshall` 将值填入字段。
+
+#### 2.3.1 简单类型
+
+```go
+type T struct {
+	A string  `value:"foo"`
+	B bool    `value:"true"`
+	I int     `value:"123"`
+	F float64 `value:"123.321"`
+}
+```
+
+#### 2.3.2 切片 / map / struct
+
+单测中覆盖了多种情况（`value_tag_test.go`）：
+
+```go
+type T struct {
+	S []string  `value:"[\"hello\",\"world\",\"foo\",\"bar\"]"`
+	I []int     `value:"[1,2,3]"`
+	B []bool    `value:"[true,false,false,true]"`
+	F []float64 `value:"[1.1,2.2,3]"`
+
+	MF   map[string]any `value:"map[]"`
+	MF2  map[string]any `value:"map[foo:bar]"`
+	MJ   map[string]any `value:"{}"`
+	MNil map[string]any
+	MJ2  map[string]any `value:"{\"foo\":\"bar\"}"`
+
+	type S struct {
+		Foo string `json:"foo"`
 	}
-	fmt.Println("Component", a.Component.GetName())
+	StructFromJSON S `value:"{\"foo\":\"bar\"}"`
+	StructFromMap  S `value:"map[foo:bar]"`
 }
 ```
 
-例子中我们将App.Component限定为`qualifier=comp-A`, 
-此时a.Component将永远只注入Comp-A组件.
+也支持指针：
 
-> wire标签的值中的 ',' 符号声明该属性启用了解析参数, 后面会介绍到各种参数
-
-#### 优先注入
-
-除了使用限定符接口来精确注入, 还可以使用内置的WirePrimary接口来指定优先注入的接口.
-该接口没有返回值, 当组件实现WirePrimary接口后, 将被容器优先选择.
-
-修改组件ComponentA实现Primary接口:
-
-main.go
 ```go
-package main
-
-//...//
-
-type ComponentA struct {
-	Name          string
-	componentName string
+type T struct {
+	Ap *string  `value:"foo"`
+	B  *bool    `value:"true"`
+	I  *int     `value:"123"`
+	F  *float64 `value:"123.321"`
 }
-
-func (a *ComponentA) Primary() {}
 ```
 
-修改App组件
+#### 2.3.3 `prop`：`value` 的语法糖
 
-main.go
+在 `valueAwarePostProcessors` 中可以看到，对 `prop` 的处理是：
+
 ```go
-package main
+if tagVal, ok = field.StructField.Tag.Lookup(definition.PropTag); ok {
+    // 将 `prop:"db.dsn"` 转换成 `value:"${db.dsn}"`
+    tagVal = fmt.Sprintf("${%s}%s", tagVal, argstr)
+}
+```
+
+因此：
+
+```go
+type DBConfig struct {
+	DSN string `prop:"db.dsn"`
+}
+```
+
+等价于：
+
+```go
+type DBConfig struct {
+	DSN string `value:"${db.dsn}"`
+}
+```
+
+`prop` 更适合简单的配置占位场景。
+
+### 2.4 配置占位 `${...}` 与表达式 `#{...}`
+
+#### 2.4.1 配置占位 `${...}`
+
+由 `ConfigQuoteAwarePostProcessors` + `el.NewQuote()` 处理（代码略）：
+
+- 匹配 `${...}` 格式；
+- 使用 `Configure.Get` 读取对应配置值；
+- 替换为字符串形式，再交给 `value` 解析。
+
+例如：
+
+```go
+type T struct {
+	DSN string `value:"${db.dsn}"`
+}
+```
+
+配合：
+
+```yaml
+db:
+  dsn: "user:pass@tcp(127.0.0.1:3306)/demo"
+```
+
+最终 `DSN` 为 `"user:pass@tcp(127.0.0.1:3306)/demo"`。
+
+`expression_tag_test.go` 中还演示了使用 `${:1}` 等“默认配置占位”的技巧。
+
+#### 2.4.2 表达式 `#{...}`
+
+由 `ExpressionTagAwarePostProcessors` 负责：
+
+1. 使用 `el.NewExpr()` 匹配 `#{...}`；
+2. 使用 [`expr-lang/expr`](https://github.com/expr-lang/expr) 编译并运行表达式；
+3. 将结果格式化为字符串，再替换回 `TagVal`；
+4. 后续由 `value` 流程完成类型转换与注入。
+
+静态表达式示例（单测 `StaticExpression`）：
+
+```go
+type T struct {
+	Arithmetic  int    `value:"#{1+(1*2)}"`                      // 3
+	Comparison  bool   `value:"#{1/1==1}"`                      // true
+	Logical     bool   `value:"#{(1+1)>=2||1!=1}"`              // true
+	Conditional string `value:"#{1>2?'a':'b'}"`                 // "b"
+	Membership  bool   `value:"#{'a' in ['a','b','c']}"`        // true
+	String      bool   `value:"#{'hello'+' '+'world' contains 'o w'}"` // true
+}
+```
+
+与配置占位组合使用（`ExpressionWithConfigQuote`）：
+
+```go
+type T struct {
+	Arithmetic  int    `value:"#{${number.val1}+(${number.val1}*${number.val2})}"`
+	Comparison  bool   `value:"#{${number.val1}/${number.val1}==${number.val1}}"`
+	Logical     bool   `value:"#{(1+1)${logical.compare}2||1!=1}"`
+	Conditional string `value:"#{1>2?'${character.val1}':'${character.val2}'}"`
+	Membership  bool   `value:"#{'a' in ${slices}}"`
+	String      bool   `value:"#{'${character.val3}'+' '+'${character.val4}' contains 'o w'}"`
+}
+```
+
+配合配置：
+
+```yaml
+number:
+  val1: 1
+  val2: 2
+logical:
+  compare: ">="
+character:
+  val1: a
+  val2: b
+  val3: "hello"
+  val4: "world"
+slices:
+  - a
+  - 'a'
+  - 'b'
+  - c
+  - 1
+  - 3.14
+  - true
+```
+
+---
+
+## 3. 构造器注入（函数注入）
+
+除了字段注入，`go-kid/ioc` 还支持**构造器函数注入**：
+
+- 通过注册构造器函数（例如 `NewComponent`）；
+- 使用 `NewConstructorAwarePostProcessors`（在 `test/constructor` 中演示）。
+
+示例（简化自 `test/constructor/main.go`）：
+
+```go
+type Component struct {
+	dependency *processors.A
+}
+
+func NewComponent(d1 *processors.A) *Component {
+	return &Component{
+		dependency: d1,
+	}
+}
 
 type App struct {
-	Component IComponent `wire:""`
-}
-```
-
-由于先前代码 `type ComponentB = ComponentA`, 使得ComponentB此时同样获得了Primary接口,
-所以此处应重写ComponentB, 之后运行程序, a.Component将永远为Comp-A实例.
-
-> - WirePrimary接口的优先级低于WireQualifier接口, 
-> - 实现WirePrimary接口的同类实例不应出现多个, 否则同样会出现随机注入.
-
-### 按接口注入多个实现
-
-需要获取同一个接口的多个不同实例时的注入方法
-
-main.go
-```go
-package main
-
-//...//
-
-type App struct {
-	ComponentA IComponent   `wire:"comp-A"`
-	ComponentB IComponent   `wire:"comp-B"`
-	Components []IComponent `wire:""`
+	Component *Component `wire:""`
 }
 
 func main() {
-	a := new(App)
-	ioc.Register(a)
-	_, err := ioc.Run(app.SetComponents(
-		&ComponentA{
-			Name:          "Comp-A",
-			componentName: "comp-A",
-		},
-		&ComponentB{
-			Name:          "Comp-B",
-			componentName: "comp-B",
-		},
-	))
+	var a = &App{}
+	pa := &processors.A{Name: "A23"}
+
+	_, err := ioc.Run(
+		app.SetComponents(
+			a,
+			pa,
+			NewComponent,                                 // 注册构造器
+			processors.NewConstructorAwarePostProcessors(), // 启用构造器感知处理器
+		))
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("ComponentA", a.ComponentA.GetName())
-	fmt.Println("ComponentB", a.ComponentB.GetName())
-	fmt.Println("Components")
-	for i, component := range a.Components {
-		fmt.Println(i, component.GetName())
-	}
+	fmt.Println(a.Component.dependency) // 指向 pa
 }
 ```
-修改上面代码, 将App中的Component修改为[]Component类型, 且`wire`不指定名称,
-运行代码, 将看到输出
 
-```text
-ComponentA Comp-A
-ComponentB Comp-B
-Components
-0 Comp-B
-1 Comp-A
+构造器注入的大致流程：
+
+1. 构造器函数作为组件被注册；
+2. `ConstructorAwarePostProcessors` 扫描函数签名；
+3. 对其参数同样应用依赖注入规则（按类型 / 名称 / qualifier 匹配）；
+4. 调用构造器返回真正组件实例，用于后续注入。
+
+---
+
+## 4. 应用启动与生命周期
+
+### 4.1 App 与顶层 `ioc` 包
+
+常用两种启动方式：
+
+#### 方式一：直接用 `ioc.Run`/`ioc.Register`
+
+```go
+func Register(cs ...interface{}) {
+	registerHandlers = append(registerHandlers, app.SetComponents(cs...))
+}
+
+func Run(ops ...app.SettingOption) (*app.App, error) {
+	s := app.NewApp()
+	// ...
+	return s, s.Run(append(ops, registerHandlers...)...)
+}
 ```
 
-从3-5行可以看出, 接口接片类型的字段Components里注入了两个组件.
-这里体现了go-kid/ioc的接口切片类型注入的能力. 该能力在编写二次开发框架时将很有用.
+适合普通应用。
 
-## 配置填充
+#### 方式二：直接操纵 `app.App`
 
-go-kid/ioc框架除了可以代理容器的依赖关系, 还可以代理配置的读取.
+```go
+application := app.NewApp()
+err := application.Run(
+    app.SetComponents(...),
+    app.SetConfigLoader(...),
+    app.SetConfigBinder(...),
+    app.LogDebug,
+)
+```
 
+### 4.2 生命周期接口
+
+部分接口（在 `definition` 包中）用于参与容器生命周期：
+
+- `ApplicationRunner`：在所有组件刷新完毕后执行；
+- `CloserComponent`：在应用关闭时异步调用 `Close()`；
+- `LazyInitComponent`：标记为懒加载，在 `Refresh()` 时跳过；
+- `PriorityComponent`：控制某些后置处理器的执行顺序；
+- `WirePrimary` / `WireQualifier`：参与注入选择逻辑。
+
+`App.run()` 流程：
+
+1. 初始化配置 `initConfiguration()`；
+2. 初始化工厂 `initFactory()`（准备组件、注册后置处理器等）；
+3. 刷新组件 `refresh()`（非 lazy 组件全部实例化并注入依赖）；
+4. 调用 ApplicationRunners `callRunners()`；
+5. 退出时 `Close()` 调用所有 `CloserComponent.Close()`。
+
+---
+
+## 5. 架构总览
+
+核心模块关系（Mermaid 图）：
+
+```mermaid
+flowchart LR
+    subgraph App
+        A[app.App] --> B[Component Factory]
+        A --> C[Configure]
+    end
+
+    subgraph Configure
+        C --> C1[Loader: args/file/raw]
+        C --> C2[Binder: viper]
+    end
+
+    subgraph Container
+        B --> D[DefinitionRegistry]
+        B --> E[SingletonRegistry]
+
+        D -->|register| F[ComponentDefinition(Meta)]
+        F -->|create| G[Instance]
+
+        G --> H[PostProcessors]
+    end
+
+    subgraph PostProcessors
+        H1[LoggerAware]
+        H2[ConfigQuoteAware ${...}]
+        H3[ExpressionTagAware #{...}]
+        H4[PropertiesAware prefix]
+        H5[ValueAware value/prop]
+        H6[ValidateAware]
+        H7[DependencyAware wire]
+        H8[DependencyFuncAware func]
+        H9[DependencyFurtherMatching qualifier/primary]
+
+        H --> H1 & H2 & H3 & H4 & H5 & H6 & H7 & H8 & H9
+    end
+
+    C2 --> H2 & H4 & H5 & H3
+```
+
+---
+
+## 6. 示例与测试
+
+仓库中已有大量示例与单测，建议直接阅读/运行：
+
+- 示例工程：
+  - `test/ioc`：基础 IoC 示例
+  - `test/constructor`：构造器注入
+  - `test/prop` / `test/t_yaml`：配置 & `prefix` 示例
+- 单元测试：
+  - 组件注入相关：`unittest/component/builtin_inject/*`
+  - 配置 / 表达式相关：`unittest/configure/*`
+
+运行所有测试：
+
+```bash
+go test ./...
+```
+
+---
+
+## 7. 贡献与许可证
+
+- 欢迎通过 Issue / PR 进行反馈与贡献；
+- 先确保 `go test ./...` 通过，再提交。
+
+本项目采用 [MIT License](./LICENSE)。

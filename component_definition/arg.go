@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/go-kid/strings2"
+	"github.com/samber/lo"
 )
 
 type (
@@ -76,21 +77,11 @@ func (m TagArg) Has(argType ArgType, wants ...string) bool {
 }
 
 func isIntersect(a, b []string) bool {
-	for _, a2 := range a {
-		for _, b2 := range b {
-			if a2 == b2 {
-				return true
-			}
-		}
-	}
-	return false
+	return lo.SomeBy(a, func(x string) bool { return lo.Contains(b, x) })
 }
 
 func (m TagArg) ForEach(f func(argType ArgType, args []string)) {
-	var keys []ArgType
-	for argType, _ := range m {
-		keys = append(keys, argType)
-	}
+	keys := lo.Keys(m)
 	slices.SortFunc(keys, func(i, j ArgType) int {
 		if i < j {
 			return -1

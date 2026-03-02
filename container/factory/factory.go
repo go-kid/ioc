@@ -15,6 +15,7 @@ import (
 	"github.com/go-kid/ioc/syslog"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	"github.com/samber/lo"
 )
 
 type defaultFactory struct {
@@ -443,12 +444,7 @@ func (f *defaultFactory) resolveConstructorParam(componentName string, paramInde
 
 	metas := f.definitionRegistry.GetMetas(typeOption)
 
-	var validMetas []*component_definition.Meta
-	for _, m := range metas {
-		if m != nil {
-			validMetas = append(validMetas, m)
-		}
-	}
+	validMetas := lo.Filter(metas, func(m *component_definition.Meta, _ int) bool { return m != nil })
 
 	if len(validMetas) == 0 && !isSlice && elemType.Kind() == reflect.Ptr {
 		if resolved, err := f.resolveConfigurationProperties(elemType); err != nil {

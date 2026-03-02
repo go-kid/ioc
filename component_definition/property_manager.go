@@ -1,5 +1,7 @@
 package component_definition
 
+import "github.com/samber/lo"
+
 type PropertyManager struct {
 	propertyGroup map[PropertyType][]*Property
 }
@@ -29,9 +31,5 @@ func (pm *PropertyManager) GetConfigurationProperties() []*Property {
 }
 
 func (pm *PropertyManager) GetAllProperties() []*Property {
-	var props []*Property
-	for _, groupNodes := range pm.propertyGroup {
-		props = append(props, groupNodes...)
-	}
-	return props
+	return lo.Flatten(lo.Values(pm.propertyGroup))
 }

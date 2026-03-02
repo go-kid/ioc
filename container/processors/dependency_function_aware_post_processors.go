@@ -4,6 +4,7 @@ import (
 	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/container"
 	"github.com/go-kid/ioc/definition"
+	"github.com/samber/lo"
 	"reflect"
 )
 
@@ -54,10 +55,9 @@ func (d *dependencyFunctionAwarePostProcessors) PostProcessProperties(properties
 			continue
 		}
 		if args, ok := prop.Args().Find("returns"); ok {
-			var options []container.Option
-			for _, arg := range args {
-				options = append(options, container.FuncNameAndResult(prop.TagVal, arg))
-			}
+			options := lo.Map(args, func(arg string, _ int) container.Option {
+				return container.FuncNameAndResult(prop.TagVal, arg)
+			})
 			funcOption = container.Or(options...)
 		} else {
 			funcOption = container.FuncName(prop.TagVal)

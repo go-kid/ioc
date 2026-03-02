@@ -1,6 +1,7 @@
 package reflectx
 
 import (
+	"github.com/samber/lo"
 	"path"
 	"reflect"
 )
@@ -33,19 +34,11 @@ func IsTypeImplement(typ reflect.Type, _interface any) bool {
 }
 
 func Values2Interfaces(values []reflect.Value) []any {
-	var result []interface{}
-	for i := range values {
-		result = append(result, values[i].Interface())
-	}
-	return result
+	return lo.Map(values, func(v reflect.Value, _ int) any { return v.Interface() })
 }
 
 func Interfaces2Values(o []any) []reflect.Value {
-	var values []reflect.Value
-	for i := range o {
-		values = append(values, reflect.ValueOf(o[i]))
-	}
-	return values
+	return lo.Map(o, func(x any, _ int) reflect.Value { return reflect.ValueOf(x) })
 }
 
 func New(t reflect.Type) reflect.Value {

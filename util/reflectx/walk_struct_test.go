@@ -2,6 +2,7 @@ package reflectx
 
 import (
 	"fmt"
+	"github.com/samber/lo"
 	"reflect"
 	"testing"
 	"time"
@@ -35,10 +36,7 @@ func TestWalkField(t *testing.T) {
 			fmt.Println(field.Name)
 		} else {
 			path := parent.Path()
-			names := make([]string, len(path))
-			for i, item := range path {
-				names[i] = item.Field.Name
-			}
+			names := lo.Map(path, func(n *Node, _ int) string { return n.Field.Name })
 			fmt.Println(names, field.Name)
 		}
 		if field.Name == "Sub" {

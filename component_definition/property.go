@@ -5,6 +5,7 @@ import (
 	"github.com/go-kid/ioc/util/reflectx"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	"github.com/samber/lo"
 	"reflect"
 )
 
@@ -32,15 +33,6 @@ func NewProperty(field *Field, propType PropertyType, tag, tagVal string) *Prope
 	}
 }
 
-func filter(metas []*Meta, f func(m *Meta) bool) []*Meta {
-	var result = make([]*Meta, 0, len(metas))
-	for _, m := range metas {
-		if f(m) {
-			result = append(result, m)
-		}
-	}
-	return result
-}
 
 func (n *Property) info() string {
 	return fmt.Sprintf(".Type(%s).Tag(%s:'%s')", n.PropertyType, n.Tag, n.TagStr)
@@ -70,7 +62,7 @@ func (n *Property) Inject(metas []*Meta) error {
 	}
 
 	//remove self-inject
-	metas = filter(metas, func(m *Meta) bool {
+	metas = lo.Filter(metas, func(m *Meta, _ int) bool {
 		return !n.Holder.Meta.IsSelf(m)
 	})
 	if len(metas) == 0 {

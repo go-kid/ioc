@@ -5,6 +5,7 @@ import (
 	"github.com/go-kid/ioc/container"
 	"github.com/go-kid/ioc/definition"
 	"github.com/pkg/errors"
+	"github.com/samber/lo"
 	"reflect"
 )
 
@@ -46,24 +47,15 @@ func (d *dependencyFurtherMatchingPostProcessors) PostProcessProperties(properti
 }
 
 func filterDependencies(n *component_definition.Property, metas []*component_definition.Meta) ([]*component_definition.Meta, error) {
-	var result []*component_definition.Meta
-	for _, m := range metas {
-		if m != nil {
-			result = append(result, m)
-		}
-	}
+	result := lo.Filter(metas, func(m *component_definition.Meta, _ int) bool { return m != nil })
 	if len(result) == 0 {
 		return nil, errors.Errorf("inject '%s' not found available components", n)
 	}
 	if qualifierName, isQualifier := n.Args().Find(component_definition.ArgQualifier); isQualifier {
-		var qualified []*component_definition.Meta
-		for _, m := range result {
+		result = lo.Filter(result, func(m *component_definition.Meta, _ int) bool {
 			qualifier, ok := m.Raw.(definition.WireQualifier)
-			if ok && n.Args().Has(component_definition.ArgQualifier, qualifier.Qualifier()) {
-				qualified = append(qualified, m)
-			}
-		}
-		result = qualified
+			return ok && n.Args().Has(component_definition.ArgQualifier, qualifier.Qualifier())
+		})
 		if len(result) == 0 {
 			return nil, errors.Errorf("inject '%s' matching qualifier '%s' not found available components", n, qualifierName)
 		}

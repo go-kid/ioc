@@ -1,6 +1,9 @@
 package component_definition
 
-import "github.com/go-kid/ioc/util/sync2"
+import (
+	"github.com/go-kid/ioc/util/sync2"
+	"github.com/samber/lo"
+)
 
 type DependencyTracker struct {
 	dependentSet *sync2.Map[string, struct{}]
@@ -20,9 +23,6 @@ func (dt *DependencyTracker) dependOn(dependent *Meta) {
 	}
 }
 
-func (dt *DependencyTracker) GetDependents() (names []string) {
-	for _, meta := range dt.Dependent {
-		names = append(names, meta.Name())
-	}
-	return
+func (dt *DependencyTracker) GetDependents() []string {
+	return lo.Map(dt.Dependent, func(m *Meta, _ int) string { return m.Name() })
 }

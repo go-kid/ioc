@@ -1,17 +1,20 @@
 package factory
 
 import (
+	"context"
+	"fmt"
+	"reflect"
+	"slices"
+	"strings"
+
 	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/container"
 	"github.com/go-kid/ioc/container/support"
 	"github.com/go-kid/ioc/definition"
 	"github.com/go-kid/ioc/syslog"
-	"github.com/go-kid/ioc/util/reflectx"
-	"github.com/go-kid/ioc/util/sort2"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	"reflect"
 )
 
 type defaultFactory struct {
@@ -23,6 +26,19 @@ type defaultFactory struct {
 	allowCircularReferences           bool
 	postProcessorRegistrationDelegate *PostProcessorRegistrationDelegate
 	registeredComponents              map[string]any
+	ctx                               context.Context
+	resolveStack                      []string
+}
+
+func (f *defaultFactory) SetContext(ctx context.Context) {
+	f.ctx = ctx
+}
+
+func (f *defaultFactory) getContext() context.Context {
+	if f.ctx != nil {
+		return f.ctx
+	}
+	return context.Background()
 }
 
 func Default() container.Factory {
@@ -93,7 +109,6 @@ func (f *defaultFactory) GetDefinitionRegistry() container.DefinitionRegistry {
 }
 
 func (f *defaultFactory) Refresh() error {
-
 	var names []string
 
 	for _, meta := range f.definitionRegistry.GetMetas() {
@@ -101,13 +116,17 @@ func (f *defaultFactory) Refresh() error {
 		case definition.LazyInit:
 			continue
 		default:
+			if cc, ok := meta.Raw.(definition.ConditionalComponent); ok {
+				if !cc.Condition(f.newConditionContext()) {
+					f.logger().Debugf("skip conditional component '%s'", meta.Name())
+					continue
+				}
+			}
 			names = append(names, meta.Name())
 		}
 	}
 
-	sort2.Slice(names, func(i, j string) bool {
-		return i < j
-	})
+	slices.Sort(names)
 	for _, name := range names {
 		f.logger().Tracef("refresh component with name '%s'", name)
 		_, err := f.doGetComponent(name)
@@ -118,6 +137,29 @@ func (f *defaultFactory) Refresh() error {
 
 	f.logger().Info("refresh components finished")
 	return nil
+}
+
+type conditionContext struct {
+	registry  container.SingletonRegistry
+	configure configure.Configure
+}
+
+func (f *defaultFactory) newConditionContext() definition.ConditionContext {
+	return &conditionContext{
+		registry:  f.singletonRegistry,
+		configure: f.configure,
+	}
+}
+
+func (c *conditionContext) HasComponent(name string) bool {
+	return c.registry.ContainsSingleton(name)
+}
+
+func (c *conditionContext) GetConfig(key string) interface{} {
+	if c.configure == nil {
+		return nil
+	}
+	return c.configure.Get(key)
 }
 
 func (f *defaultFactory) GetComponents(opts ...container.Option) ([]any, error) {
@@ -140,7 +182,41 @@ func (f *defaultFactory) GetComponentByName(name string) (any, error) {
 	return m.Raw, nil
 }
 
+func (f *defaultFactory) pushResolveStack(name string) {
+	f.resolveStack = append(f.resolveStack, name)
+}
+
+func (f *defaultFactory) popResolveStack() {
+	if len(f.resolveStack) > 0 {
+		f.resolveStack = f.resolveStack[:len(f.resolveStack)-1]
+	}
+}
+
+func (f *defaultFactory) formatDependencyChain(failedName string, reason string) string {
+	var sb strings.Builder
+	sb.WriteString("dependency resolution failed:\n")
+	for i, name := range f.resolveStack {
+		sb.WriteString(strings.Repeat("  ", i))
+		if i > 0 {
+			sb.WriteString("-> ")
+		}
+		sb.WriteString(name)
+		sb.WriteString("\n")
+	}
+	sb.WriteString(strings.Repeat("  ", len(f.resolveStack)))
+	sb.WriteString("-> ")
+	sb.WriteString(failedName)
+	sb.WriteString(fmt.Sprintf(" (%s)", reason))
+	return sb.String()
+}
+
 func (f *defaultFactory) doGetComponent(name string) (*component_definition.Meta, error) {
+	meta := f.definitionRegistry.GetMetaByName(name)
+	if meta != nil && meta.IsPrototype() {
+		f.logger().Debugf("creating new prototype instance for '%s'", name)
+		return f.createComponent(name)
+	}
+
 	sharedInstance, err := f.singletonComponentRegistry.GetSingleton(name, true)
 	if err != nil {
 		return nil, err
@@ -154,10 +230,13 @@ func (f *defaultFactory) doGetComponent(name string) (*component_definition.Meta
 		}
 		return sharedInstance, nil
 	}
+
+	f.pushResolveStack(name)
 	sharedInstance, err = f.singletonComponentRegistry.GetSingletonOrCreateByFactory(name,
 		container.FuncSingletonFactory(func() (*component_definition.Meta, error) {
 			return f.createComponent(name)
 		}))
+	f.popResolveStack()
 	if err != nil {
 		return nil, err
 	}
@@ -208,8 +287,7 @@ func (f *defaultFactory) createComponent(name string) (*component_definition.Met
 }
 
 func (f *defaultFactory) doCreateComponent(name string, meta *component_definition.Meta) (*component_definition.Meta, error) {
-	// set to singleton component factory cache
-	earlySingletonExposure := meta.IsSingleton() && f.allowCircularReferences && f.singletonComponentRegistry.IsSingletonCurrentlyInCreation(name)
+	earlySingletonExposure := meta.IsSingleton() && !meta.IsPrototype() && f.allowCircularReferences && f.singletonComponentRegistry.IsSingletonCurrentlyInCreation(name)
 	if earlySingletonExposure {
 		f.logger().Debugf("eagerly caching bean '%s' to allow for resolving potential circular references", name)
 		f.singletonComponentRegistry.AddSingletonFactory(name, container.FuncSingletonFactory(func() (*component_definition.Meta, error) {
@@ -225,7 +303,7 @@ func (f *defaultFactory) doCreateComponent(name string, meta *component_definiti
 	}
 
 	instance := meta.Raw
-	wrappedInstance, err := f.postProcessorRegistrationDelegate.InitializeComponent(name, instance)
+	wrappedInstance, err := f.postProcessorRegistrationDelegate.InitializeComponentWithContext(f.getContext(), name, instance)
 	if err != nil {
 		return nil, err
 	}
@@ -283,7 +361,7 @@ func (f *defaultFactory) populateComponent(name string, meta *component_definiti
 					f.logger().Tracef("found dependency '%s' for '%s', start to get or create", dependency.Name(), name)
 					component, err := f.doGetComponent(dependency.Name())
 					if err != nil {
-						return err
+						return fmt.Errorf("%s\n%w", f.formatDependencyChain(dependency.Name(), "not found or creation failed"), err)
 					}
 					injects = append(injects, component)
 				}
@@ -343,8 +421,6 @@ func (f *defaultFactory) invokeConstructor(name string, constructor any) (any, e
 	return results[0].Interface(), nil
 }
 
-var wirePrimaryInterface = new(definition.WirePrimary)
-
 func (f *defaultFactory) resolveConstructorParam(componentName string, paramIndex int, paramType reflect.Type) (reflect.Value, error) {
 	isSlice := paramType.Kind() == reflect.Slice
 
@@ -386,7 +462,8 @@ func (f *defaultFactory) resolveConstructorParam(componentName string, paramInde
 		if isSlice {
 			return reflect.MakeSlice(paramType, 0, 0), nil
 		}
-		return reflect.Value{}, errors.Errorf("no component found for parameter type %s", paramType)
+		reason := fmt.Sprintf("no component found for constructor parameter[%d] type %s", paramIndex, paramType)
+		return reflect.Value{}, fmt.Errorf("%s\n%s", reason, f.formatDependencyChain(paramType.String(), reason))
 	}
 
 	if isSlice {
@@ -401,28 +478,12 @@ func (f *defaultFactory) resolveConstructorParam(componentName string, paramInde
 		return slice, nil
 	}
 
-	selected := f.selectBestMatch(validMetas)
+	selected := component_definition.SelectBestCandidate(validMetas)
 	dep, err := f.doGetComponent(selected.Name())
 	if err != nil {
 		return reflect.Value{}, err
 	}
 	return dep.Value, nil
-}
-
-func (f *defaultFactory) selectBestMatch(metas []*component_definition.Meta) *component_definition.Meta {
-	if len(metas) == 1 {
-		return metas[0]
-	}
-	candidate := metas[0]
-	for _, m := range metas {
-		if reflectx.IsTypeImplement(m.Type, wirePrimaryInterface) {
-			return m
-		}
-		if !m.IsAlias() {
-			candidate = m
-		}
-	}
-	return candidate
 }
 
 func (f *defaultFactory) resolveConfigurationProperties(ptrType reflect.Type) (reflect.Value, error) {

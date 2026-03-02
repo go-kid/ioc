@@ -103,15 +103,15 @@ func (l *logger) Panicf(format string, v ...any) {
 func (l *logger) Fatal(v ...any) {
 	if LvFatal >= l.lv {
 		l.print(LvFatal, v...)
-		Fatal(v)
 	}
+	os.Exit(1)
 }
 
 func (l *logger) Fatalf(format string, v ...any) {
 	if LvFatal >= l.lv {
 		l.printf(LvFatal, format, v...)
-		Fatal(fmt.Sprintf(format, v...))
 	}
+	os.Exit(1)
 }
 
 func (l *logger) print(lv Lv, v ...any) {

@@ -100,7 +100,7 @@ func main() {
 func Analyst(times int, cat string, f func() error) error {
 	switch cat {
 	case "cpu":
-		var fileName = "./performance_analyst/cpu.pprof"
+		var fileName = "cpu.pprof"
 		cpuFile, err := os.Create(fileName)
 		if err != nil {
 			return err
@@ -114,8 +114,8 @@ func Analyst(times int, cat string, f func() error) error {
 		}
 		defer pprof.StopCPUProfile()
 	case "mem":
-		var fileName = "./performance_analyst/mem.pprof"
-		memFile, err := os.Create("./performance_analyst/mem.pprof")
+		var fileName = "mem.pprof"
+		memFile, err := os.Create(fileName)
 		if err != nil {
 			return err
 		}

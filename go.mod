@@ -1,6 +1,6 @@
 module github.com/go-kid/ioc
 
-go 1.20
+go 1.21
 
 require (
 	github.com/expr-lang/expr v1.16.9
@@ -10,7 +10,6 @@ require (
 	github.com/go-playground/validator/v10 v10.22.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/pkg/errors v0.9.1
-	github.com/samber/lo v1.46.0
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.9.0
 	gopkg.in/yaml.v3 v3.0.1

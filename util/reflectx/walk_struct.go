@@ -1,7 +1,6 @@
 package reflectx
 
 import (
-	"github.com/samber/lo"
 	"reflect"
 )
 
@@ -21,7 +20,10 @@ func (n *Node) Path() []*Node {
 		nodes = append(nodes, parent)
 		parent = parent.Parent
 	}
-	return lo.Reverse(nodes)
+	for i, j := 0, len(nodes)-1; i < j; i, j = i+1, j-1 {
+		nodes[i], nodes[j] = nodes[j], nodes[i]
+	}
+	return nodes
 }
 
 type FieldWalkAcceptor func(parent *Node, field reflect.StructField, value reflect.Value) error

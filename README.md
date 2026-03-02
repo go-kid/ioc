@@ -14,10 +14,18 @@
   - Multiple configuration sources (command-line args, files, raw content)
   - Configuration placeholders `${...}`
   - Expression evaluation `#{...}` (arithmetic, logical, conditional, collection operations)
-- **Constructor Injection**: Function-based dependency injection
+- **Constructor Injection**: Function-based dependency injection (built-in)
 - **Lifecycle Management**: ApplicationRunner, CloserComponent, LazyInitComponent
+- **`context.Context` lifecycle support**: WithContext variants for all lifecycle interfaces
+- **Scope mechanism**: Singleton/Prototype
+- **Conditional component registration**: Register components based on runtime conditions
+- **Application event mechanism**: Publish and listen for application events
+- **Type-safe generic registration**: `ioc.Provide[T]` validates return type at registration time
+- **`log/slog` adapter support**: Integrate with Go's structured logging
 
 ## 📦 Installation
+
+Requires **Go 1.21+**.
 
 ```bash
 go get github.com/go-kid/ioc
@@ -218,24 +226,22 @@ type T struct {
 
 ### 3. Constructor Injection
 
+Constructor injection is built into the framework. Simply register the constructor directly:
+
 ```go
-func NewComponent(d1 *processors.A) *Component {
-	return &Component{dependency: d1}
+func NewService(repo *Repository) *Service {
+	return &Service{repo: repo}
 }
 
-type App struct {
-	Component *Component `wire:""`
-}
+ioc.Register(NewService)      // register constructor directly
+ioc.Register(&Repository{})
+_, err := ioc.Run()
+```
 
-func main() {
-	_, err := ioc.Run(
-		app.SetComponents(
-			&App{},
-			&processors.A{Name: "A23"},
-			NewComponent,                                   // register constructor
-			processors.NewConstructorAwarePostProcessors(), // enable constructor processor
-		))
-}
+Type-safe variant with `ioc.Provide[T]`:
+
+```go
+ioc.Provide[Service](NewService)  // validates return type at registration time
 ```
 
 ### 4. Application Startup
@@ -265,6 +271,89 @@ err := application.Run(
 - `CloserComponent`: `Close()` called when app stops
 - `LazyInitComponent`: marked as lazy initialization
 - `PriorityComponent`: controls post-processor execution order
+- `InitializeComponentWithContext` / `InitializingComponentWithContext`: context-aware Init/AfterPropertiesSet
+- `ApplicationRunnerWithContext`: context-aware Run
+- `CloserComponentWithContext`: context-aware Close
+- `ScopeComponent`: control component scope (singleton/prototype)
+- `ConditionalComponent`: conditional registration based on runtime conditions
+- `ApplicationEventListener` / `ApplicationEventPublisher`: event mechanism
+
+### 6. Context Support
+
+All lifecycle interfaces have WithContext variants. Components can implement them to receive a `context.Context` for timeout control, cancellation propagation, etc.
+
+```go
+// Run the framework with a context
+app, err := ioc.RunWithContext(ctx)
+
+// Set a shutdown timeout
+_, err := ioc.Run(app.SetShutdownTimeout(30 * time.Second))
+```
+
+Context-aware lifecycle interfaces:
+
+```go
+// InitializeComponentWithContext (replaces InitializeComponent)
+func (c *MyComp) Init(ctx context.Context) error { return nil }
+
+// InitializingComponentWithContext (replaces InitializingComponent)
+func (c *MyComp) AfterPropertiesSet(ctx context.Context) error { return nil }
+
+// ApplicationRunnerWithContext (can coexist with ApplicationRunner)
+func (r *MyRunner) RunWithContext(ctx context.Context) error { return nil }
+
+// CloserComponentWithContext (can coexist with CloserComponent)
+func (c *MyComp) CloseWithContext(ctx context.Context) error { return nil }
+```
+
+> **Note**: `Init(ctx)` and `AfterPropertiesSet(ctx)` have the same method names as their base interfaces but different signatures, so a component implements one or the other. `RunWithContext` and `CloseWithContext` use distinct method names, allowing a component to implement both the original and context-aware versions.
+
+### 7. Scope
+
+Control component scope by implementing `ScopeComponent`:
+
+- **Singleton** (default): single instance in the container
+- **Prototype**: new instance created on every access
+
+```go
+import "github.com/go-kid/ioc/definition"
+
+type MyPrototype struct{}
+
+func (p *MyPrototype) Scope() string { return definition.ScopePrototype }
+```
+
+### 8. Conditional Registration
+
+Implement `ConditionalComponent` to decide at runtime whether a component should be created:
+
+```go
+import "github.com/go-kid/ioc/definition"
+
+type MyComp struct{}
+
+func (c *MyComp) Condition(ctx definition.ConditionContext) bool {
+	return ctx.HasComponent("dependency")
+}
+```
+
+### 9. Events
+
+Publish and listen for application events to enable loose coupling between components:
+
+```go
+import "github.com/go-kid/ioc/definition"
+
+// Listen for events
+type MyListener struct{}
+
+func (l *MyListener) OnEvent(event definition.ApplicationEvent) error {
+	// handle event
+	return nil
+}
+```
+
+Built-in events: `ComponentCreatedEvent`, `ApplicationStartedEvent`, `ApplicationClosingEvent`.
 
 ## 🏗️ Architecture
 
@@ -308,9 +397,13 @@ err := application.Run(
 Config Flow: Binder → ConfigQuoteAware, PropertiesAware, ValueAware, ExpressionTagAware
 ```
 
+> **Note**: The constructor processor is now built into the framework; no separate registration is required.
+
 ## 📚 Examples & Tests
 
 - **Example projects**: `test/ioc`, `test/constructor`, `test/prop`, `test/t_yaml`
+- **Post processor example**: `examples/post_processor/`
+- **Performance tools**: `cmd/performance_analyst/`
 - **Unit tests**: `unittest/component/builtin_inject/*`, `unittest/configure/*`
 
 Run tests:

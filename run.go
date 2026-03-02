@@ -1,14 +1,15 @@
 package ioc
 
 import (
+	"context"
 	"flag"
-	. "github.com/go-kid/ioc/app"
+	"github.com/go-kid/ioc/app"
 	"github.com/go-kid/ioc/syslog"
 )
 
 var (
 	flagLogLevel     string
-	registerHandlers []SettingOption
+	registerHandlers []app.SettingOption
 )
 
 func init() {
@@ -16,15 +17,21 @@ func init() {
 }
 
 func Register(cs ...interface{}) {
-	registerHandlers = append(registerHandlers, SetComponents(cs...))
+	registerHandlers = append(registerHandlers, app.SetComponents(cs...))
 }
 
-func Run(ops ...SettingOption) (*App, error) {
-	s := NewApp()
+func Run(ops ...app.SettingOption) (*app.App, error) {
+	return RunWithContext(context.Background(), ops...)
+}
+
+func RunWithContext(ctx context.Context, ops ...app.SettingOption) (*app.App, error) {
+	s := app.NewApp()
 	if flagLogLevel != "" {
 		syslog.Level(syslog.NewLvFromString(flagLogLevel))
 	}
-	if err := s.Run(append(ops, registerHandlers...)...); err != nil {
+	allOps := append(ops, registerHandlers...)
+	registerHandlers = nil
+	if err := s.RunWithContext(ctx, allOps...); err != nil {
 		return nil, err
 	}
 	return s, nil

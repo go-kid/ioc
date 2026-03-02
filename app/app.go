@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"flag"
 	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/container"
@@ -12,14 +13,17 @@ import (
 	"github.com/go-kid/ioc/util/framework_helper"
 	"github.com/pkg/errors"
 	"sync"
+	"time"
 )
 
 type App struct {
 	configure.Configure
 	container.Factory
 	registry           container.SingletonRegistry
-	ApplicationRunners []definition.ApplicationRunner `wire:",required=false"`
-	CloserComponents   []definition.CloserComponent   `wire:",required=false"`
+	shutdownTimeout    time.Duration
+	ApplicationRunners []definition.ApplicationRunner       `wire:",required=false"`
+	CloserComponents   []definition.CloserComponent         `wire:",required=false"`
+	EventListeners     []definition.ApplicationEventListener `wire:",required=false"`
 }
 
 func NewApp() *App {
@@ -62,48 +66,56 @@ func (s *App) initiate() error {
 	return nil
 }
 
+type contextSetter interface {
+	SetContext(ctx context.Context)
+}
+
 func (s *App) Run(ops ...SettingOption) error {
-	for _, op := range append(ops, globalOptions...) {
+	return s.RunWithContext(context.Background(), ops...)
+}
+
+func (s *App) RunWithContext(ctx context.Context, ops ...SettingOption) error {
+	allOps := append(ops, globalOptions...)
+	globalOptions = nil
+	for _, op := range allOps {
 		op(s)
 	}
 	err := s.initiate()
 	if err != nil {
 		s.logger().Fatalf("%+v", err)
 	}
-	if err := s.run(); err != nil {
+	if cs, ok := s.Factory.(contextSetter); ok {
+		cs.SetContext(ctx)
+	}
+	if err := s.run(ctx); err != nil {
 		s.logger().Errorf("application run failed: %+v", err)
 		return err
 	}
 	return nil
 }
 
-func (s *App) run() error {
-	/* begin load and bind configuration */
+func (s *App) run(ctx context.Context) error {
 	s.logger().Info("start initializing configuration...")
 	if err := s.initConfiguration(); err != nil {
 		return errors.WithMessage(err, "application configuration initialize failed")
 	}
 
-	/* set default init behavior */
 	s.logger().Info("start initializing component factory...")
 	if err := s.initFactory(); err != nil {
 		return errors.WithMessage(err, "application factory initialize failed")
 	}
-	/* factory ready */
 
-	/* begin inject dependencies */
 	s.logger().Info("start refreshing components...")
 	if err := s.refresh(); err != nil {
 		return errors.WithMessage(err, "application components refresh failed")
 	}
-	/* dependency injection ready */
 
-	/* begin call runners */
 	s.logger().Info("start call up runners...")
-	if err := s.callRunners(); err != nil {
+	if err := s.callRunners(ctx); err != nil {
 		return errors.WithMessagef(err, "start application runners failed")
 	}
-	/* finished */
+
+	_ = s.PublishEvent(&definition.ApplicationStartedEvent{App: s})
 	s.logger().Info("application run up")
 	return nil
 }
@@ -132,7 +144,7 @@ func (s *App) refresh() error {
 	return nil
 }
 
-func (s *App) callRunners() error {
+func (s *App) callRunners(ctx context.Context) error {
 	runners := s.ApplicationRunners
 	if len(runners) == 0 {
 		s.logger().Trace("find 0 application runner, skip")
@@ -143,7 +155,12 @@ func (s *App) callRunners() error {
 	for i := range runners {
 		runner := runners[i]
 		s.logger().Tracef("start runner %T [%d/%d]", runner, i+1, len(runners))
-		err := runner.Run()
+		var err error
+		if r, ok := runner.(definition.ApplicationRunnerWithContext); ok {
+			err = r.RunWithContext(ctx)
+		} else {
+			err = runner.Run()
+		}
 		if err != nil {
 			return errors.Wrapf(err, "invoking Run() for runner '%T'", runner)
 		}
@@ -154,6 +171,26 @@ func (s *App) callRunners() error {
 }
 
 func (s *App) Close() {
+	s.CloseWithContext(context.Background())
+}
+
+func (s *App) PublishEvent(event definition.ApplicationEvent) error {
+	for _, listener := range s.EventListeners {
+		if err := listener.OnEvent(event); err != nil {
+			s.logger().Errorf("event listener %T failed: %+v", listener, err)
+			return errors.Wrapf(err, "event listener %T failed", listener)
+		}
+	}
+	return nil
+}
+
+func (s *App) CloseWithContext(ctx context.Context) {
+	_ = s.PublishEvent(&definition.ApplicationClosingEvent{App: s})
+	if s.shutdownTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, s.shutdownTimeout)
+		defer cancel()
+	}
 	s.logger().Infof("close closer components")
 	if len(s.CloserComponents) != 0 {
 		wg := sync.WaitGroup{}
@@ -161,7 +198,13 @@ func (s *App) Close() {
 		for _, m := range s.CloserComponents {
 			go func(m definition.CloserComponent) {
 				defer wg.Done()
-				if err := m.Close(); err != nil {
+				var err error
+				if c, ok := m.(definition.CloserComponentWithContext); ok {
+					err = c.CloseWithContext(ctx)
+				} else {
+					err = m.Close()
+				}
+				if err != nil {
 					err = errors.Wrapf(err, "invoking Close() for closer '%T'", m)
 					s.logger().Errorf("%+v", err)
 				}

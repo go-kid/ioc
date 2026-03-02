@@ -5,6 +5,7 @@ import (
 	"github.com/go-kid/ioc/configure/loader"
 	"github.com/go-kid/ioc/container"
 	"github.com/go-kid/ioc/syslog"
+	"time"
 )
 
 type SettingOption func(s *App)
@@ -76,6 +77,12 @@ func LogLevel(lv syslog.Lv) SettingOption {
 func SetLogger(l syslog.Logger) SettingOption {
 	return func(s *App) {
 		syslog.SetLogger(l)
+	}
+}
+
+func SetShutdownTimeout(d time.Duration) SettingOption {
+	return func(s *App) {
+		s.shutdownTimeout = d
 	}
 }
 

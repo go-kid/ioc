@@ -1,24 +1,53 @@
 ---
 name: ioc-component-injection
-description: "go-kid/ioc framework component dependency injection guide. Use when registering components, injecting dependencies with `wire` tag, selecting from multiple implementations (Primary/Qualifier), injecting into slices, using `func` tag for method-based matching, or using constructor injection. Triggers on: wire tag, component registration, dependency injection, ioc.Register, app.SetComponents, NamingComponent, WireQualifier, WirePrimary."
+description: "go-kid/ioc framework component dependency injection guide. Use when registering components, injecting dependencies with `wire` tag, selecting from multiple implementations (Primary/Qualifier), injecting into slices, using `func` tag for method-based matching, using constructor injection, or using type-safe generic registration with ioc.Provide. Triggers on: wire tag, component registration, dependency injection, ioc.Register, ioc.Provide, app.SetComponents, NamingComponent, WireQualifier, WirePrimary, constructor injection, ScopeComponent, ConditionalComponent."
 ---
 
 # go-kid/ioc Component Injection
 
+Requires **Go 1.21+**.
+
 ## Component Registration
 
-Two styles for registering components:
+Three styles for registering components:
 
 ```go
-// Style 1: Global registration
+// Style 1: Global registration (pointer)
 ioc.Register(&MyComponent{})
 ioc.Run()
 
 // Style 2: Via app options
 app.NewApp().Run(app.SetComponents(&MyComponent{}, &AnotherComponent{}))
+
+// Style 3: Constructor function
+ioc.Register(NewMyComponent)  // func(...deps) *MyComponent
+ioc.Run()
 ```
 
-All registered values must be **pointers** (e.g. `&MyStruct{}`). Constructor functions can also be registered directly.
+Registered values must be **pointers** (e.g. `&MyStruct{}`), or **constructor functions** returning pointers.
+
+### Type-Safe Registration with `ioc.Provide[T]`
+
+Use generics to validate the constructor return type at registration time:
+
+```go
+// Concrete type: constructor must return *Service
+ioc.Provide[Service](func(repo *Repository) *Service {
+    return &Service{repo: repo}
+})
+
+// Interface type: constructor must return a type implementing IService
+ioc.Provide[IService](func(repo *Repository) *serviceImpl {
+    return &serviceImpl{repo: repo}
+})
+
+// Supports (value, error) return pattern
+ioc.Provide[Service](func(repo *Repository) (*Service, error) {
+    return &Service{repo: repo}, nil
+})
+```
+
+Panics at registration time if the return type does not match `T`.
 
 ## `wire` Tag Syntax
 
@@ -136,18 +165,57 @@ type App struct {
 
 ## Constructor Injection
 
-Register a constructor function that takes dependencies as parameters:
+Constructor injection is built into the framework. Register a constructor function that takes dependencies as parameters:
 
 ```go
 func NewService(repo *Repository) *Service {
     return &Service{repo: repo}
 }
 
-ioc.Run(app.SetComponents(
-    &Repository{},
-    NewService,  // register constructor function
-    processors.NewConstructorAwarePostProcessors(),
-))
+// Register constructor directly - no additional processor needed
+ioc.Register(NewService)
+ioc.Register(&Repository{})
+_, err := ioc.Run()
 ```
 
-The framework resolves constructor parameters as dependencies automatically.
+### Constructor Parameter Resolution
+
+Constructor parameters are resolved as dependencies using the same rules as `wire:""` tag injection:
+
+- **Pointer types**: `*Repository` matches a registered `*Repository`
+- **Interface types**: `Logger` matches any registered type implementing `Logger`
+- **Slice types**: `[]Handler` injects all registered `Handler` implementations
+- **ConfigurationProperties**: parameters implementing `ConfigurationProperties` are automatically populated from config
+
+### Type-Safe Constructor Registration
+
+```go
+ioc.Provide[Service](NewService)  // validates return type at registration time
+```
+
+## Scope
+
+Control component scope by implementing `ScopeComponent`:
+
+```go
+import "github.com/go-kid/ioc/definition"
+
+type MyPrototype struct{}
+func (p *MyPrototype) Scope() string { return definition.ScopePrototype }
+```
+
+- `definition.ScopeSingleton` (default): single instance, returned on every request
+- `definition.ScopePrototype`: new instance created on every access
+
+## Conditional Registration
+
+Implement `ConditionalComponent` to decide at runtime whether a component should be created:
+
+```go
+import "github.com/go-kid/ioc/definition"
+
+type MyComp struct{}
+func (c *MyComp) Condition(ctx definition.ConditionContext) bool {
+    return ctx.HasComponent("dependency")
+}
+```

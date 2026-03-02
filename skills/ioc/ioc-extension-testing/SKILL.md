@@ -1,13 +1,18 @@
 ---
 name: ioc-extension-testing
-description: "go-kid/ioc framework extension and testing guide. Use when creating custom PostProcessors to extend the IoC container, implementing custom tag processing, creating custom config Loaders or Binders, or writing tests with ioc.RunTest/RunErrorTest. Triggers on: PostProcessor, ComponentPostProcessor, InstantiationAwareComponentPostProcessor, DefinitionRegistryPostProcessor, DefaultTagScanDefinitionRegistryPostProcessor, custom tag, ioc.RunTest, ioc.RunErrorTest, testing IoC components."
+description: "go-kid/ioc framework extension and testing guide. Use when creating custom PostProcessors to extend the IoC container, implementing custom tag processing, creating custom config Loaders or Binders, writing tests with ioc.RunTest/RunErrorTest, or using slog adapter. Triggers on: PostProcessor, ComponentPostProcessor, InstantiationAwareComponentPostProcessor, DefinitionRegistryPostProcessor, DefaultTagScanDefinitionRegistryPostProcessor, custom tag, ioc.RunTest, ioc.RunErrorTest, testing IoC components, slog, NewSlogAdapter."
 ---
 
 # go-kid/ioc Extension & Testing
 
+Requires **Go 1.21+**.
+
 ## Custom PostProcessors
 
-PostProcessors are the primary extension mechanism. Register them as components via `app.SetComponents`.
+PostProcessors are the primary extension mechanism. They can be registered in two ways:
+
+1. Via `app.SetComponents` (explicit)
+2. Via `ioc.Register` (any registered component implementing a PostProcessor interface is auto-discovered)
 
 For detailed interface hierarchy and built-in processor patterns, see [references/postprocessor-patterns.md](references/postprocessor-patterns.md).
 
@@ -95,6 +100,10 @@ func (p *MyProcessor) PostProcessComponentFactory(factory container.Factory) err
 }
 ```
 
+### Auto-Discovery
+
+Any component registered via `ioc.Register` that implements `ComponentPostProcessor` or `DefinitionRegistryPostProcessor` is automatically picked up during `PrepareComponents()`. No special registration is needed beyond the standard `ioc.Register`.
+
 ## Custom Loader
 
 Implement `configure.Loader` to add a new config source:
@@ -112,6 +121,19 @@ func (l *EnvLoader) Order() int { return 10 }
 ```
 
 Register: `app.AddConfigLoader(&EnvLoader{})`
+
+## Logging
+
+### `log/slog` Adapter
+
+The framework provides an adapter to bridge `syslog.Logger` with Go 1.21's `log/slog`:
+
+```go
+import "github.com/go-kid/ioc/syslog"
+
+adapter := syslog.NewSlogAdapter(slogHandler)
+ioc.Run(app.SetLogger(adapter))
+```
 
 ## Testing
 
@@ -155,13 +177,25 @@ ioc.RunTest(t,
 ioc.RunTest(t, app.LogTrace, app.SetComponents(comp))
 
 // Test lifecycle: Close
-app := ioc.RunTest(t, app.SetComponents(comp))
-app.Close()
+a := ioc.RunTest(t, app.SetComponents(comp))
+a.Close()
 assert.True(t, comp.Closed)
 
 // Access config after startup
-app := ioc.RunTest(t, app.SetConfigLoader(loader.NewRawLoader(cfg)))
-val := app.Get("some.key")
+a := ioc.RunTest(t, app.SetConfigLoader(loader.NewRawLoader(cfg)))
+val := a.Get("some.key")
+
+// Test with context
+ctx := context.Background()
+a, err := ioc.RunWithContext(ctx, app.SetComponents(comp))
+assert.NoError(t, err)
+
+// Test constructor injection
+ioc.RunTest(t, app.SetComponents(NewService, &Repository{}))
+
+// Test type-safe registration
+ioc.Provide[Service](NewService)
+ioc.RunTest(t, app.SetComponents(&Repository{}))
 ```
 
 ### Test Organization
@@ -172,11 +206,13 @@ Follow existing project conventions:
 unittest/
 ├── component/
 │   ├── builtin_inject/          # wire tag: pointer, interface, slice, name
+│   ├── constructor_inject/      # constructor injection
 │   ├── embed_inject/            # embedded struct injection
 │   ├── func_inject/             # func tag injection
 │   ├── life_cycle_test/         # Init, Run, Close lifecycle
 │   ├── modified_inject/         # custom PostProcessor injection
 │   ├── post_processor/          # PostProcessor behavior
+│   ├── refactor_test/           # refactored features and backward compatibility
 │   └── special_inject_condition/ # qualifier, primary, required=false
 └── configure/
     ├── configuration_test.go     # prefix tag, Binder

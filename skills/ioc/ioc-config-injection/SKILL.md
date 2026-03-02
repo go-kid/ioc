@@ -1,9 +1,11 @@
 ---
 name: ioc-config-injection
-description: "go-kid/ioc framework configuration injection guide. Use when injecting configuration values with `value`, `prop`, or `prefix` tags, working with config placeholders `${...}`, expressions `#{...}`, setting up config loaders (file/args/raw), or binding config to structs. Triggers on: value tag, prop tag, prefix tag, ConfigurationProperties, config placeholder, expression evaluation, SetConfigLoader, SetConfig, FileLoader, RawLoader."
+description: "go-kid/ioc framework configuration injection guide. Use when injecting configuration values with `value`, `prop`, or `prefix` tags, working with config placeholders `${...}`, expressions `#{...}`, setting up config loaders (file/args/raw), binding config to structs, or using ConfigurationProperties with constructor injection. Triggers on: value tag, prop tag, prefix tag, ConfigurationProperties, config placeholder, expression evaluation, SetConfigLoader, SetConfig, FileLoader, RawLoader."
 ---
 
 # go-kid/ioc Configuration Injection
+
+Requires **Go 1.21+**.
 
 ## Config Sources
 
@@ -65,6 +67,26 @@ func (c *DBConfig) Prefix() string { return "database" }
 ```
 
 Register as a component; `prefix` is inferred from the method. No tag needed on the parent struct field.
+
+### ConfigurationProperties with Constructor Injection
+
+When a constructor parameter's type implements `ConfigurationProperties`, the framework automatically creates an instance and populates it from config, even if it wasn't explicitly registered:
+
+```go
+type DBConfig struct {
+    Host string `yaml:"host"`
+    Port int    `yaml:"port"`
+}
+
+func (c *DBConfig) Prefix() string { return "database" }
+
+func NewService(cfg *DBConfig) *Service {
+    return &Service{host: cfg.Host, port: cfg.Port}
+}
+
+ioc.Register(NewService)
+ioc.Run(app.SetConfig("config.yaml"))
+```
 
 ### Dynamic Prefix with Placeholder
 

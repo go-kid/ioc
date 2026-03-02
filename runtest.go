@@ -1,27 +1,27 @@
 package ioc
 
 import (
-	. "github.com/go-kid/ioc/app"
+	"github.com/go-kid/ioc/app"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
-func RunTest(t *testing.T, ops ...SettingOption) *App {
+func RunTest(t *testing.T, ops ...app.SettingOption) *app.App {
 	testing.Init()
-	app := NewApp()
-	err := app.Run(ops...)
+	a := app.NewApp()
+	err := a.Run(ops...)
 	if t != nil {
 		assert.NoError(t, err)
 	}
-	return app
+	return a
 }
 
-func RunErrorTest(t *testing.T, ops ...SettingOption) *App {
+func RunErrorTest(t *testing.T, ops ...app.SettingOption) *app.App {
 	testing.Init()
-	app := NewApp()
-	err := app.Run(ops...)
+	a := app.NewApp()
+	err := a.Run(ops...)
 	if t != nil {
 		assert.Error(t, err)
 	}
-	return app
+	return a
 }

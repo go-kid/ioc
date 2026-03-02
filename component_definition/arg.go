@@ -1,9 +1,10 @@
 package component_definition
 
 import (
-	"github.com/go-kid/ioc/util/sort2"
-	"github.com/go-kid/strings2"
+	"slices"
 	"strings"
+
+	"github.com/go-kid/strings2"
 )
 
 type (
@@ -90,8 +91,14 @@ func (m TagArg) ForEach(f func(argType ArgType, args []string)) {
 	for argType, _ := range m {
 		keys = append(keys, argType)
 	}
-	sort2.Slice(keys, func(i ArgType, j ArgType) bool {
-		return i < j
+	slices.SortFunc(keys, func(i, j ArgType) int {
+		if i < j {
+			return -1
+		}
+		if i > j {
+			return 1
+		}
+		return 0
 	})
 	for _, key := range keys {
 		f(key, m[key])

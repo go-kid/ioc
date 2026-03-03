@@ -29,6 +29,25 @@ type defaultFactory struct {
 	registeredComponents              map[string]any
 	ctx                               context.Context
 	resolveStack                      []string
+	factoryHook                       container.FactoryHook
+}
+
+func (f *defaultFactory) SetFactoryHook(hook container.FactoryHook) {
+	f.factoryHook = hook
+	f.postProcessorRegistrationDelegate.factoryHook = hook
+}
+
+func (f *defaultFactory) emitEvent(phase, action, componentName, processorName string, details map[string]any) {
+	if f.factoryHook == nil {
+		return
+	}
+	f.factoryHook.OnFactoryEvent(container.FactoryEvent{
+		Phase:         phase,
+		Action:        action,
+		ComponentName: componentName,
+		ProcessorName: processorName,
+		Details:       details,
+	})
 }
 
 func (f *defaultFactory) SetContext(ctx context.Context) {
@@ -53,6 +72,8 @@ func Default() container.Factory {
 }
 
 func (f *defaultFactory) PrepareComponents() error {
+	f.emitEvent("prepare", "phase_start", "", "", map[string]any{"phase": "PrepareComponents"})
+
 	singletonNames := f.singletonRegistry.GetSingletonNames()
 	f.registeredComponents = make(map[string]any, len(singletonNames))
 	var factoryPostProcessors []container.ComponentFactoryPostProcessor
@@ -71,12 +92,16 @@ func (f *defaultFactory) PrepareComponents() error {
 			factoryPostProcessors = append(factoryPostProcessors, p)
 		}
 		f.registeredComponents[name] = singleton
+		f.emitEvent("prepare", "component_registered", name, "", map[string]any{
+			"type": reflect.TypeOf(singleton).String(),
+		})
 	}
 
 	err := f.postProcessorRegistrationDelegate.InvokeBeanFactoryPostProcessors(f, factoryPostProcessors)
 	if err != nil {
 		return err
 	}
+	f.emitEvent("prepare", "phase_end", "", "", map[string]any{"phase": "PrepareComponents"})
 	f.logger().Info("prepare components finished")
 	return nil
 }
@@ -110,8 +135,9 @@ func (f *defaultFactory) GetDefinitionRegistry() container.DefinitionRegistry {
 }
 
 func (f *defaultFactory) Refresh() error {
-	var names []string
+	f.emitEvent("refresh", "phase_start", "", "", map[string]any{"phase": "Refresh"})
 
+	var names []string
 	for _, meta := range f.definitionRegistry.GetMetas() {
 		switch meta.Raw.(type) {
 		case definition.LazyInit:
@@ -130,12 +156,14 @@ func (f *defaultFactory) Refresh() error {
 	slices.Sort(names)
 	for _, name := range names {
 		f.logger().Tracef("refresh component with name '%s'", name)
+		f.emitEvent("refresh", "component_resolving", name, "", nil)
 		_, err := f.doGetComponent(name)
 		if err != nil {
 			return err
 		}
 	}
 
+	f.emitEvent("refresh", "phase_end", "", "", map[string]any{"phase": "Refresh"})
 	f.logger().Info("refresh components finished")
 	return nil
 }
@@ -250,11 +278,15 @@ func (f *defaultFactory) createComponent(name string) (*component_definition.Met
 		return nil, errors.Errorf("component definition with name '%s' not found", name)
 	}
 
+	f.emitEvent("refresh", "component_creating", name, "", map[string]any{"type": meta.Type.String()})
+
 	if constructor, ok := f.singletonRegistry.GetConstructor(name); ok {
+		f.emitEvent("refresh", "constructor_invoking", name, "", nil)
 		instance, err := f.invokeConstructor(name, constructor)
 		if err != nil {
 			return nil, errors.Wrapf(err, "invoke constructor for component '%s'", name)
 		}
+		f.emitEvent("refresh", "constructor_invoked", name, "", nil)
 		meta, err = component_definition.CreateProxy(meta, name, instance)
 		if err != nil {
 			return nil, err
@@ -267,6 +299,7 @@ func (f *defaultFactory) createComponent(name string) (*component_definition.Met
 		}
 	}
 
+	f.emitEvent("refresh", "before_instantiation", name, "", nil)
 	instantiation, err := f.postProcessorRegistrationDelegate.ResolveBeforeInstantiation(meta, name)
 	if err != nil {
 		return nil, err
@@ -298,10 +331,12 @@ func (f *defaultFactory) doCreateComponent(name string, meta *component_definiti
 
 	var exposedComponent = meta
 
+	f.emitEvent("refresh", "populating", name, "", nil)
 	err := f.populateComponent(name, meta)
 	if err != nil {
 		return nil, err
 	}
+	f.emitEvent("refresh", "populated", name, "", nil)
 
 	instance := meta.Raw
 	wrappedInstance, err := f.postProcessorRegistrationDelegate.InitializeComponentWithContext(f.getContext(), name, instance)
@@ -317,6 +352,7 @@ func (f *defaultFactory) doCreateComponent(name string, meta *component_definiti
 	} else {
 		f.logger().Debugf("component '%s' initialization finished", name)
 	}
+	f.emitEvent("refresh", "component_ready", name, "", nil)
 
 	if earlySingletonExposure {
 		f.logger().Tracef("try get early singleton reference '%s' to check with currently exposed component", name)
@@ -365,6 +401,17 @@ func (f *defaultFactory) populateComponent(name string, meta *component_definiti
 						return fmt.Errorf("%s\n%w", f.formatDependencyChain(dependency.Name(), "not found or creation failed"), err)
 					}
 					injects = append(injects, component)
+
+					depType := "pointer"
+					if node.Type.Kind() == reflect.Interface ||
+						(node.Type.Kind() == reflect.Slice && node.Type.Elem().Kind() == reflect.Interface) {
+						depType = "interface"
+					}
+					f.emitEvent("refresh", "dependency_injected", name, "", map[string]any{
+						"dependency": dependency.Name(),
+						"field":      node.StructField.Name,
+						"depType":    depType,
+					})
 				}
 				err = node.Inject(injects)
 				if err != nil {

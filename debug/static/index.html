@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>IoC Debug Console</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>IoC Debug Console</h1>
+    <div class="controls">
+      <div class="mode-group">
+        <button id="btn-step-all" class="active" data-mode="0">Step All</button>
+        <button id="btn-step-watched" data-mode="1">Watched</button>
+        <button id="btn-run" data-mode="2">Run</button>
+      </div>
+      <button id="btn-next" class="primary">Next &rarr;</button>
+    </div>
+  </header>
+
+  <div id="components-panel" class="panel">
+    <div class="panel-title">Components</div>
+    <div class="comp-list" id="comp-list"></div>
+    <div class="legend">
+      <span class="legend-item"><span class="state-dot registered"></span>Registered</span>
+      <span class="legend-item"><span class="state-dot scanned"></span>Scanned</span>
+      <span class="legend-item"><span class="state-dot creating"></span>Creating</span>
+      <span class="legend-item"><span class="state-dot populating"></span>Populating</span>
+      <span class="legend-item"><span class="state-dot initializing"></span>Initializing</span>
+      <span class="legend-item"><span class="state-dot ready"></span>Ready</span>
+    </div>
+  </div>
+
+  <div id="timeline-panel" class="panel">
+    <div class="panel-title">Event Timeline</div>
+    <div class="timeline" id="timeline"></div>
+  </div>
+
+  <div id="graph-panel" class="panel">
+    <div class="panel-title">Dependency Graph</div>
+    <div id="graph-canvas"></div>
+  </div>
+
+  <div id="detail-panel" class="panel">
+    <div class="panel-title">Component Detail</div>
+    <div class="detail-content" id="detail-content">
+      <div class="detail-section"><h3>Info</h3><p id="detail-info">Select a component to view details</p></div>
+      <div class="detail-section"><h3>Dependencies</h3><ul id="detail-deps"></ul></div>
+      <div class="detail-section"><h3>Depended By</h3><ul id="detail-dependents"></ul></div>
+    </div>
+  </div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

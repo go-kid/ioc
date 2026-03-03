@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
+
 	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/container"
 	"github.com/go-kid/ioc/definition"
@@ -11,7 +13,6 @@ import (
 	"github.com/go-kid/ioc/util/framework_helper"
 	"github.com/go-kid/ioc/util/reflectx"
 	pkgerrors "github.com/pkg/errors"
-	"sync"
 )
 
 type PostProcessorRegistrationDelegate struct {
@@ -19,6 +20,20 @@ type PostProcessorRegistrationDelegate struct {
 	componentPostProcessors                     []container.ComponentPostProcessor
 	hasInstantiationAwareComponentPostProcessor bool
 	hasDestructionAwareComponentPostProcessor   bool
+	factoryHook                                 container.FactoryHook
+}
+
+func (f *PostProcessorRegistrationDelegate) emitEvent(phase, action, componentName, processorName string, details map[string]any) {
+	if f.factoryHook == nil {
+		return
+	}
+	f.factoryHook.OnFactoryEvent(container.FactoryEvent{
+		Phase:         phase,
+		Action:        action,
+		ComponentName: componentName,
+		ProcessorName: processorName,
+		Details:       details,
+	})
 }
 
 func NewPostProcessorRegistrationDelegate() *PostProcessorRegistrationDelegate {
@@ -68,8 +83,11 @@ func (f *PostProcessorRegistrationDelegate) InvokeBeanFactoryPostProcessors(fact
 
 func (f *PostProcessorRegistrationDelegate) applyDefinitionRegistryPostProcessors(factory container.Factory) error {
 	components := factory.GetRegisteredComponents()
+	processors := factory.GetDefinitionRegistryPostProcessors()
+
 	var wg sync.WaitGroup
-	for _, processor := range factory.GetDefinitionRegistryPostProcessors() {
+	for _, processor := range processors {
+		procName := reflectx.Id(processor)
 		var (
 			errs []error
 			mu   sync.Mutex
@@ -87,6 +105,7 @@ func (f *PostProcessorRegistrationDelegate) applyDefinitionRegistryPostProcessor
 			}(name, component)
 		}
 		wg.Wait()
+		f.emitEvent("prepare", "definition_scanned", "", procName, nil)
 		if len(errs) > 0 {
 			return fmt.Errorf("apply %T.PostProcessDefinitionRegistry() for component: %w", processor, errors.Join(errs...))
 		}
@@ -102,6 +121,8 @@ func (f *PostProcessorRegistrationDelegate) InitializeComponentWithContext(ctx c
 	f.logger().Tracef("start initialize component '%s'", name)
 	var wrappedComponent = m
 	var err error
+
+	f.emitEvent("refresh", "before_initialization", name, "", nil)
 	f.logger().Tracef("start to apply post process before component '%s' initialization", name)
 	wrappedComponent, err = f.applyPostProcessBeforeInitialization(wrappedComponent, name)
 	if err != nil {
@@ -110,10 +131,14 @@ func (f *PostProcessorRegistrationDelegate) InitializeComponentWithContext(ctx c
 	if wrappedComponent == nil {
 		return m, nil
 	}
+
+	f.emitEvent("refresh", "init_method_calling", name, "", nil)
 	err = f.invokeInitMethods(ctx, name, wrappedComponent)
 	if err != nil {
 		return nil, err
 	}
+
+	f.emitEvent("refresh", "after_initialization", name, "", nil)
 	f.logger().Tracef("start to apply post process after component '%s' initialization", name)
 	wrappedComponent, err = f.applyPostProcessAfterInitialization(wrappedComponent, name)
 	if err != nil {
@@ -236,6 +261,8 @@ func (f *PostProcessorRegistrationDelegate) ResolveAfterInstantiation(meta *comp
 					return pkgerrors.Wrapf(err, "apply %T.PostProcessProperties() for component '%s'", ipb, name)
 				}
 				//meta.SetProperties(properties...)
+			} else {
+				f.emitEvent("refresh", "skip_post_process_properties", name, reflectx.Id(ipb), nil)
 			}
 		}
 	}
@@ -248,6 +275,7 @@ func (f *PostProcessorRegistrationDelegate) GetEarlyBeanReference(name string, m
 	if f.hasInstantiationAwareComponentPostProcessor {
 		for _, processor := range f.componentPostProcessors {
 			if ibp, ok := processor.(container.SmartInstantiationAwareBeanPostProcessor); ok {
+				f.emitEvent("refresh", "get_early_bean_reference", name, reflectx.Id(ibp), nil)
 				exposedComponent, err = ibp.GetEarlyBeanReference(exposedComponent, name)
 				if err != nil {
 					return nil, pkgerrors.Wrapf(err, "apply %T.GetEarlyBeanReference() for component '%s'", ibp, name)

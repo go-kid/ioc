@@ -5,6 +5,18 @@ import (
 	"github.com/go-kid/ioc/configure"
 )
 
+type FactoryEvent struct {
+	Phase         string
+	Action        string
+	ComponentName string
+	ProcessorName string
+	Details       map[string]any
+}
+
+type FactoryHook interface {
+	OnFactoryEvent(event FactoryEvent)
+}
+
 type SingletonRegistry interface {
 	RegisterSingleton(singleton any)
 	GetSingleton(name string) (any, error)

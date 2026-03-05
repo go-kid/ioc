@@ -15,6 +15,7 @@ type Server struct {
 	collector  *Collector
 	staticFS   fs.FS
 	addr       string
+	dryRun     bool
 	sseClients map[chan []byte]struct{}
 	sseMu      sync.Mutex
 }
@@ -199,5 +200,6 @@ func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
 		"breakpoints": s.controller.GetBreakpoints(),
 		"components":  s.collector.GetComponents(),
 		"graph":       s.collector.GetGraph(),
+		"dryRun":      s.dryRun,
 	})
 }

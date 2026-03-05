@@ -21,6 +21,7 @@ type App struct {
 	container.Factory
 	registry           container.SingletonRegistry
 	shutdownTimeout    time.Duration
+	skipRunners        bool
 	ApplicationRunners []definition.ApplicationRunner       `wire:",required=false"`
 	CloserComponents   []definition.CloserComponent         `wire:",required=false"`
 	EventListeners     []definition.ApplicationEventListener `wire:",required=false"`
@@ -145,6 +146,10 @@ func (s *App) refresh() error {
 }
 
 func (s *App) callRunners(ctx context.Context) error {
+	if s.skipRunners {
+		s.logger().Info("skip runners")
+		return nil
+	}
 	runners := s.ApplicationRunners
 	if len(runners) == 0 {
 		s.logger().Trace("find 0 application runner, skip")

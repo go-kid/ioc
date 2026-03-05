@@ -86,6 +86,12 @@ func SetShutdownTimeout(d time.Duration) SettingOption {
 	}
 }
 
+func SkipRunners() SettingOption {
+	return func(s *App) {
+		s.skipRunners = true
+	}
+}
+
 var (
 	LogTrace = LogLevel(syslog.LvTrace)
 	LogDebug = LogLevel(syslog.LvDebug)

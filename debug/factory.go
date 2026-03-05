@@ -4,10 +4,15 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"os"
+	"os/exec"
+	"runtime"
 
+	"github.com/go-kid/ioc/app"
 	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/container"
 	"github.com/go-kid/ioc/container/factory"
+	"github.com/go-kid/ioc/syslog"
 )
 
 type hookSetter interface {
@@ -18,15 +23,24 @@ type contextSetter interface {
 	SetContext(ctx context.Context)
 }
 
+type DebugOption func(*DebugFactory)
+
+func WithDryRun() DebugOption {
+	return func(df *DebugFactory) {
+		df.dryRun = true
+	}
+}
+
 type DebugFactory struct {
 	inner      container.Factory
 	controller *Controller
 	server     *Server
 	collector  *Collector
 	hook       *debugHook
+	dryRun     bool
 }
 
-func NewDebugFactory() *DebugFactory {
+func newDebugFactory(opts ...DebugOption) *DebugFactory {
 	inner := factory.Default()
 	ctrl := NewController()
 	coll := NewCollector()
@@ -42,17 +56,75 @@ func NewDebugFactory() *DebugFactory {
 		hs.SetFactoryHook(hook)
 	}
 
-	return &DebugFactory{
+	df := &DebugFactory{
 		inner:      inner,
 		controller: ctrl,
 		server:     srv,
 		collector:  coll,
 		hook:       hook,
 	}
+	for _, opt := range opts {
+		opt(df)
+	}
+	srv.dryRun = df.dryRun
+	return df
 }
 
-func (df *DebugFactory) StartServer() (string, error) {
-	return df.server.Start()
+// Setup creates the debug infrastructure, starts the debug server,
+// opens the browser, and returns the app.SettingOption slice to apply.
+// It also auto-detects the --ioc:dry_run CLI flag.
+func Setup(opts ...DebugOption) ([]app.SettingOption, error) {
+	if hasCLIFlag("--ioc:dry_run") {
+		opts = append(opts, WithDryRun())
+	}
+
+	df := newDebugFactory(opts...)
+	addr, err := df.server.Start()
+	if err != nil {
+		return nil, fmt.Errorf("debug server start: %w", err)
+	}
+
+	url := "http://" + addr
+	syslog.Pref("Debug").Infof("debug server started at %s", url)
+	if df.dryRun {
+		syslog.Pref("Debug").Infof("dry run mode enabled, component initialization and runners will be skipped")
+	}
+	openBrowser(url)
+
+	appOpts := []app.SettingOption{app.SetFactory(df)}
+	if df.dryRun {
+		appOpts = append(appOpts, app.SkipRunners())
+	}
+	return appOpts, nil
+}
+
+// HasCLIFlag checks whether --ioc:run_debug is present in os.Args.
+func HasRunDebugFlag() bool {
+	return hasCLIFlag("--ioc:run_debug")
+}
+
+func hasCLIFlag(flag string) bool {
+	for _, arg := range os.Args[1:] {
+		if arg == flag {
+			return true
+		}
+	}
+	return false
+}
+
+func openBrowser(url string) {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", url)
+	case "linux":
+		cmd = exec.Command("xdg-open", url)
+	case "windows":
+		cmd = exec.Command("cmd", "/c", "start", url)
+	default:
+		return
+	}
+	_ = cmd.Start()
 }
 
 func (df *DebugFactory) Close() {
@@ -70,6 +142,9 @@ func (df *DebugFactory) GetDefinitionRegistryPostProcessors() []container.Defini
 }
 
 func (df *DebugFactory) SetRegistry(r container.SingletonRegistry) {
+	if df.dryRun {
+		r.RegisterSingleton(&dryRunPostProcessor{})
+	}
 	df.inner.SetRegistry(r)
 }
 

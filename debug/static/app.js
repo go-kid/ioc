@@ -566,6 +566,14 @@
     return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
+  // load initial state and check dry run
+  fetch('/api/state').then(function (r) { return r.json(); }).then(function (data) {
+    if (data.dryRun) {
+      var badge = document.getElementById('dry-run-badge');
+      if (badge) badge.classList.remove('hidden');
+    }
+  }).catch(function () {});
+
   // initial render
   renderComponents();
   renderTimeline();

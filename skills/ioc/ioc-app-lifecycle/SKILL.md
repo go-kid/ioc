@@ -1,6 +1,6 @@
 ---
 name: ioc-app-lifecycle
-description: "go-kid/ioc framework application startup and component lifecycle guide. Use when setting up application entry point with ioc.Run or app.NewApp, configuring app options (SettingOption), managing component lifecycle (Init, AfterPropertiesSet, Run, Close), controlling execution order, using lazy initialization, context support, scope, conditional registration, or events. Triggers on: ioc.Run, ioc.RunWithContext, app.NewApp, ApplicationRunner, ApplicationRunnerWithContext, CloserComponent, CloserComponentWithContext, InitializingComponent, InitializingComponentWithContext, InitializeComponent, InitializeComponentWithContext, LazyInit, Ordered, PriorityOrdered, app.Settings, SettingOption, SetShutdownTimeout, ScopeComponent, ConditionalComponent, ApplicationEvent, ApplicationEventListener."
+description: "go-kid/ioc framework application startup and component lifecycle guide. Use when setting up application entry point with ioc.Run or app.NewApp, configuring app options (SettingOption), managing component lifecycle (Init, AfterPropertiesSet, Run, Close), controlling execution order, using lazy initialization, context support, scope, conditional registration, skipping runners, or events. Triggers on: ioc.Run, ioc.RunWithContext, app.NewApp, ApplicationRunner, ApplicationRunnerWithContext, CloserComponent, CloserComponentWithContext, InitializingComponent, InitializingComponentWithContext, InitializeComponent, InitializeComponentWithContext, LazyInit, Ordered, PriorityOrdered, app.Settings, SettingOption, SetShutdownTimeout, SkipRunners, ScopeComponent, ConditionalComponent, ApplicationEvent, ApplicationEventListener."
 ---
 
 # go-kid/ioc Application & Lifecycle
@@ -71,6 +71,7 @@ func init() {
 | `app.LogDebug` | Shortcut: debug level |
 | `app.LogWarn` | Shortcut: warn level |
 | `app.LogError` | Shortcut: error level |
+| `app.SkipRunners()` | Skip ApplicationRunner execution |
 | `app.Options(ops ...SettingOption)` | Combine multiple options |
 
 ## Startup Flow

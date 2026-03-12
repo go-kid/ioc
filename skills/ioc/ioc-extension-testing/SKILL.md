@@ -1,6 +1,6 @@
 ---
 name: ioc-extension-testing
-description: "go-kid/ioc framework extension and testing guide. Use when creating custom PostProcessors to extend the IoC container, implementing custom tag processing, creating custom config Loaders or Binders, writing tests with ioc.RunTest/RunErrorTest, or using slog adapter. Triggers on: PostProcessor, ComponentPostProcessor, InstantiationAwareComponentPostProcessor, DefinitionRegistryPostProcessor, DefaultTagScanDefinitionRegistryPostProcessor, custom tag, ioc.RunTest, ioc.RunErrorTest, testing IoC components, slog, NewSlogAdapter."
+description: "go-kid/ioc framework extension and testing guide. Use when creating custom PostProcessors to extend the IoC container, implementing custom tag processing, creating custom config Loaders or Binders, writing tests with ioc.RunTest/RunErrorTest, using slog adapter, or implementing AOP proxies. Triggers on: PostProcessor, ComponentPostProcessor, InstantiationAwareComponentPostProcessor, SmartInstantiationAwareBeanPostProcessor, GetEarlyBeanReference, DefinitionRegistryPostProcessor, DefaultTagScanDefinitionRegistryPostProcessor, custom tag, ioc.RunTest, ioc.RunErrorTest, testing IoC components, slog, NewSlogAdapter, AOP, proxy, DestructionAwareComponentPostProcessor."
 ---
 
 # go-kid/ioc Extension & Testing

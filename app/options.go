@@ -58,7 +58,7 @@ func SetConfigLoader(loaders ...configure.Loader) SettingOption {
 
 func AddConfigLoader(loaders ...configure.Loader) SettingOption {
 	return func(s *App) {
-		s.Configure.SetLoaders(loaders...)
+		s.Configure.AddLoaders(loaders...)
 	}
 }
 

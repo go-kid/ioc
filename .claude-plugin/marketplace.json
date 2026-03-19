@@ -1,0 +1,24 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "go-kid-ioc",
+  "description": "go-kid/ioc dependency injection framework with development, debugging, and testing skills",
+  "owner": {
+    "name": "go-kid",
+    "url": "https://github.com/go-kid/ioc"
+  },
+  "plugins": [
+    {
+      "name": "ioc",
+      "description": "go-kid/ioc dependency injection framework with comprehensive skills for development (ioc-dev), debugging (ioc-debug), and testing/extension (ioc-test)",
+      "version": "1.0.0",
+      "author": {
+        "name": "go-kid",
+        "url": "https://github.com/go-kid"
+      },
+      "source": "./",
+      "category": "library-reference",
+      "homepage": "https://github.com/go-kid/ioc",
+      "tags": ["dependency-injection", "ioc", "go", "golang", "framework", "di"]
+    }
+  ]
+}

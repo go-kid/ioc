@@ -1,11 +1,10 @@
----
-name: ioc-config-injection
-description: "go-kid/ioc framework configuration injection guide. Use when injecting configuration values with `value`, `prop`, or `prefix` tags, working with config placeholders `${...}`, expressions `#{...}`, setting up config loaders (file/args/raw), binding config to structs, or using ConfigurationProperties with constructor injection. Triggers on: value tag, prop tag, prefix tag, ConfigurationProperties, config placeholder, expression evaluation, SetConfigLoader, SetConfig, FileLoader, RawLoader."
----
+# Configuration Injection Reference
 
-# go-kid/ioc Configuration Injection
+Complete guide for configuration loading and binding in go-kid/ioc.
 
-Requires **Go 1.21+**.
+**Requires Go 1.21+**
+
+---
 
 ## Config Sources
 
@@ -29,6 +28,8 @@ app.SetConfigBinder(binder.NewViperBinder("json"))
 Import paths:
 - `github.com/go-kid/ioc/configure/loader`
 - `github.com/go-kid/ioc/configure/binder`
+
+---
 
 ## `prefix` Tag
 
@@ -96,6 +97,8 @@ type App struct {
 }
 ```
 
+---
+
 ## `value` Tag
 
 Inject literal values, config placeholders, or expressions:
@@ -142,6 +145,8 @@ type App struct {
 }
 ```
 
+---
+
 ## `prop` Tag
 
 Syntactic sugar for `value:"${...}"`:
@@ -162,6 +167,8 @@ type App struct {
 }
 ```
 
+---
+
 ## Placeholders `${...}`
 
 Syntax: `${config.path}` or `${config.path:default_value}`
@@ -170,6 +177,8 @@ Syntax: `${config.path}` or `${config.path:default_value}`
 - Supports default after `:` separator
 - Can be nested in expressions or other tags
 - Multiple placeholders in one value: `"https://${sub:api}.${domain:example.com}"`
+
+---
 
 ## Expressions `#{...}`
 
@@ -191,6 +200,8 @@ type App struct {
     Total int `value:"#{${price}+${tax}}"`
 }
 ```
+
+---
 
 ## Runtime Config Access
 

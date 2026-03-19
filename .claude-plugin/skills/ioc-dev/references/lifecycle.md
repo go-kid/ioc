@@ -1,11 +1,10 @@
----
-name: ioc-app-lifecycle
-description: "go-kid/ioc framework application startup and component lifecycle guide. Use when setting up application entry point with ioc.Run or app.NewApp, configuring app options (SettingOption), managing component lifecycle (Init, AfterPropertiesSet, Run, Close), controlling execution order, using lazy initialization, context support, scope, conditional registration, skipping runners, or events. Triggers on: ioc.Run, ioc.RunWithContext, app.NewApp, ApplicationRunner, ApplicationRunnerWithContext, CloserComponent, CloserComponentWithContext, InitializingComponent, InitializingComponentWithContext, InitializeComponent, InitializeComponentWithContext, LazyInit, Ordered, PriorityOrdered, app.Settings, SettingOption, SetShutdownTimeout, SkipRunners, ScopeComponent, ConditionalComponent, ApplicationEvent, ApplicationEventListener."
----
+# Application Lifecycle Reference
 
-# go-kid/ioc Application & Lifecycle
+Complete guide for application startup, component lifecycle, and shutdown in go-kid/ioc.
 
-Requires **Go 1.21+**.
+**Requires Go 1.21+**
+
+---
 
 ## Application Startup
 
@@ -52,6 +51,8 @@ func init() {
 }
 ```
 
+---
+
 ## `app.SettingOption` Reference
 
 | Option | Description |
@@ -74,6 +75,8 @@ func init() {
 | `app.SkipRunners()` | Skip ApplicationRunner execution |
 | `app.Options(ops ...SettingOption)` | Combine multiple options |
 
+---
+
 ## Startup Flow
 
 ```
@@ -86,6 +89,8 @@ app.Run(options...)
   -> callRunners()         Call ApplicationRunner.Run() / RunWithContext() in order
   -> publishEvent()        Publish ApplicationStartedEvent
 ```
+
+---
 
 ## Lifecycle Interfaces
 
@@ -186,6 +191,8 @@ func (c *MyComp) Condition(ctx definition.ConditionContext) bool {
 - `HasComponent(name string) bool`
 - `GetConfig(key string) interface{}`
 
+---
+
 ## Event Mechanism
 
 ### Interfaces
@@ -226,6 +233,8 @@ func (l *MyListener) OnEvent(event definition.ApplicationEvent) error {
 ioc.Register(&MyListener{})
 ```
 
+---
+
 ## Execution Order Control
 
 ### `Ordered`
@@ -252,6 +261,8 @@ type HighPriorityRunner struct {
 func (r *HighPriorityRunner) Order() int { return 1 }
 func (r *HighPriorityRunner) Run() error { return nil }
 ```
+
+---
 
 ## Lifecycle Execution Order
 

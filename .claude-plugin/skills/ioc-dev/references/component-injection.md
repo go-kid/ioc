@@ -1,11 +1,10 @@
----
-name: ioc-component-injection
-description: "go-kid/ioc framework component dependency injection guide. Use when registering components, injecting dependencies with `wire` tag, selecting from multiple implementations (Primary/Qualifier), injecting into slices, using `func` tag for method-based matching, using constructor injection, or using type-safe generic registration with ioc.Provide. Triggers on: wire tag, component registration, dependency injection, ioc.Register, ioc.Provide, app.SetComponents, NamingComponent, WireQualifier, WirePrimary, constructor injection, ScopeComponent, ConditionalComponent."
----
+# Component Injection Reference
 
-# go-kid/ioc Component Injection
+Complete guide for component registration and dependency injection in go-kid/ioc.
 
-Requires **Go 1.21+**.
+**Requires Go 1.21+**
+
+---
 
 ## Component Registration
 
@@ -48,6 +47,8 @@ ioc.Provide[Service](func(repo *Repository) (*Service, error) {
 ```
 
 Panics at registration time if the return type does not match `T`.
+
+---
 
 ## `wire` Tag Syntax
 
@@ -100,6 +101,8 @@ type App struct {
 }
 ```
 
+---
+
 ## Multiple Implementation Selection
 
 When an interface has multiple implementations and the field is not a slice, selection priority:
@@ -146,6 +149,8 @@ type App struct {
 }
 ```
 
+---
+
 ## `func` Tag (Method-based Matching)
 
 Match components by method name and optional return value:
@@ -162,6 +167,8 @@ type App struct {
     Multi []Handler `func:"Type,returns=A B"` // returns "A" or "B"
 }
 ```
+
+---
 
 ## Constructor Injection
 
@@ -193,6 +200,8 @@ Constructor parameters are resolved as dependencies using the same rules as `wir
 ioc.Provide[Service](NewService)  // validates return type at registration time
 ```
 
+---
+
 ## Scope
 
 Control component scope by implementing `ScopeComponent`:
@@ -207,6 +216,8 @@ func (p *MyPrototype) Scope() string { return definition.ScopePrototype }
 - `definition.ScopeSingleton` (default): single instance, returned on every request
 - `definition.ScopePrototype`: new instance created on every access
 
+---
+
 ## Conditional Registration
 
 Implement `ConditionalComponent` to decide at runtime whether a component should be created:
@@ -219,3 +230,7 @@ func (c *MyComp) Condition(ctx definition.ConditionContext) bool {
     return ctx.HasComponent("dependency")
 }
 ```
+
+`ConditionContext` provides:
+- `HasComponent(name string) bool`
+- `GetConfig(key string) interface{}`

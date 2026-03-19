@@ -1,6 +1,6 @@
 ---
-name: ioc-di-debugging
-description: "go-kid/ioc framework dependency injection debugging guide. Use when encountering injection errors, component resolution failures, or startup panics. Triggers on: injection failed, component not found, circular dependency, dependency resolution failed, missing component, wire tag not working, nil dependency, panic during ioc.Run, debug mode, RunDebug, trace log, app.LogTrace, required property empty, constructor parameter not resolved, post-processor not applied."
+name: ioc-debug
+description: "go-kid/ioc framework dependency injection debugging guide. ALWAYS use this skill when the user encounters ANY errors, failures, or issues with go-kid/ioc, especially: injection errors, component not found, circular dependency, startup panics, wire tag not working, nil dependencies, missing components, constructor parameter resolution failures, config values not injected, or post-processor not applied. Also use for debugging questions like 'why is my component nil', 'injection failed error', 'component X not found', 'how to enable debug mode', 'how to trace dependency resolution', 'my IoC app won't start', 'panic in ioc.Run', 'circular reference error', or ANY go-kid/ioc troubleshooting and error diagnosis. Triggers on: error, failed, panic, not found, nil, not working, missing, debug, debugging, trace, app.LogTrace, RunDebug, injection failed, component not found, circular dependency, dependency resolution failed, wire tag not working, required property empty, constructor parameter not resolved."
 ---
 
 # IoC Dependency Injection Debugging

@@ -1,8 +1,5 @@
 {
   "name": "ioc-dev",
   "version": "1.0.0",
-  "description": "Development skills for the go-kid/ioc dependency injection framework",
-  "auto_discover": {
-    "skills": true
-  }
+  "description": "Development skills for the go-kid/ioc dependency injection framework"
 }

@@ -60,7 +60,19 @@ wire:"<name>,qualifier=<group>,required=<bool>"
 - `qualifier=<group>` (optional): filter by qualifier group
 - `required=false` (optional): skip error when no match found (default: required)
 
-Target field must be **exported** (uppercase).
+**⚠️ 关键要求：字段必须导出（首字母大写）**
+
+```go
+// ❌ 错误 - 小写字段不会被注入
+type App struct {
+    svc *MyService `wire:""` // 这个字段会被忽略！
+}
+
+// ✅ 正确 - 首字母大写
+type App struct {
+    Svc *MyService `wire:""` // 这个字段会被正确注入
+}
+```
 
 ### Inject by Pointer Type
 

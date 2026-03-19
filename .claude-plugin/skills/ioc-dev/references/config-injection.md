@@ -6,6 +6,28 @@ Complete guide for configuration loading and binding in go-kid/ioc.
 
 ---
 
+## ⚠️ 重要：禁止直接访问 Configure
+
+**❌ 绝对不要这样做：**
+```go
+type Service struct {
+    Config configure.Configure `wire:""` // 错误！不要直接注入
+}
+
+func (s *Service) GetHost() string {
+    return s.Config.Get("db.host").(string) // 错误！不要直接访问
+}
+```
+
+**✅ 必须使用以下方式之一：**
+- `value` / `prop` / `prefix` 标签
+- 实现 `ConfigurationProperties` 接口
+- 构造函数参数（自动绑定）
+
+详见下方各种配置注入方式。
+
+---
+
 ## Config Sources
 
 Set config sources via `app.SettingOption`:

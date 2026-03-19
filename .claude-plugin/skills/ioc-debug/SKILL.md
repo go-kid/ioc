@@ -80,9 +80,39 @@ The framework supports circular references for singletons via early singleton ex
 - Check if a `SmartInstantiationAwareBeanPostProcessor` is wrapping a component involved in the cycle — the wrapped version might not match
 - Look for the log message: "eagerly caching bean 'X' to allow for resolving potential circular references"
 
-### 5. "required property X is empty" / Value Not Injected
+### 5. Config Value Not Injected / Direct Configure Access
 
-**Cause**: Config placeholder `${key}` resolved to empty and the field is required by default.
+**Cause 1**: Trying to directly inject or access `configure.Configure` object.
+
+```go
+// ❌ WRONG - Don't inject configure directly
+type Service struct {
+    Config configure.Configure `wire:""` // This is wrong!
+}
+
+// ❌ WRONG - Don't access configure directly
+func (s *Service) Init() {
+    host := s.Config.Get("db.host") // This won't work as expected
+}
+```
+
+**Solution**: Use proper config injection mechanisms:
+```go
+// ✅ CORRECT - Use prop/value/prefix tags
+type Service struct {
+    Host string    `prop:"db.host"`
+    Port int       `value:"${db.port:3306}"`
+    DB   *DBConfig `prefix:"database"`
+}
+
+// ✅ CORRECT - Implement ConfigurationProperties
+type DBConfig struct {
+    Host string `yaml:"host"`
+}
+func (c *DBConfig) Prefix() string { return "database" }
+```
+
+**Cause 2**: Config placeholder `${key}` resolved to empty and the field is required by default.
 
 **Solutions**:
 - Add a default value: `value:"${key:defaultValue}"`

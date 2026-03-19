@@ -11,6 +11,73 @@ Comprehensive guide for developing applications with the **go-kid/ioc** dependen
 
 ---
 
+## ⚠️ 核心约束（必读）
+
+在使用 go-kid/ioc 时，**必须遵守**以下规则，违反会导致注入失败或运行时错误：
+
+### 1. 依赖注入字段必须导出（首字母大写）
+
+```go
+// ❌ 错误 - 小写字段会被忽略
+type Service struct {
+    repo *Repository `wire:""`  // 不会被注入！
+}
+
+// ✅ 正确 - 首字母大写
+type Service struct {
+    Repo *Repository `wire:""`  // 会被正确注入
+}
+```
+
+### 2. 配置注入必须使用专用机制
+
+**❌ 禁止直接访问 configure 对象：**
+```go
+// ❌ 错误 - 不要直接注入或访问 configure
+type Service struct {
+    Configure configure.Configure `wire:""` // 错误！
+}
+
+func (s *Service) Init() {
+    // ❌ 错误 - 不要直接调用 configure.Get()
+    host := s.Configure.Get("db.host")
+}
+```
+
+**✅ 必须使用以下方式之一：**
+```go
+// 方式 1: 使用 prop/value/prefix tag
+type Service struct {
+    Host string    `prop:"db.host"`           // ✅ 单个配置值
+    Port int       `value:"${db.port:3306}"`  // ✅ 带默认值
+    DB   *DBConfig `prefix:"database"`        // ✅ 绑定配置树
+}
+
+// 方式 2: 实现 ConfigurationProperties 接口
+type DBConfig struct {
+    Host string `yaml:"host"`
+    Port int    `yaml:"port"`
+}
+func (c *DBConfig) Prefix() string { return "database" }
+
+// 方式 3: 构造函数参数（自动绑定）
+func NewService(cfg *DBConfig) *Service {  // cfg 会自动从配置加载
+    return &Service{host: cfg.Host}
+}
+```
+
+### 3. 组件注册必须是指针
+
+```go
+// ❌ 错误
+ioc.Register(MyService{})
+
+// ✅ 正确
+ioc.Register(&MyService{})
+```
+
+---
+
 ## Quick Start
 
 ### 1. Register Components & Start App
@@ -193,12 +260,15 @@ ioc.Run(options...)
 
 ## Important Gotchas
 
+**参见文档开头的 [⚠️ 核心约束](#️-核心约束必读) 了解必须遵守的规则**
+
 1. **Components must be pointers**: `ioc.Register(&MyService{})` not `MyService{}`
-2. **Exported fields only**: `wire:"" ` tags on unexported fields are ignored
-3. **Required by default**: Use `required=false` to make injection optional
-4. **Circular refs**: Supported for singletons via early exposure, NOT for prototypes
-5. **Order matters**: PostProcessors run in defined order (see lifecycle docs)
-6. **`prop` vs `value`**: `prop:"key"` equals `value:"${key}"`
+2. **Exported fields only**: `wire:""` tags on unexported fields are ignored
+3. **Config injection only via tags**: Never inject `configure.Configure` directly; use `value`/`prop`/`prefix` tags or `ConfigurationProperties`
+4. **Required by default**: Use `required=false` to make injection optional
+5. **Circular refs**: Supported for singletons via early exposure, NOT for prototypes
+6. **Order matters**: PostProcessors run in defined order (see lifecycle docs)
+7. **`prop` vs `value`**: `prop:"key"` equals `value:"${key}"`
 
 ---
 

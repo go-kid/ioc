@@ -1,188 +1,45 @@
 ---
 name: ioc-debug
-description: "go-kid/ioc framework dependency injection debugging guide. ALWAYS use this skill when the user encounters ANY errors, failures, or issues with go-kid/ioc, especially: injection errors, component not found, circular dependency, startup panics, wire tag not working, nil dependencies, missing components, constructor parameter resolution failures, config values not injected, or post-processor not applied. Also use for debugging questions like 'why is my component nil', 'injection failed error', 'component X not found', 'how to enable debug mode', 'how to trace dependency resolution', 'my IoC app won't start', 'panic in ioc.Run', 'circular reference error', or ANY go-kid/ioc troubleshooting and error diagnosis. Triggers on: error, failed, panic, not found, nil, not working, missing, debug, debugging, trace, app.LogTrace, RunDebug, injection failed, component not found, circular dependency, dependency resolution failed, wire tag not working, required property empty, constructor parameter not resolved."
+description: Diagnose go-kid/ioc startup, registration, dependency resolution, configuration injection, lifecycle, and post-processor failures. Use when an IoC application panics, returns an error, leaves an injected field nil, or behaves differently from its tags and interfaces.
 ---
 
-# IoC Dependency Injection Debugging
+# go-kid/ioc Debugging
 
-Guide for diagnosing and fixing dependency injection issues in the go-kid/ioc framework.
+Diagnose against the exact module version in use. Start from the returned error and the smallest failing component graph; do not change application design until the failing phase is identified.
 
-## Diagnostic Approach
+## Get evidence
 
-### Step 1: Enable Trace Logging
-
-Add `app.LogTrace` to the Run call to see the full container lifecycle:
+Enable trace logs for registration, definition scanning, dependency matching, population, and initialization:
 
 ```go
-ioc.Run(app.LogTrace, ...)
-// or in tests
-ioc.RunTest(t, app.LogTrace, app.SetComponents(...))
+a, err := ioc.Run(app.LogTrace, app.SetComponents(...))
 ```
 
-Trace output shows: component registration, definition scanning, dependency resolution order, and injection details.
-
-### Step 2: Read the Error Chain
-
-The framework provides dependency chain formatting in errors:
-
-```
-dependency resolution failed:
-  ComponentA
-    -> ComponentB
-      -> ComponentC (not found or creation failed)
-```
-
-This trace shows the full dependency path that led to the failure.
-
-## Common Issues and Solutions
-
-### 1. "component definition with name 'X' not found"
-
-**Cause**: A dependency is declared via `wire` tag but the component is not registered.
-
-**Checklist**:
-- Verify the component is registered via `ioc.Register()` or `app.SetComponents()`
-- Ensure the component is registered as a **pointer** (`&MyService{}`, not `MyService{}`)
-- For constructor injection, verify the constructor function is registered (`ioc.Register(NewService)`)
-
-### 2. Unexported Field Not Injected
-
-**Cause**: Dependency fields must be exported (start with uppercase).
+For an interactive local graph and factory event stream, use:
 
 ```go
-// WRONG - field is unexported, silently ignored
-type App struct {
-    service *Service `wire:""` // lowercase 's' — won't be injected
-}
-
-// CORRECT
-type App struct {
-    Service *Service `wire:""` // uppercase 'S'
-}
+a, err := ioc.RunDebug(app.LogTrace, app.SetComponents(...))
 ```
 
-### 3. Interface Injection Gets Wrong Implementation
+`RunDebug` starts a loopback server on a random port and opens it in a browser. `--ioc:run_debug` makes ordinary `ioc.Run` enter debug mode. Add `--ioc:dry_run` only with debug mode to populate dependencies while skipping component initialization and runners.
 
-**Cause**: Multiple implementations registered; selection order unclear.
+For non-interactive local startup without initializers or runners, use `ext.SkipComponentInitialization()`. It also skips the after-initialization post-processor chain, so do not use it to verify AOP proxies or other final wrappers.
 
-**Solutions** (in priority order):
-1. Implement `WirePrimary` on the preferred component: `func (s *Preferred) Primary() {}`
-2. Use qualifier: `wire:",qualifier=specific-name"` + implement `Qualifier() string`
-3. Use wire-by-name: `wire:"component-name"` + implement `Naming() string`
+## Interpret the failure
 
-### 4. Circular Dependency Error
+- `component definition with name 'X' not found`: verify the exact `Naming()` value and registration through `app.SetComponents`/`ioc.Register`.
+- Tagged field remains nil without an error: verify the field is exported and settable; unexported fields are not scanned.
+- Required injection fails: `wire`, `value`, and `prefix` are required by default. Use `required=false` only when absence is valid.
+- Wrong interface implementation: inspect `Naming()`, `Primary()`, and `Qualifier()` plus the tag's name/qualifier. A non-slice match is selected as Primary, then a non-aliased candidate, then an implementation-dependent candidate.
+- Registration panics for a function: invoke the function first and register the returned component pointer.
+- Config is missing: distinguish `SetConfigLoader` (replace loaders) from `AddConfigLoader` (append), then verify the path, binder format, placeholder, and tag default.
+- Runner or closer is not called: a type with `RunWithContext` must also implement `Run`; a type with `CloseWithContext` must also implement `Close` to enter the current discovery slices.
+- Post-processor property logic is not called: when embedding `DefaultInstantiationAwareComponentPostProcessor`, override `PostProcessAfterInstantiation` to return `true`.
 
-**Cause**: Component A depends on B which depends on A (directly or transitively).
+Dependency creation failures include a `dependency resolution failed` chain. Read it from the outer component toward the final missing or failed dependency; retain wrapped causes when reporting or testing the failure.
 
-The framework supports circular references for singletons via early singleton exposure (three-level cache). If it still fails:
+## Circular dependencies
 
-- Check if one component is Prototype scope — prototype components cannot participate in circular reference resolution
-- Check if a `SmartInstantiationAwareBeanPostProcessor` is wrapping a component involved in the cycle — the wrapped version might not match
-- Look for the log message: "eagerly caching bean 'X' to allow for resolving potential circular references"
+Singleton cycles are resolved through early singleton exposure. Prototype cycles are not supported. If a singleton cycle still fails, inspect processors that return a proxy from `GetEarlyBeanReference` or after initialization: all dependents must observe a compatible final instance.
 
-### 5. Config Value Not Injected / Direct Configure Access
-
-**Cause 1**: Trying to directly inject or access `configure.Configure` object.
-
-```go
-// ❌ WRONG - Don't inject configure directly
-type Service struct {
-    Config configure.Configure `wire:""` // This is wrong!
-}
-
-// ❌ WRONG - Don't access configure directly
-func (s *Service) Init() {
-    host := s.Config.Get("db.host") // This won't work as expected
-}
-```
-
-**Solution**: Use proper config injection mechanisms:
-```go
-// ✅ CORRECT - Use prop/value/prefix tags
-type Service struct {
-    Host string    `prop:"db.host"`
-    Port int       `value:"${db.port:3306}"`
-    DB   *DBConfig `prefix:"database"`
-}
-
-// ✅ CORRECT - Implement ConfigurationProperties
-type DBConfig struct {
-    Host string `yaml:"host"`
-}
-func (c *DBConfig) Prefix() string { return "database" }
-```
-
-**Cause 2**: Config placeholder `${key}` resolved to empty and the field is required by default.
-
-**Solutions**:
-- Add a default value: `value:"${key:defaultValue}"`
-- Mark as optional: `value:"${key},required=false"`
-- Verify the config loader is set up: `app.SetConfigLoader(loader.NewFileLoader("config.yaml"))`
-- Check YAML key spelling and nesting
-
-### 6. Panic at Startup: "missing configure" / "missing registry"
-
-**Cause**: `app.NewApp()` was not used, or critical app fields were overwritten to nil.
-
-**Solution**: Use `ioc.Run()` or `app.NewApp()` — they properly initialize all defaults.
-
-### 7. Constructor Parameter Not Resolved
-
-**Cause**: Constructor function parameter type not found in container.
-
-**Check**:
-- Constructor parameters must be pointer types, interface types, or slices thereof
-- For `ConfigurationProperties` parameters, ensure the struct implements `Prefix() string` and config is loaded
-- Error message includes: "no component found for constructor parameter[N] type X"
-
-### 8. Post-Processor Not Applied
-
-**Cause**: Post-processor registered but not taking effect.
-
-**Check**:
-- Post-processor must implement the correct interface (`ComponentPostProcessor`, `InstantiationAwareComponentPostProcessor`, etc.)
-- Verify `Order()` return value — it might be running before dependencies are ready
-- If post-processor itself needs injection, ensure it doesn't have `LazyInit` marker (lazy components skip the initial Refresh)
-
-## Debug Mode
-
-Run with debug flag to start a web-based debug server:
-
-```go
-ioc.RunDebug(...)
-// or
-ioc.RunDebugWithContext(ctx, ...)
-```
-
-The debug server provides a web UI for inspecting component states, factory events, and the dependency graph.
-
-## Key Log Messages to Watch
-
-| Log Message | Meaning |
-|------------|---------|
-| `"refresh component with name 'X'"` | Component X is being resolved |
-| `"eagerly caching bean 'X'"` | Circular reference handling active |
-| `"returning eagerly cached instance"` | Using cached early reference |
-| `"component 'X' population finished"` | All dependencies injected for X |
-| `"skip conditional component 'X'"` | ConditionalComponent returned false |
-| `"creating new prototype instance"` | Prototype scope creating new instance |
-| `"invoking constructor X for component 'Y'"` | Constructor being called |
-
-## Quick Debugging Template
-
-```go
-// Minimal reproduction test
-func TestDebugIssue(t *testing.T) {
-    tApp := &struct {
-        // Put the failing injection here
-        Problem *MyService `wire:""`
-    }{}
-    ioc.RunTest(t,
-        app.LogTrace,  // full trace logging
-        app.SetComponents(
-            tApp,
-            // Register all required components
-        ),
-    )
-}
-```
+When framework behavior is unclear, inspect `app/app.go`, `container/factory/factory.go`, and `container/factory/post_processor_registration_delegate.go` before proposing a workaround.

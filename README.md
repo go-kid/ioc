@@ -14,13 +14,11 @@
   - Multiple configuration sources (command-line args, files, raw content)
   - Configuration placeholders `${...}`
   - Expression evaluation `#{...}` (arithmetic, logical, conditional, collection operations)
-- **Constructor Injection**: Function-based dependency injection (built-in)
 - **Lifecycle Management**: ApplicationRunner, CloserComponent, LazyInitComponent
 - **`context.Context` lifecycle support**: WithContext variants for all lifecycle interfaces
 - **Scope mechanism**: Singleton/Prototype
 - **Conditional component registration**: Register components based on runtime conditions
 - **Application event mechanism**: Publish and listen for application events
-- **Type-safe generic registration**: `ioc.Provide[T]` validates return type at registration time
 - **`log/slog` adapter support**: Integrate with Go's structured logging
 
 ## 📦 Installation
@@ -224,27 +222,7 @@ type T struct {
 }
 ```
 
-### 3. Constructor Injection
-
-Constructor injection is built into the framework. Simply register the constructor directly:
-
-```go
-func NewService(repo *Repository) *Service {
-	return &Service{repo: repo}
-}
-
-ioc.Register(NewService)      // register constructor directly
-ioc.Register(&Repository{})
-_, err := ioc.Run()
-```
-
-Type-safe variant with `ioc.Provide[T]`:
-
-```go
-ioc.Provide[Service](NewService)  // validates return type at registration time
-```
-
-### 4. Application Startup
+### 3. Application Startup
 
 **Style 1: Use `ioc.Run` / `ioc.Register`**
 
@@ -265,7 +243,7 @@ err := application.Run(
 )
 ```
 
-### 5. Lifecycle Interfaces
+### 4. Lifecycle Interfaces
 
 - `ApplicationRunner`: executed after all components are refreshed
 - `CloserComponent`: `Close()` called when app stops
@@ -278,7 +256,7 @@ err := application.Run(
 - `ConditionalComponent`: conditional registration based on runtime conditions
 - `ApplicationEventListener` / `ApplicationEventPublisher`: event mechanism
 
-### 6. Context Support
+### 5. Context Support
 
 All lifecycle interfaces have WithContext variants. Components can implement them to receive a `context.Context` for timeout control, cancellation propagation, etc.
 
@@ -308,7 +286,7 @@ func (c *MyComp) CloseWithContext(ctx context.Context) error { return nil }
 
 > **Note**: `Init(ctx)` and `AfterPropertiesSet(ctx)` have the same method names as their base interfaces but different signatures, so a component implements one or the other. `RunWithContext` and `CloseWithContext` use distinct method names, allowing a component to implement both the original and context-aware versions.
 
-### 7. Scope
+### 6. Scope
 
 Control component scope by implementing `ScopeComponent`:
 
@@ -323,7 +301,7 @@ type MyPrototype struct{}
 func (p *MyPrototype) Scope() string { return definition.ScopePrototype }
 ```
 
-### 8. Conditional Registration
+### 7. Conditional Registration
 
 Implement `ConditionalComponent` to decide at runtime whether a component should be created:
 
@@ -337,7 +315,7 @@ func (c *MyComp) Condition(ctx definition.ConditionContext) bool {
 }
 ```
 
-### 9. Events
+### 8. Events
 
 Publish and listen for application events to enable loose coupling between components:
 
@@ -389,7 +367,7 @@ Built-in events: `ComponentCreatedEvent`, `ApplicationStartedEvent`, `Applicatio
 │  │  │ • PropertiesAware prefix                    │   │          │
 │  │  │ • ValueAware value/prop                     │   │          │
 │  │  │ • DependencyAware wire                      │   │          │
-│  │  │ • ConstructorAware func                      │   │          │
+│  │  │ • DependencyFunctionAware func               │   │          │
 │  │  └────────────────────────────────────────────┘   │          │
 │  └──────────────────────────────────────────────────┘          │
 └─────────────────────────────────────────────────────────────────┘
@@ -397,11 +375,9 @@ Built-in events: `ComponentCreatedEvent`, `ApplicationStartedEvent`, `Applicatio
 Config Flow: Binder → ConfigQuoteAware, PropertiesAware, ValueAware, ExpressionTagAware
 ```
 
-> **Note**: The constructor processor is now built into the framework; no separate registration is required.
-
 ## 📚 Examples & Tests
 
-- **Example projects**: `test/ioc`, `test/constructor`, `test/prop`, `test/t_yaml`
+- **Example projects**: `examples/debug_demo`, `examples/post_processor`
 - **Post processor example**: `examples/post_processor/`
 - **Performance tools**: `cmd/performance_analyst/`
 - **Unit tests**: `unittest/component/builtin_inject/*`, `unittest/configure/*`

@@ -1,236 +1,86 @@
-# Configuration Injection Reference
+# Configuration injection
 
-Complete guide for configuration loading and binding in go-kid/ioc.
+## Loaders and binder
 
-**Requires Go 1.21+**
-
----
-
-## ⚠️ 重要：禁止直接访问 Configure
-
-**❌ 绝对不要这样做：**
-```go
-type Service struct {
-    Config configure.Configure `wire:""` // 错误！不要直接注入
-}
-
-func (s *Service) GetHost() string {
-    return s.Config.Get("db.host").(string) // 错误！不要直接访问
-}
-```
-
-**✅ 必须使用以下方式之一：**
-- `value` / `prop` / `prefix` 标签
-- 实现 `ConfigurationProperties` 接口
-- 构造函数参数（自动绑定）
-
-详见下方各种配置注入方式。
-
----
-
-## Config Sources
-
-Set config sources via `app.SettingOption`:
+The default configuration contains a Viper YAML binder and an args loader. Configure additional sources through application options:
 
 ```go
-// From file
-app.SetConfig("config.yaml")
-
-// From raw bytes
-app.SetConfigLoader(loader.NewRawLoader([]byte(`key: value`)))
-
-// From file with explicit loader
-app.SetConfigLoader(loader.NewFileLoader("config.yaml"))
-
-// JSON format (change binder)
-app.SetConfigLoader(loader.NewRawLoader(jsonBytes)),
-app.SetConfigBinder(binder.NewViperBinder("json"))
+ioc.Run(
+	app.SetConfig("config.yaml"), // appends a file loader
+	app.AddConfigLoader(loader.NewRawLoader(overrides)),
+)
 ```
 
-Import paths:
-- `github.com/go-kid/ioc/configure/loader`
-- `github.com/go-kid/ioc/configure/binder`
+`SetConfigLoader` replaces all existing loaders, including the default args loader. `AddConfigLoader` and `SetConfig` append. Loaders are ordered and each payload is merged by the binder.
 
----
+Use `app.SetConfigBinder(binder.NewViperBinder("json"))` when the payload format is JSON. A custom source implements `configure.Loader`; a custom store/decoder implements `configure.Binder`.
 
-## `prefix` Tag
+## `prefix`
 
-Bind a config subtree to a struct pointer or struct:
+Bind a configuration subtree into a struct or pointer field:
 
 ```go
 type DBConfig struct {
-    Host string `yaml:"host"`
-    Port int    `yaml:"port"`
+	Host string `yaml:"host"`
+	Port int    `yaml:"port"`
 }
 
 type App struct {
-    DB *DBConfig `prefix:"database"`  // pointer
-    DB2 DBConfig `prefix:"database"`  // value type also works
+	DB *DBConfig `prefix:"database"`
 }
 ```
 
-Config:
-```yaml
-database:
-  host: localhost
-  port: 5432
-```
+`prefix` is required by default. Use `prefix:"database,required=false"` when the whole subtree may be absent.
 
-### `ConfigurationProperties` Interface
-
-Alternative to `prefix` tag -- implement the interface directly:
+A field type implementing `definition.ConfigurationProperties` can supply its prefix without an explicit field tag:
 
 ```go
-type DBConfig struct {
-    Host string `yaml:"host"`
-    Port int    `yaml:"port"`
-}
+func (*DBConfig) Prefix() string { return "database" }
 
-func (c *DBConfig) Prefix() string { return "database" }
-```
-
-Register as a component; `prefix` is inferred from the method. No tag needed on the parent struct field.
-
-### ConfigurationProperties with Constructor Injection
-
-When a constructor parameter's type implements `ConfigurationProperties`, the framework automatically creates an instance and populates it from config, even if it wasn't explicitly registered:
-
-```go
-type DBConfig struct {
-    Host string `yaml:"host"`
-    Port int    `yaml:"port"`
-}
-
-func (c *DBConfig) Prefix() string { return "database" }
-
-func NewService(cfg *DBConfig) *Service {
-    return &Service{host: cfg.Host, port: cfg.Port}
-}
-
-ioc.Register(NewService)
-ioc.Run(app.SetConfig("config.yaml"))
-```
-
-### Dynamic Prefix with Placeholder
-
-```go
 type App struct {
-    Host string `prefix:"server.${env}.host"`  // env resolved from config
+	DB *DBConfig
 }
 ```
 
----
+## `value` and `prop`
 
-## `value` Tag
-
-Inject literal values, config placeholders, or expressions:
+`value` accepts literals, placeholders, and expressions. `prop` wraps its first value as a placeholder.
 
 ```go
-type App struct {
-    // Literal values
-    Name string  `value:"hello"`
-    Port int     `value:"8080"`
-    Flag bool    `value:"true"`
-    Rate float64 `value:"0.95"`
-
-    // Config placeholder
-    DSN string `value:"${database.dsn}"`
-
-    // Placeholder with default
-    Host string `value:"${server.host:localhost}"`
-
-    // Expression
-    Sum int `value:"#{1+2}"`
-
-    // Mixed: expression with config values
-    Total int `value:"#{${price} * ${qty}}"`
+type Server struct {
+	Name    string `value:"api"`
+	Host    string `value:"${server.host:localhost}"`
+	Port    int    `prop:"server.port:8080"`
+	Workers int    `value:"#{${cpu:2} * 2}"`
+	Maybe   string `value:"${optional},required=false"`
 }
 ```
 
-Supported types: string, bool, int/int64, float64, slices, maps, structs, pointers.
+- Placeholder: `${path}` or `${path:default}`.
+- Expression: `#{...}`, evaluated after placeholders.
+- Multiple placeholders can appear in a string.
+- Values are decoded into scalar, slice, map, struct, or pointer fields through the framework's weakly typed mapper.
 
-### Slice / Map / Struct Literals
+`prop:"server.port:8080"` is equivalent to `value:"${server.port:8080}"`.
 
-```go
-type App struct {
-    Ports   []int          `value:"[8080,9090]"`
-    Params  map[string]any `value:"map[key:val]"`       // map literal
-    Params2 map[string]any `value:"{\"key\":\"val\"}"`   // JSON literal
-}
-```
+## Validation and decode options
 
-### Optional Value
+Tag arguments follow the first comma. Space-separate multiple validation rules so they remain the value of the `validate` argument:
 
 ```go
-type App struct {
-    Val string `value:"${maybe.missing:},required=false"`
-}
+Port int `prop:"server.port:8080,validate=required min=1 max=65535"`
 ```
 
----
+For structured decoding, `mapper=<tag-name>` changes the mapstructure field tag and `timeLayout=<layout>` adds time parsing.
 
-## `prop` Tag
+## Runtime access
 
-Syntactic sugar for `value:"${...}"`:
+The returned `*app.App` embeds `configure.Configure`, so runtime reads and writes are supported:
 
 ```go
-type App struct {
-    Host string `prop:"server.host"`           // same as value:"${server.host}"
-    Port int    `prop:"server.port:8080"`      // with default
-    Tags []int  `prop:"app.tags:[1,2,3]"`      // with default slice
-}
+a, err := ioc.Run(...)
+host := a.Get("server.host")
+a.Set("server.host", "127.0.0.1")
 ```
 
-`prop` supports the same default value syntax and additional args as `value`:
-
-```go
-type App struct {
-    Port []int `prop:"server.port:[1,2,3],required=true,validate=required min=3 max=20"`
-}
-```
-
----
-
-## Placeholders `${...}`
-
-Syntax: `${config.path}` or `${config.path:default_value}`
-
-- Resolves from config at the given path
-- Supports default after `:` separator
-- Can be nested in expressions or other tags
-- Multiple placeholders in one value: `"https://${sub:api}.${domain:example.com}"`
-
----
-
-## Expressions `#{...}`
-
-Powered by expr-lang. Supports:
-
-| Category | Examples |
-|----------|---------|
-| Arithmetic | `#{1+(1*2)}` = 3 |
-| Comparison | `#{1/1==1}` = true |
-| Logical | `#{(1+1)>=2 \|\| 1!=1}` = true |
-| Conditional | `#{1>2?'a':'b'}` = "b" |
-| Membership | `#{'a' in ['a','b','c']}` = true |
-| String ops | `#{'hello world' contains 'o w'}` = true |
-
-Combine with placeholders:
-
-```go
-type App struct {
-    Total int `value:"#{${price}+${tax}}"`
-}
-```
-
----
-
-## Runtime Config Access
-
-After `ioc.Run()`, access config directly:
-
-```go
-app, _ := ioc.Run(app.SetConfigLoader(loader.NewRawLoader(cfg)))
-val := app.Get("server.host")    // read
-app.Set("server.host", "0.0.0.0") // write
-```
+Prefer field binding for declared component dependencies; use runtime access when the value is genuinely dynamic.

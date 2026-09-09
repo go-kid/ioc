@@ -1,7 +1,6 @@
 package support
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/go-kid/ioc/component_definition"
@@ -16,14 +15,6 @@ type testComponent struct{}
 
 type testComponentB struct{}
 
-func newTestComponent() *testComponent {
-	return &testComponent{}
-}
-
-func newTestComponentWithError() (*testComponent, error) {
-	return &testComponent{}, nil
-}
-
 // --- registry tests ---
 
 func TestRegistry_RegisterSingleton_StructPointer(t *testing.T) {
@@ -37,20 +28,12 @@ func TestRegistry_RegisterSingleton_StructPointer(t *testing.T) {
 	assert.Same(t, inst, got)
 }
 
-func TestRegistry_RegisterSingleton_Constructor(t *testing.T) {
+func TestRegistry_RegisterSingleton_FunctionPanics(t *testing.T) {
 	r := NewRegistry().(*registry)
-	r.RegisterSingleton(newTestComponent)
-
-	name := framework_helper.GetComponentName(&testComponent{})
-	// zero instance is stored, not the constructed instance
-	got, err := r.GetSingleton(name)
-	assert.NoError(t, err)
-	assert.NotNil(t, got)
-	assert.IsType(t, &testComponent{}, got)
-
-	constructor, ok := r.GetConstructor(name)
-	assert.True(t, ok)
-	assert.NotNil(t, constructor)
+	assert.PanicsWithValue(t,
+		"constructor registration is not supported; register the constructed component pointer",
+		func() { r.RegisterSingleton(func() *testComponent { return &testComponent{} }) },
+	)
 }
 
 func TestRegistry_RegisterSingleton_DuplicateSameInstance(t *testing.T) {
@@ -115,37 +98,6 @@ func TestRegistry_GetSingleton_NotFound(t *testing.T) {
 	_, err := r.GetSingleton("nonexistent")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not exist")
-}
-
-func TestValidateConstructor_OneReturn_Ptr(t *testing.T) {
-	ft := reflect.TypeOf(newTestComponent)
-	rt, err := validateConstructor(ft)
-	assert.NoError(t, err)
-	assert.Equal(t, reflect.Ptr, rt.Kind())
-	assert.Equal(t, reflect.TypeOf(&testComponent{}), rt)
-}
-
-func TestValidateConstructor_OneReturn_NonPtr_Fails(t *testing.T) {
-	fn := func() testComponent { return testComponent{} }
-	ft := reflect.TypeOf(fn)
-	_, err := validateConstructor(ft)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "pointer")
-}
-
-func TestValidateConstructor_TwoReturns_PtrAndError(t *testing.T) {
-	ft := reflect.TypeOf(newTestComponentWithError)
-	rt, err := validateConstructor(ft)
-	assert.NoError(t, err)
-	assert.Equal(t, reflect.Ptr, rt.Kind())
-}
-
-func TestValidateConstructor_WrongCount_Fails(t *testing.T) {
-	fn := func() (*testComponent, error, int) { return &testComponent{}, nil, 0 }
-	ft := reflect.TypeOf(fn)
-	_, err := validateConstructor(ft)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "1 or 2 values")
 }
 
 // --- defaultDefinitionRegistry tests ---

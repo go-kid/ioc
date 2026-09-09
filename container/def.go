@@ -23,7 +23,6 @@ type SingletonRegistry interface {
 	ContainsSingleton(name string) bool
 	GetSingletonNames() []string
 	GetSingletonCount() int
-	GetConstructor(name string) (any, bool)
 }
 
 type DefinitionRegistry interface {

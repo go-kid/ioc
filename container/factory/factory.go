@@ -13,9 +13,7 @@ import (
 	"github.com/go-kid/ioc/container/support"
 	"github.com/go-kid/ioc/definition"
 	"github.com/go-kid/ioc/syslog"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	"github.com/samber/lo"
 )
 
 type defaultFactory struct {
@@ -280,25 +278,6 @@ func (f *defaultFactory) createComponent(name string) (*component_definition.Met
 
 	f.emitEvent("refresh", "component_creating", name, "", map[string]any{"type": meta.Type.String()})
 
-	if constructor, ok := f.singletonRegistry.GetConstructor(name); ok {
-		f.emitEvent("refresh", "constructor_invoking", name, "", nil)
-		instance, err := f.invokeConstructor(name, constructor)
-		if err != nil {
-			return nil, errors.Wrapf(err, "invoke constructor for component '%s'", name)
-		}
-		f.emitEvent("refresh", "constructor_invoked", name, "", nil)
-		meta, err = component_definition.CreateProxy(meta, name, instance)
-		if err != nil {
-			return nil, err
-		}
-		f.definitionRegistry.RegisterMeta(meta)
-		for _, processor := range f.definitionRegistryPostProcessors {
-			if err := processor.PostProcessDefinitionRegistry(f.definitionRegistry, meta.Raw, name); err != nil {
-				return nil, errors.Wrapf(err, "re-scan definition for constructor component '%s'", name)
-			}
-		}
-	}
-
 	f.emitEvent("refresh", "before_instantiation", name, "", nil)
 	instantiation, err := f.postProcessorRegistrationDelegate.ResolveBeforeInstantiation(meta, name)
 	if err != nil {
@@ -443,118 +422,6 @@ func (f *defaultFactory) getEarlyBeanReference(name string, m *component_definit
 
 func (f *defaultFactory) genProxyComponent(origin *component_definition.Meta, name string, newComponent any) (*component_definition.Meta, error) {
 	return component_definition.CreateProxy(origin, name, newComponent)
-}
-
-func (f *defaultFactory) invokeConstructor(name string, constructor any) (any, error) {
-	fnType := reflect.TypeOf(constructor)
-	fnValue := reflect.ValueOf(constructor)
-
-	f.logger().Tracef("invoking constructor %s for component '%s' with %d params", fnType.String(), name, fnType.NumIn())
-
-	args := make([]reflect.Value, fnType.NumIn())
-	for i := 0; i < fnType.NumIn(); i++ {
-		paramType := fnType.In(i)
-		resolved, err := f.resolveConstructorParam(name, i, paramType)
-		if err != nil {
-			return nil, errors.Wrapf(err, "resolve parameter %d (type %s)", i, paramType)
-		}
-		args[i] = resolved
-	}
-
-	results := fnValue.Call(args)
-
-	if fnType.NumOut() == 2 && !results[1].IsNil() {
-		return nil, errors.Wrapf(results[1].Interface().(error), "constructor returned error")
-	}
-	return results[0].Interface(), nil
-}
-
-func (f *defaultFactory) resolveConstructorParam(componentName string, paramIndex int, paramType reflect.Type) (reflect.Value, error) {
-	isSlice := paramType.Kind() == reflect.Slice
-
-	var elemType reflect.Type
-	if isSlice {
-		elemType = paramType.Elem()
-	} else {
-		elemType = paramType
-	}
-
-	var typeOption container.Option
-	switch elemType.Kind() {
-	case reflect.Ptr:
-		typeOption = container.Type(elemType)
-	case reflect.Interface:
-		typeOption = container.InterfaceType(elemType)
-	default:
-		return reflect.Value{}, errors.Errorf("unsupported parameter type %s, must be pointer, interface, or slice of them", paramType)
-	}
-
-	metas := f.definitionRegistry.GetMetas(typeOption)
-
-	validMetas := lo.Filter(metas, func(m *component_definition.Meta, _ int) bool { return m != nil })
-
-	if len(validMetas) == 0 && !isSlice && elemType.Kind() == reflect.Ptr {
-		if resolved, err := f.resolveConfigurationProperties(elemType); err != nil {
-			return reflect.Value{}, errors.Wrapf(err, "resolve ConfigurationProperties parameter %d (type %s)", paramIndex, paramType)
-		} else if resolved.IsValid() {
-			return resolved, nil
-		}
-	}
-
-	if len(validMetas) == 0 {
-		if isSlice {
-			return reflect.MakeSlice(paramType, 0, 0), nil
-		}
-		reason := fmt.Sprintf("no component found for constructor parameter[%d] type %s", paramIndex, paramType)
-		return reflect.Value{}, fmt.Errorf("%s\n%s", reason, f.formatDependencyChain(paramType.String(), reason))
-	}
-
-	if isSlice {
-		slice := reflect.MakeSlice(paramType, len(validMetas), len(validMetas))
-		for i, m := range validMetas {
-			dep, err := f.doGetComponent(m.Name())
-			if err != nil {
-				return reflect.Value{}, errors.Wrapf(err, "resolve slice element %d", i)
-			}
-			slice.Index(i).Set(dep.Value)
-		}
-		return slice, nil
-	}
-
-	selected := component_definition.SelectBestCandidate(validMetas)
-	dep, err := f.doGetComponent(selected.Name())
-	if err != nil {
-		return reflect.Value{}, err
-	}
-	return dep.Value, nil
-}
-
-func (f *defaultFactory) resolveConfigurationProperties(ptrType reflect.Type) (reflect.Value, error) {
-	instance := reflect.New(ptrType.Elem()).Interface()
-	cp, ok := instance.(definition.ConfigurationProperties)
-	if !ok {
-		return reflect.Value{}, nil
-	}
-	prefix := cp.Prefix()
-	if f.configure == nil {
-		return reflect.Value{}, errors.Errorf("configure is nil, cannot resolve ConfigurationProperties with prefix '%s'", prefix)
-	}
-	configValue := f.configure.Get(prefix)
-	if configValue == nil {
-		return reflect.ValueOf(instance), nil
-	}
-	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-		WeaklyTypedInput: true,
-		Result:           instance,
-		TagName:          "yaml",
-	})
-	if err != nil {
-		return reflect.Value{}, errors.Wrapf(err, "create decoder for ConfigurationProperties prefix '%s'", prefix)
-	}
-	if err := decoder.Decode(configValue); err != nil {
-		return reflect.Value{}, errors.Wrapf(err, "decode ConfigurationProperties prefix '%s'", prefix)
-	}
-	return reflect.ValueOf(instance), nil
 }
 
 func (f *defaultFactory) logger() syslog.Logger {

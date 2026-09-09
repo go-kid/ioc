@@ -53,8 +53,8 @@ func (s *UserServiceImpl) AfterPropertiesSet() error {
 
 type OrderServiceImpl struct {
 	Logger    syslog.Logger   `logger:""`
-	Users     UserService     `wire:""`           // interface injection
-	Notifiers []NotifyService `wire:""`           // slice interface injection
+	Users     UserService     `wire:""` // interface injection
+	Notifiers []NotifyService `wire:""` // slice interface injection
 	MaxRetry  int             `value:"${order.max_retry:3}"`
 }
 
@@ -90,8 +90,8 @@ func (n *EmailNotifier) Primary() {} // preferred when single injection
 func (n *EmailNotifier) Qualifier() string { return "email" }
 
 type SMSNotifier struct {
-	Logger   syslog.Logger `logger:""`
-	Gateway  string        `value:"${notify.sms.gateway:sms.example.com}"`
+	Logger  syslog.Logger `logger:""`
+	Gateway string        `value:"${notify.sms.gateway:sms.example.com}"`
 }
 
 func (n *SMSNotifier) Send(to, msg string) {
@@ -117,25 +117,21 @@ func (d *Database) AfterPropertiesSet() error {
 }
 
 // ---------------------------------------------------------------------------
-// 6. Constructor injection
+// 6. Interface field injection
 // ---------------------------------------------------------------------------
 
 type Analytics struct {
-	orders OrderService
-	users  UserService
-}
-
-func NewAnalytics(o OrderService, u UserService) *Analytics {
-	return &Analytics{orders: o, users: u}
+	Orders OrderService `wire:""`
+	Users  UserService  `wire:""`
 }
 
 func (a *Analytics) Report(userId int) string {
-	user := a.users.GetUser(userId)
+	user := a.Users.GetUser(userId)
 	return fmt.Sprintf("report for %s", user)
 }
 
 func (a *Analytics) Init() error {
-	fmt.Println("[Analytics] initialized via constructor injection")
+	fmt.Println("[Analytics] initialized via field injection")
 	return nil
 }
 
@@ -312,8 +308,8 @@ feature:
 			// notifiers (multiple implementations)
 			&EmailNotifier{},
 			&SMSNotifier{},
-			// constructor injection
-			NewAnalytics,
+			// interface field injection
+			&Analytics{},
 			// embedded struct
 			&CacheService{},
 			// named component

@@ -1,6 +1,7 @@
 package support
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/go-kid/ioc/component_definition"
@@ -187,5 +188,49 @@ func TestDefaultSingletonComponentRegistry_GetSingletonOrCreateByFactory(t *test
 	second, err := reg.GetSingletonOrCreateByFactory("factoryComp", factory)
 	assert.NoError(t, err)
 	assert.Same(t, first, second)
+	assert.Equal(t, 1, createCount)
+}
+
+func TestDefaultSingletonComponentRegistry_FactoryErrorClearsCreationState(t *testing.T) {
+	reg := DefaultSingletonComponentRegistry().(*defaultSingletonComponentRegistry)
+	factoryErr := errors.New("create failed")
+
+	got, err := reg.GetSingletonOrCreateByFactory("factoryComp", container.FuncSingletonFactory(func() (*component_definition.Meta, error) {
+		return nil, factoryErr
+	}))
+	assert.Nil(t, got)
+	assert.ErrorIs(t, err, factoryErr)
+	assert.False(t, reg.IsSingletonCurrentlyInCreation("factoryComp"))
+
+	want := component_definition.NewMeta(&testComponent{})
+	got, err = reg.GetSingletonOrCreateByFactory("factoryComp", container.FuncSingletonFactory(func() (*component_definition.Meta, error) {
+		return want, nil
+	}))
+	assert.NoError(t, err)
+	assert.Same(t, want, got)
+}
+
+func TestDefaultSingletonComponentRegistry_EarlyReferenceCreatedOnce(t *testing.T) {
+	reg := DefaultSingletonComponentRegistry().(*defaultSingletonComponentRegistry)
+	want := component_definition.NewMeta(&testComponent{})
+	createCount := 0
+	reg.AddSingletonFactory("early", container.FuncSingletonFactory(func() (*component_definition.Meta, error) {
+		createCount++
+		return want, nil
+	}))
+
+	got, err := reg.GetSingleton("early", false)
+	assert.NoError(t, err)
+	assert.Nil(t, got)
+	assert.Zero(t, createCount)
+
+	got, err = reg.GetSingleton("early", true)
+	assert.NoError(t, err)
+	assert.Same(t, want, got)
+	assert.Equal(t, 1, createCount)
+
+	got, err = reg.GetSingleton("early", true)
+	assert.NoError(t, err)
+	assert.Same(t, want, got)
 	assert.Equal(t, 1, createCount)
 }

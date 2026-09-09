@@ -1,11 +1,11 @@
 ---
 name: ioc-test
-description: Test or extend go-kid/ioc with RunTest/RunErrorTest, custom loaders or binders, component post-processors, tag scanners, factory hooks, logging adapters, or proxies. Use for IoC-focused tests and container extension work, not ordinary application wiring.
+description: Test go-kid/ioc applications and extensions, including injection, configuration, lifecycle, post-processors, AOP proxies, circular dependencies, and shutdown behavior. Use for IoC-focused test design and regression coverage, not implementation guidance.
 ---
 
-# go-kid/ioc Testing and Extension
+# go-kid/ioc Testing
 
-Use focused tests that prove injected values, lifecycle effects, selection behavior, or returned errors. Read [references/postprocessor-patterns.md](references/postprocessor-patterns.md) before implementing or reviewing a post-processor, custom tag, or proxy.
+Use focused tests that prove injected values, lifecycle effects, selection behavior, or returned errors. Read [references/extension-testing.md](references/extension-testing.md) when testing a custom loader/binder, post-processor, tag scanner, AOP proxy, early singleton reference, factory hook, or destruction callback. Use the [ioc-dev extension guide](../ioc-dev/references/postprocessor-extensions.md) for implementation and interface semantics.
 
 ## Test helpers
 
@@ -44,11 +44,9 @@ func TestMissingDependency(t *testing.T) {
 
 Assert observable behavior or stable error meaning, not complete wrapped wording, log lines, or internal ordering unless ordering is the feature under test.
 
-## Extension boundaries
+## Coverage boundaries
 
-- Implement `configure.Loader` for a new config source and `configure.Binder` for a new storage/decoding model.
-- Adapt a `slog.Handler` with `syslog.NewSlogAdapter` and install it through `app.SetLogger`.
-- Register post-processors as ordinary components; the factory discovers the interfaces they implement.
-- Prefer the provided default processor structs and override only the callbacks needed.
-- Treat `container.DestructionAwareComponentPostProcessor` and `definition.ComponentCreatedEvent` as declared but not currently invoked by the application flow; do not build behavior that depends on them without changing and testing the container implementation.
+- Test public behavior through a full application when registration and callback reachability matter; use package-local tests for isolated parsing, matching, and error branches.
+- Add a regression test for every fixed lifecycle or container boundary.
+- Run race tests for concurrent definition scanning, mutable proxy caches, singleton creation, and debug event collection.
 - Follow the existing `unittest/component` and `unittest/configure` organization when adding framework tests.

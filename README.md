@@ -252,6 +252,7 @@ err := application.Run(
 - `InitializeComponentWithContext` / `InitializingComponentWithContext`: context-aware Init/AfterPropertiesSet
 - `ApplicationRunnerWithContext`: context-aware Run
 - `CloserComponentWithContext`: context-aware Close
+- `DestructionAwareComponentPostProcessor`: callback before created singletons are destroyed
 - `ScopeComponent`: control component scope (singleton/prototype)
 - `ConditionalComponent`: conditional registration based on runtime conditions
 - `ApplicationEventListener` / `ApplicationEventPublisher`: event mechanism
@@ -291,7 +292,7 @@ func (c *MyComp) CloseWithContext(ctx context.Context) error { return nil }
 Control component scope by implementing `ScopeComponent`:
 
 - **Singleton** (default): single instance in the container
-- **Prototype**: new instance created on every access
+- **Prototype**: a new instance is shallow-copied from the registered template and fully populated on every access; it is not eagerly created
 
 ```go
 import "github.com/go-kid/ioc/definition"
@@ -331,7 +332,7 @@ func (l *MyListener) OnEvent(event definition.ApplicationEvent) error {
 }
 ```
 
-Built-in events: `ComponentCreatedEvent`, `ApplicationStartedEvent`, `ApplicationClosingEvent`.
+Built-in events: `ComponentCreatedEvent` after a component is initialized, `ApplicationStartedEvent` after runners complete, and `ApplicationClosingEvent` before shutdown. On shutdown, destruction-aware post-processors run for created singletons in reverse creation order, then closer components run concurrently. Prototype instances are owned by their callers and are not destroyed automatically.
 
 ## 🏗️ Architecture
 
@@ -387,6 +388,8 @@ Run tests:
 ```bash
 go test ./...
 ```
+
+Pull requests and pushes to `main` also run the race detector, `go vet`, `go build`, and enforce at least 75% repository-wide statement coverage in GitHub Actions.
 
 ## 📄 License
 

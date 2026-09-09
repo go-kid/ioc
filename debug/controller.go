@@ -79,6 +79,9 @@ func (c *Controller) WaitForNext() {
 }
 
 func (c *Controller) signal() {
+	if c.closed {
+		return
+	}
 	select {
 	case c.nextCh <- struct{}{}:
 	default:

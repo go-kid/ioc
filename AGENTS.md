@@ -75,11 +75,13 @@ The public flow is `ioc.Register` / options -> `ioc.Run` -> `app.NewApp` ->
 1. Apply explicit options and consume package-global registration options.
 2. Initialize configuration loaders and the binder.
 3. Prepare the factory, component definitions, and post-processors.
-4. Refresh non-lazy components, populate properties, and run initialization
+4. Refresh non-lazy singleton components, populate properties, and run initialization
    callbacks.
 5. Invoke `ApplicationRunner` components in order and publish the application
    started event.
-6. On close, invoke registered closer components in reverse order.
+6. On close, publish the closing event, run destruction-aware callbacks in
+   reverse singleton creation order, close factory resources, and invoke
+   registered closer components concurrently.
 
 ### Package responsibilities
 

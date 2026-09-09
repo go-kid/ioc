@@ -1,5 +1,26 @@
 # Application lifecycle
 
+## `definition` interface map
+
+Choose the narrowest interface that expresses the behavior:
+
+| Interface | Use |
+| --- | --- |
+| `NamingComponent` | Override the default package-qualified component name |
+| `InitializingComponent` / `InitializingComponentWithContext` | Run `AfterPropertiesSet` after population and before `Init` |
+| `InitializeComponent` / `InitializeComponentWithContext` | Initialize one populated component |
+| `ApplicationRunner` / `ApplicationRunnerWithContext` | Run application-level startup work after all eager components refresh |
+| `CloserComponent` / `CloserComponentWithContext` | Release resources during application shutdown |
+| `Ordered` and `Priority` | Order runners, loaders, and component post-processors where that flow performs sorting |
+| `WirePrimary` and `WireQualifier` | Select among multiple dependency candidates |
+| `LazyInit` | Exclude a singleton from eager refresh |
+| `ScopeComponent` | Select singleton or prototype scope |
+| `ConditionalComponent` | Decide whether a component participates in eager refresh |
+| `ConfigurationProperties` | Supply the configuration prefix for an untagged field |
+| `ApplicationEventListener` / `ApplicationEventPublisher` | Receive or publish synchronous application events |
+
+Embed `definition.PriorityComponent`, `definition.WirePrimaryComponent`, or `definition.LazyInitComponent` when their marker behavior is sufficient. Implement `Order`, `Qualifier`, `Naming`, `Scope`, and `Condition` explicitly because their return values carry application-specific behavior.
+
 ## Startup APIs
 
 ```go
@@ -36,7 +57,7 @@ Common options include:
 2. Register the app and built-in processors.
 3. Initialize configuration loaders and binder.
 4. Prepare definitions and post-processors.
-5. Eagerly refresh non-lazy components whose conditions pass.
+5. Eagerly refresh non-lazy singleton components whose conditions pass.
 6. Invoke application runners unless skipped.
 7. Publish `ApplicationStartedEvent`.
 
@@ -50,6 +71,7 @@ For each normally created component, population (`wire`, `func`, `value`, `prop`
 6. `AfterPropertiesSet(ctx)` or `AfterPropertiesSet()`.
 7. `Init(ctx)` or `Init()`.
 8. `PostProcessAfterInitialization`.
+9. Publish `ComponentCreatedEvent` with the final exposed instance.
 
 ## Initialization interfaces
 
@@ -76,13 +98,11 @@ func (c *Resource) CloseWithContext(ctx context.Context) error { return nil }
 
 When both methods exist, the context form is used. Runners execute sequentially after refresh; `definition.Ordered` sorts lower values first, and `definition.Priority` places a component before ordinary ordered components.
 
-`App.Close` publishes `ApplicationClosingEvent`, then runs closers concurrently. `SetShutdownTimeout` supplies a deadline to `CloseWithContext`; it does not forcibly stop a closer or make `Close` return early.
+`App.Close` publishes `ApplicationClosingEvent`, invokes `DestructionAwareComponentPostProcessor` callbacks for created singletons in reverse creation order, closes factory-owned resources such as the debug server, then runs closer components concurrently. Prototype instances are caller-owned and are not included in automatic destruction. `SetShutdownTimeout` supplies a deadline to `CloseWithContext`; it does not forcibly stop a closer or make `Close` return early.
 
 ## Events
 
-Register `definition.ApplicationEventListener` components to receive `ApplicationStartedEvent` and `ApplicationClosingEvent`. `App.PublishEvent` is also available for custom events.
-
-Although `definition.ComponentCreatedEvent` is declared, the current factory does not publish it. Do not rely on it without adding container support and tests.
+Register `definition.ApplicationEventListener` components to receive `ComponentCreatedEvent`, `ApplicationStartedEvent`, and `ApplicationClosingEvent`. `ComponentCreatedEvent` is published synchronously after initialization and contains the final exposed component. A listener only receives events published after that listener has itself been created and injected into the app. `App.PublishEvent` is also available for custom events.
 
 ## Skip selected work
 

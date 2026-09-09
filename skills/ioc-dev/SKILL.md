@@ -1,17 +1,18 @@
 ---
 name: ioc-dev
-description: Develop Go applications with go-kid/ioc, including component registration and injection, configuration binding, application startup, and lifecycle hooks. Use for code that imports github.com/go-kid/ioc; use ioc-debug for failures and ioc-test for tests or container extensions.
+description: Develop Go applications and framework extensions with go-kid/ioc, including injection, configuration loaders/binders, lifecycle hooks, post-processors, and AOP proxies. Use for code that imports github.com/go-kid/ioc; use ioc-debug for failures and ioc-test for testing.
 ---
 
-# go-kid/ioc Development
+# go-kid/ioc Application and Extension Development
 
 Use the repository's `go.mod`, exported interfaces, and tests as the source of truth. The current module requires Go 1.21 or later.
 
 ## Route by task
 
 - Read [references/component-injection.md](references/component-injection.md) for registration, `wire`/`func` tags, naming, qualifiers, scopes, and conditional components.
-- Read [references/config-injection.md](references/config-injection.md) for loaders, `value`/`prop`/`prefix` tags, placeholders, expressions, validation, and `ConfigurationProperties`.
-- Read [references/lifecycle.md](references/lifecycle.md) for startup options, lifecycle/context interfaces, runners, shutdown, events, and initialization-skipping options.
+- Read [references/config-injection.md](references/config-injection.md) for built-in or custom loaders/binders, `value`/`prop`/`prefix` tags, placeholders, expressions, validation, and `ConfigurationProperties`.
+- Read [references/lifecycle.md](references/lifecycle.md) for the `definition` interface map, startup options, lifecycle/context interfaces, runners, shutdown, events, and initialization-skipping options.
+- Read [references/postprocessor-extensions.md](references/postprocessor-extensions.md) for container post-processors, custom field processing, AOP proxies, early singleton references, and destruction interception.
 
 Read only the references needed for the request.
 

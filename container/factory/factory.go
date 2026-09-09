@@ -2,10 +2,12 @@ package factory
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"reflect"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/go-kid/ioc/component_definition"
 	"github.com/go-kid/ioc/configure"
@@ -28,11 +30,19 @@ type defaultFactory struct {
 	ctx                               context.Context
 	resolveStack                      []string
 	factoryHook                       container.FactoryHook
+	eventPublisher                    definition.ApplicationEventPublisher
+	createdMu                         sync.Mutex
+	createdSingletons                 map[string]any
+	creationOrder                     []string
 }
 
 func (f *defaultFactory) SetFactoryHook(hook container.FactoryHook) {
 	f.factoryHook = hook
 	f.postProcessorRegistrationDelegate.factoryHook = hook
+}
+
+func (f *defaultFactory) SetApplicationEventPublisher(publisher definition.ApplicationEventPublisher) {
+	f.eventPublisher = publisher
 }
 
 func (f *defaultFactory) emitEvent(phase, action, componentName, processorName string, details map[string]any) {
@@ -65,6 +75,7 @@ func Default() container.Factory {
 		singletonComponentRegistry:        support.DefaultSingletonComponentRegistry(),
 		postProcessorRegistrationDelegate: NewPostProcessorRegistrationDelegate(),
 		allowCircularReferences:           true,
+		createdSingletons:                 make(map[string]any),
 	}
 	return f
 }
@@ -137,6 +148,9 @@ func (f *defaultFactory) Refresh() error {
 
 	var names []string
 	for _, meta := range f.definitionRegistry.GetMetas() {
+		if meta.IsPrototype() {
+			continue
+		}
 		switch meta.Raw.(type) {
 		case definition.LazyInit:
 			continue
@@ -275,6 +289,14 @@ func (f *defaultFactory) createComponent(name string) (*component_definition.Met
 	if meta == nil {
 		return nil, errors.Errorf("component definition with name '%s' not found", name)
 	}
+	isSingleton := meta.IsSingleton()
+	if meta.IsPrototype() {
+		var err error
+		meta, err = f.createPrototypeMeta(name, meta)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	f.emitEvent("refresh", "component_creating", name, "", map[string]any{"type": meta.Type.String()})
 
@@ -284,11 +306,17 @@ func (f *defaultFactory) createComponent(name string) (*component_definition.Met
 		return nil, err
 	}
 	if instantiation != nil {
+		var component *component_definition.Meta
 		if instantiation != meta.Raw {
-			return component_definition.CreateProxy(meta, name, instantiation)
+			component, err = component_definition.CreateProxy(meta, name, instantiation)
 		} else {
-			return meta, nil
+			component = meta
 		}
+		if err != nil {
+			return nil, err
+		}
+		f.finishComponentCreation(name, component, isSingleton)
+		return component, nil
 	}
 
 	instance, err := f.doCreateComponent(name, meta)
@@ -296,7 +324,64 @@ func (f *defaultFactory) createComponent(name string) (*component_definition.Met
 		return nil, err
 	}
 
+	f.finishComponentCreation(name, instance, isSingleton)
 	return instance, nil
+}
+
+func (f *defaultFactory) finishComponentCreation(name string, meta *component_definition.Meta, singleton bool) {
+	if singleton {
+		f.createdMu.Lock()
+		if _, exists := f.createdSingletons[name]; !exists {
+			f.createdSingletons[name] = meta.Raw
+			f.creationOrder = append(f.creationOrder, name)
+		}
+		f.createdMu.Unlock()
+	}
+	if f.eventPublisher != nil {
+		_ = f.eventPublisher.PublishEvent(&definition.ComponentCreatedEvent{
+			ComponentName: name,
+			Component:     meta.Raw,
+		})
+	}
+}
+
+func (f *defaultFactory) CloseWithContext(context.Context) error {
+	f.createdMu.Lock()
+	names := slices.Clone(f.creationOrder)
+	components := f.createdSingletons
+	f.creationOrder = nil
+	f.createdSingletons = make(map[string]any)
+	f.createdMu.Unlock()
+
+	var errs []error
+	for i := len(names) - 1; i >= 0; i-- {
+		name := names[i]
+		if err := f.postProcessorRegistrationDelegate.DestroyComponent(components[name], name); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return stderrors.Join(errs...)
+}
+
+func (f *defaultFactory) createPrototypeMeta(name string, template *component_definition.Meta) (*component_definition.Meta, error) {
+	instance := reflect.New(template.Type.Elem())
+	instance.Elem().Set(template.Value.Elem())
+
+	meta := component_definition.NewMeta(instance.Interface())
+	meta.SetName(name)
+
+	registry := support.DefaultDefinitionRegistry()
+	for _, existing := range f.definitionRegistry.GetMetas() {
+		registry.RegisterMeta(existing)
+	}
+	registry.RegisterMeta(meta)
+
+	for _, processor := range f.definitionRegistryPostProcessors {
+		if err := processor.PostProcessDefinitionRegistry(registry, meta.Raw, name); err != nil {
+			return nil, errors.Wrapf(err, "apply %T.PostProcessDefinitionRegistry() for prototype component '%s'", processor, name)
+		}
+	}
+	return meta, nil
 }
 
 func (f *defaultFactory) doCreateComponent(name string, meta *component_definition.Meta) (*component_definition.Meta, error) {

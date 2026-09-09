@@ -52,7 +52,7 @@ func Interface(a any) Option {
 func FuncName(fn string) Option {
 	return func(m *component_definition.Meta) bool {
 		if mt, ok := m.Type.MethodByName(fn); ok {
-			return mt.Type.NumOut() == 0 && m.Value.MethodByName(fn).IsValid()
+			return mt.Type.NumIn() == 1 && mt.Type.NumOut() == 0 && m.Value.MethodByName(fn).IsValid()
 		}
 		return false
 	}
@@ -61,6 +61,9 @@ func FuncName(fn string) Option {
 func FuncNameAndResult(fn, result string) Option {
 	return func(m *component_definition.Meta) bool {
 		if method := m.Value.MethodByName(fn); method.IsValid() {
+			if method.Type().NumIn() != 0 {
+				return false
+			}
 			if result == "*" {
 				return true
 			}
@@ -72,7 +75,12 @@ func FuncNameAndResult(fn, result string) Option {
 				if err != nil {
 					parseAny = result
 				}
-				return results[0].Interface() == parseAny
+				actual := results[0].Interface()
+				if reflect.DeepEqual(actual, parseAny) {
+					return true
+				}
+				formatted, err := strconv2.FormatAny(actual)
+				return err == nil && formatted == result
 			}
 		}
 		return false

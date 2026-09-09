@@ -18,6 +18,8 @@ type Server struct {
 	dryRun     bool
 	sseClients map[chan []byte]struct{}
 	sseMu      sync.Mutex
+	serverMu   sync.Mutex
+	server     *http.Server
 }
 
 func NewServer(controller *Controller, collector *Collector, staticFS fs.FS) *Server {
@@ -46,13 +48,29 @@ func (s *Server) Start() (string, error) {
 	}
 	s.addr = listener.Addr().String()
 
+	httpServer := &http.Server{Handler: mux}
+	s.serverMu.Lock()
+	s.server = httpServer
+	s.serverMu.Unlock()
+
 	go func() {
-		if err := http.Serve(listener, mux); err != nil {
+		if err := httpServer.Serve(listener); err != nil && err != http.ErrServerClosed {
 			log.Printf("[ioc-debug] server error: %v", err)
 		}
 	}()
 
 	return s.addr, nil
+}
+
+func (s *Server) Close() error {
+	s.serverMu.Lock()
+	server := s.server
+	s.server = nil
+	s.serverMu.Unlock()
+	if server == nil {
+		return nil
+	}
+	return server.Close()
 }
 
 func (s *Server) Addr() string {

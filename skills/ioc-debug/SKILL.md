@@ -21,7 +21,7 @@ For an interactive local graph and factory event stream, use:
 a, err := ioc.RunDebug(app.LogTrace, app.SetComponents(...))
 ```
 
-`RunDebug` starts a loopback server on a random port and opens it in a browser. `--ioc:run_debug` makes ordinary `ioc.Run` enter debug mode. Add `--ioc:dry_run` only with debug mode to populate dependencies while skipping component initialization and runners.
+`RunDebug` starts a loopback server on a random port and opens it in a browser. `--ioc:run_debug` makes ordinary `ioc.Run` enter debug mode. Add `--ioc:dry_run` only with debug mode to populate dependencies while skipping component initialization and runners. Always close the returned app; application shutdown also stops the debug HTTP server and active event streams.
 
 For non-interactive local startup without initializers or runners, use `ext.SkipComponentInitialization()`. It also skips the after-initialization post-processor chain, so do not use it to verify AOP proxies or other final wrappers.
 

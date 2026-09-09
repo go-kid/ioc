@@ -7,17 +7,19 @@ import (
 
 	ioc "github.com/go-kid/ioc"
 	"github.com/go-kid/ioc/app"
+	"github.com/go-kid/ioc/configure/loader"
 	"github.com/go-kid/ioc/definition"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // --- Context lifecycle tests ---
 
 type ctxTracker struct {
-	initCtx              context.Context
-	afterPropertiesCtx   context.Context
-	runCtx               context.Context
-	closeCtx             context.Context
+	initCtx            context.Context
+	afterPropertiesCtx context.Context
+	runCtx             context.Context
+	closeCtx           context.Context
 }
 
 type ctxInitComponent struct {
@@ -142,8 +144,13 @@ func TestBackwardCompatibility_OldInterfaces(t *testing.T) {
 // --- Scope tests ---
 
 type prototypeService struct {
-	id int32
+	id         int32
+	Seed       string
+	Dependency *prototypeDependency `wire:""`
+	Value      string               `value:"${prototype.value}"`
 }
+
+type prototypeDependency struct{}
 
 var protoCounter int32
 
@@ -172,6 +179,33 @@ func TestScopeDefault_Singleton(t *testing.T) {
 	err := a.Run(app.SetComponents(svc))
 	assert.NoError(t, err)
 	assert.Equal(t, int32(42), svc.id)
+}
+
+func TestScopePrototype_CreatesAndPopulatesNewInstance(t *testing.T) {
+	atomic.StoreInt32(&protoCounter, 0)
+	template := &prototypeService{Seed: "from-template"}
+	dependency := &prototypeDependency{}
+	a := app.NewApp()
+	require.NoError(t, a.Run(
+		app.SetConfigLoader(loader.NewRawLoader([]byte("prototype:\n  value: configured\n"))),
+		app.SetComponents(template, dependency),
+	))
+
+	firstRaw, err := a.GetComponentByName("prototypeService")
+	require.NoError(t, err)
+	secondRaw, err := a.GetComponentByName("prototypeService")
+	require.NoError(t, err)
+	first := firstRaw.(*prototypeService)
+	second := secondRaw.(*prototypeService)
+
+	assert.NotSame(t, template, first)
+	assert.NotSame(t, first, second)
+	assert.Equal(t, "from-template", first.Seed)
+	assert.Equal(t, "configured", first.Value)
+	assert.Same(t, dependency, first.Dependency)
+	assert.NotZero(t, first.id)
+	assert.NotEqual(t, first.id, second.id)
+	assert.Zero(t, template.id, "the prototype template must not be initialized")
 }
 
 // --- Conditional tests ---
@@ -219,6 +253,8 @@ type testEventListener struct {
 	events []definition.ApplicationEvent
 }
 
+type eventTarget struct{}
+
 func (l *testEventListener) OnEvent(event definition.ApplicationEvent) error {
 	l.events = append(l.events, event)
 	return nil
@@ -226,18 +262,24 @@ func (l *testEventListener) OnEvent(event definition.ApplicationEvent) error {
 
 func TestEventMechanism(t *testing.T) {
 	listener := &testEventListener{}
+	target := &eventTarget{}
 
 	a := app.NewApp()
-	err := a.Run(app.SetComponents(listener))
+	err := a.Run(app.SetComponents(listener, target))
 	assert.NoError(t, err)
 
-	var hasStarted bool
+	var hasStarted, hasCreated bool
 	for _, e := range listener.events {
 		if _, ok := e.(*definition.ApplicationStartedEvent); ok {
 			hasStarted = true
 		}
+		if created, ok := e.(*definition.ComponentCreatedEvent); ok && created.Component == target {
+			hasCreated = true
+			assert.Contains(t, created.ComponentName, "eventTarget")
+		}
 	}
 	assert.True(t, hasStarted, "should receive ApplicationStartedEvent")
+	assert.True(t, hasCreated, "should receive ComponentCreatedEvent")
 
 	a.Close()
 	var hasClosing bool
@@ -247,6 +289,41 @@ func TestEventMechanism(t *testing.T) {
 		}
 	}
 	assert.True(t, hasClosing, "should receive ApplicationClosingEvent")
+}
+
+type destructionTarget struct{}
+
+type destructionProcessor struct {
+	target    *destructionTarget
+	destroyed bool
+}
+
+func (p *destructionProcessor) PostProcessBeforeInitialization(component any, componentName string) (any, error) {
+	return component, nil
+}
+
+func (p *destructionProcessor) PostProcessAfterInitialization(component any, componentName string) (any, error) {
+	return component, nil
+}
+
+func (p *destructionProcessor) RequireDestruction(component any) bool {
+	return component == p.target
+}
+
+func (p *destructionProcessor) PostProcessBeforeDestruction(component any, componentName string) error {
+	p.destroyed = true
+	return nil
+}
+
+func TestDestructionAwarePostProcessor(t *testing.T) {
+	target := &destructionTarget{}
+	processor := &destructionProcessor{target: target}
+	a := app.NewApp()
+	require.NoError(t, a.Run(app.SetComponents(target, processor)))
+
+	assert.False(t, processor.destroyed)
+	a.Close()
+	assert.True(t, processor.destroyed)
 }
 
 // --- ioc.Run backward compatibility ---

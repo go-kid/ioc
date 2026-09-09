@@ -79,13 +79,13 @@ func (r *defaultSingletonComponentRegistry) GetSingletonOrCreateByFactory(name s
 	}
 	r.logger().Tracef("singleton '%s' currently is new, start creating", name)
 	r.singletonCurrentlyInCreation.Put(name)
+	defer r.singletonCurrentlyInCreation.Remove(name)
 	r.logger().Tracef("create instance of singleton '%s'", name)
 	singleton, err := factory.GetComponent()
 	if err != nil {
 		return nil, err
 	}
 	r.logger().Tracef("singleton '%s' finished creating", name)
-	r.singletonCurrentlyInCreation.Remove(name)
 	r.AddSingleton(name, singleton)
 	return singleton, nil
 }

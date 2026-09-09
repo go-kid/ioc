@@ -47,10 +47,13 @@ func IsNil(a any) bool {
 	if a == nil {
 		return true
 	}
-	if reflect.ValueOf(a).IsNil() {
-		return true
+	v := reflect.ValueOf(a)
+	switch v.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice:
+		return v.IsNil()
+	default:
+		return false
 	}
-	return false
 }
 
 func Filter[T any](x []T, f func(i T) bool) []T {

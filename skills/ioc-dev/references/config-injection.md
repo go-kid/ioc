@@ -15,6 +15,62 @@ ioc.Run(
 
 Use `app.SetConfigBinder(binder.NewViperBinder("json"))` when the payload format is JSON. A custom source implements `configure.Loader`; a custom store/decoder implements `configure.Binder`.
 
+### Custom loader
+
+`LoadConfig` returns one payload in the format expected by the active binder. Returning an empty payload skips the binder call. Errors stop configuration initialization and are wrapped with the loader type.
+
+```go
+type remoteLoader struct {
+	client *ConfigClient
+}
+
+func (l *remoteLoader) LoadConfig() ([]byte, error) {
+	return l.client.Fetch("my-service") // for example, YAML bytes
+}
+
+// Optional: loaders use the same Priority/Ordered rules as processors.
+func (*remoteLoader) Order() int { return 10 }
+
+a, err := ioc.Run(
+	app.AddConfigLoader(&remoteLoader{client: client}),
+	app.SetComponents(...),
+)
+```
+
+Priority loaders run before ordinary ordered loaders; lower `Order()` values run first within a group. Loaders without ordering run last. The framework does not define relative ordering for equal values.
+
+### Custom binder
+
+A binder receives each non-empty loader payload through `SetConfig`. When multiple loaders are configured, `SetConfig` must merge successive payloads if layered configuration is desired. `Get` defines path lookup semantics used by `${...}`, `prop`, `prefix`, conditions, and runtime access; `Set` handles runtime overrides.
+
+```go
+type validatingBinder struct {
+	delegate configure.Binder
+}
+
+func (b *validatingBinder) SetConfig(raw []byte) error {
+	if err := validateDocument(raw); err != nil {
+		return err
+	}
+	return b.delegate.SetConfig(raw)
+}
+
+func (b *validatingBinder) Get(path string) any {
+	return b.delegate.Get(path)
+}
+
+func (b *validatingBinder) Set(path string, value any) {
+	b.delegate.Set(path, value)
+}
+
+custom := &validatingBinder{
+	delegate: binder.NewViperBinder("yaml"),
+}
+a, err := ioc.Run(app.SetConfigBinder(custom), app.SetComponents(...))
+```
+
+Install a full `configure.Configure` with `app.SetConfigure` only when loader orchestration itself must change. For a new source or decoding policy, prefer a Loader or Binder rather than replacing the whole configuration pipeline.
+
 ## `prefix`
 
 Bind a configuration subtree into a struct or pointer field:

@@ -75,7 +75,7 @@ Method matching invokes the method when `returns` is present. Keep such methods 
 
 ## Scope, lazy creation, and conditions
 
-Singleton is the default scope. Return `definition.ScopePrototype` from `Scope()` to request a new instance on each lookup.
+Singleton is the default scope. Return `definition.ScopePrototype` from `Scope()` to request a new instance on each lookup. The registered pointer is a template: each lookup shallow-copies its value into a new pointer, scans its fields, performs configuration and dependency injection, and runs initialization. Prototype definitions are not eagerly instantiated during startup.
 
 Embedding `definition.LazyInitComponent` excludes a component from eager refresh; requesting it as a dependency still creates it.
 
@@ -89,4 +89,4 @@ func (*OptionalWorker) Condition(ctx definition.ConditionContext) bool {
 
 The context exposes `HasComponent(name)` and `GetConfig(key)`. A false condition skips eager creation but does not remove the definition from the registry, so another dependency can still request it.
 
-Singleton circular dependencies use early references. Prototype circular dependencies are unsupported; proxying processors must return compatible early and final references.
+Singleton circular dependencies use early references. Prototype circular dependencies are unsupported, and prototype instances are not automatically destroyed by application shutdown; proxying processors must return compatible early and final references.

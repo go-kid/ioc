@@ -22,8 +22,8 @@ type App struct {
 	registry           container.SingletonRegistry
 	shutdownTimeout    time.Duration
 	skipRunners        bool
-	ApplicationRunners []definition.ApplicationRunner       `wire:",required=false"`
-	CloserComponents   []definition.CloserComponent         `wire:",required=false"`
+	ApplicationRunners []definition.ApplicationRunner        `wire:",required=false"`
+	CloserComponents   []definition.CloserComponent          `wire:",required=false"`
 	EventListeners     []definition.ApplicationEventListener `wire:",required=false"`
 }
 
@@ -71,6 +71,14 @@ type contextSetter interface {
 	SetContext(ctx context.Context)
 }
 
+type eventPublisherSetter interface {
+	SetApplicationEventPublisher(publisher definition.ApplicationEventPublisher)
+}
+
+type factoryCloser interface {
+	CloseWithContext(ctx context.Context) error
+}
+
 func (s *App) Run(ops ...SettingOption) error {
 	return s.RunWithContext(context.Background(), ops...)
 }
@@ -87,6 +95,9 @@ func (s *App) RunWithContext(ctx context.Context, ops ...SettingOption) error {
 	}
 	if cs, ok := s.Factory.(contextSetter); ok {
 		cs.SetContext(ctx)
+	}
+	if eps, ok := s.Factory.(eventPublisherSetter); ok {
+		eps.SetApplicationEventPublisher(s)
 	}
 	if err := s.run(ctx); err != nil {
 		s.logger().Errorf("application run failed: %+v", err)
@@ -195,6 +206,11 @@ func (s *App) CloseWithContext(ctx context.Context) {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, s.shutdownTimeout)
 		defer cancel()
+	}
+	if closer, ok := s.Factory.(factoryCloser); ok {
+		if err := closer.CloseWithContext(ctx); err != nil {
+			s.logger().Errorf("destroy components: %+v", err)
+		}
 	}
 	s.logger().Infof("close closer components")
 	if len(s.CloserComponents) != 0 {

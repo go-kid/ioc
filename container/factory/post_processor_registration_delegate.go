@@ -285,3 +285,20 @@ func (f *PostProcessorRegistrationDelegate) GetEarlyBeanReference(name string, m
 	}
 	return exposedComponent, nil
 }
+
+func (f *PostProcessorRegistrationDelegate) DestroyComponent(component any, name string) error {
+	if !f.hasDestructionAwareComponentPostProcessor {
+		return nil
+	}
+	var errs []error
+	for _, processor := range f.componentPostProcessors {
+		destructionAware, ok := processor.(container.DestructionAwareComponentPostProcessor)
+		if !ok || !destructionAware.RequireDestruction(component) {
+			continue
+		}
+		if err := destructionAware.PostProcessBeforeDestruction(component, name); err != nil {
+			errs = append(errs, pkgerrors.Wrapf(err, "apply %T.PostProcessBeforeDestruction() for component '%s'", destructionAware, name))
+		}
+	}
+	return errors.Join(errs...)
+}

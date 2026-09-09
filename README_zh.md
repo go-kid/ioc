@@ -252,6 +252,7 @@ err := application.Run(
 - `InitializeComponentWithContext` / `InitializingComponentWithContext`：带 Context 的初始化
 - `ApplicationRunnerWithContext`：带 Context 的应用启动
 - `CloserComponentWithContext`：带 Context 的关闭
+- `DestructionAwareComponentPostProcessor`：已创建单例销毁前的回调
 - `ScopeComponent`：控制组件作用域（Singleton/Prototype）
 - `ConditionalComponent`：条件注册
 - `ApplicationEventListener` / `ApplicationEventPublisher`：事件机制
@@ -291,7 +292,7 @@ func (c *MyComp) CloseWithContext(ctx context.Context) error { return nil }
 通过实现 `ScopeComponent` 接口控制组件作用域：
 
 - **Singleton**（默认）：容器内单例，每次获取同一实例
-- **Prototype**：每次获取新建实例
+- **Prototype**：每次获取时从注册模板浅拷贝一个新实例并完成全部注入，不参与启动时的预创建
 
 ```go
 import "github.com/go-kid/ioc/definition"
@@ -331,7 +332,7 @@ func (l *MyListener) OnEvent(event definition.ApplicationEvent) error {
 }
 ```
 
-内置事件：`ComponentCreatedEvent`、`ApplicationStartedEvent`、`ApplicationClosingEvent`。
+内置事件：组件初始化后发布 `ComponentCreatedEvent`，Runner 全部完成后发布 `ApplicationStartedEvent`，关闭开始前发布 `ApplicationClosingEvent`。关闭时，destruction-aware 后置处理器按单例创建顺序逆序执行，随后并发执行 closer 组件。Prototype 实例由调用方管理，不会被容器自动销毁。
 
 ## 🏗️ 架构
 
@@ -387,6 +388,8 @@ func (l *MyListener) OnEvent(event definition.ApplicationEvent) error {
 ```bash
 go test ./...
 ```
+
+针对 `main` 的推送和 Pull Request 还会在 GitHub Actions 中执行 race detector、`go vet`、`go build`，并要求仓库级语句覆盖率不低于 75%。
 
 ## 📄 许可证
 

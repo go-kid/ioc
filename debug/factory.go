@@ -2,6 +2,7 @@ package debug
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"github.com/go-kid/ioc/configure"
 	"github.com/go-kid/ioc/container"
 	"github.com/go-kid/ioc/container/factory"
+	"github.com/go-kid/ioc/definition"
 	"github.com/go-kid/ioc/syslog"
 )
 
@@ -21,6 +23,14 @@ type hookSetter interface {
 
 type contextSetter interface {
 	SetContext(ctx context.Context)
+}
+
+type eventPublisherSetter interface {
+	SetApplicationEventPublisher(publisher definition.ApplicationEventPublisher)
+}
+
+type factoryCloser interface {
+	CloseWithContext(ctx context.Context) error
 }
 
 type DebugOption func(*DebugFactory)
@@ -128,7 +138,21 @@ func openBrowser(url string) {
 }
 
 func (df *DebugFactory) Close() {
+	_ = df.CloseWithContext(context.Background())
+}
+
+func (df *DebugFactory) CloseWithContext(ctx context.Context) error {
 	df.controller.Close()
+	var errs []error
+	if closer, ok := df.inner.(factoryCloser); ok {
+		if err := closer.CloseWithContext(ctx); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if err := df.server.Close(); err != nil {
+		errs = append(errs, err)
+	}
+	return errors.Join(errs...)
 }
 
 // --- container.Factory delegation ---
@@ -179,5 +203,11 @@ func (df *DebugFactory) GetDefinitionRegistry() container.DefinitionRegistry {
 func (df *DebugFactory) SetContext(ctx context.Context) {
 	if cs, ok := df.inner.(contextSetter); ok {
 		cs.SetContext(ctx)
+	}
+}
+
+func (df *DebugFactory) SetApplicationEventPublisher(publisher definition.ApplicationEventPublisher) {
+	if setter, ok := df.inner.(eventPublisherSetter); ok {
+		setter.SetApplicationEventPublisher(publisher)
 	}
 }
